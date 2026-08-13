@@ -1,0 +1,13 @@
+# Compiled binary
+/c1-forged
+
+# Runtime artifacts
+/runs/
+/queue/
+/worktrees/
+/receipts/
+/config/
+/.ct/
+
+# macOS
+.DS_Store
