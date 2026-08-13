@@ -173,11 +173,7 @@ func TestRealRunTestCommand(t *testing.T) {
 // Resolved from the C1-forge home directory.
 func agentScriptPath(t *testing.T) string {
 	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("UserHomeDir: %v", err)
-	}
-	return filepath.Join(home, "C1-forge", "scripts", "fixture_agent.sh")
+	return filepath.Join(c1ForgeHome(), "scripts", "fixture_agent.sh")
 }
 
 // readReceiptJSON reads the most recent JSON receipt from a directory.
@@ -462,11 +458,7 @@ func cleanupStaleBranches(t *testing.T, repo string) {
 // c1LoopShimPath returns the absolute path to the c1-loop.sh shim.
 func c1LoopShimPath(t *testing.T) string {
 	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("UserHomeDir: %v", err)
-	}
-	path := filepath.Join(home, "C1-forge", "scripts", "c1-loop.sh")
+	path := filepath.Join(c1ForgeHome(), "scripts", "c1-loop.sh")
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("c1-loop.sh not found at %s: %v", path, err)
 	}
@@ -897,7 +889,7 @@ func TestSmokeActualC1FailsClosedWhenMissing(t *testing.T) {
 func TestActualC1AdapterFailsClosedWhenBinaryMissing(t *testing.T) {
 	// Test the adapter's fail-closed logic by setting C1_FORGE_C1_BIN to nonexistent
 	// and clearing PATH so neither c1 nor opencode is found
-	adapterDir := filepath.Join(homeDir(), "C1-forge", "scripts")
+	adapterDir := filepath.Join(c1ForgeHome(), "scripts")
 	cmd := exec.Command(filepath.Join(adapterDir, "c1-real-adapter.sh"), "--task-file", "/tmp/fake", "--workdir", "/tmp")
 	cmd.Dir = adapterDir
 	cmd.Env = []string{
@@ -919,6 +911,15 @@ func homeDir() string {
 		return h
 	}
 	return "/root"
+}
+
+// c1ForgeHome returns the C1-forge repo root. In CI this is set via C1_FORGE_HOME
+// (e.g. GITHUB_WORKSPACE); locally it defaults to ~/C1-forge.
+func c1ForgeHome() string {
+	if h := os.Getenv("C1_FORGE_HOME"); h != "" {
+		return h
+	}
+	return filepath.Join(homeDir(), "C1-forge")
 }
 
 // TestActualC1BinaryE2E is an optional end-to-end test that requires a real C1 binary.
@@ -1991,7 +1992,7 @@ func TestOpenCodeServeProcessCleanedUp(t *testing.T) {
 	exec.Command("git", "-C", repoDir, "commit", "-m", "initial").Run()
 
 	// Run the adapter directly
-	adapterPath := filepath.Join(os.Getenv("HOME"), "C1-forge", "scripts", "opencode-adapter.sh")
+	adapterPath := filepath.Join(c1ForgeHome(), "scripts", "opencode-adapter.sh")
 	taskFile := filepath.Join(repoDir, "task.md")
 	os.WriteFile(taskFile, []byte("goal: \"Add a line to README.md\"\nmax_minutes: 1\n"), 0644)
 
@@ -2087,7 +2088,7 @@ func TestOpenCodeTimeoutKillsServeProcess(t *testing.T) {
 	exec.Command("git", "-C", repoDir, "add", ".").Run()
 	exec.Command("git", "-C", repoDir, "commit", "-m", "initial").Run()
 
-	adapterPath := filepath.Join(os.Getenv("HOME"), "C1-forge", "scripts", "opencode-adapter.sh")
+	adapterPath := filepath.Join(c1ForgeHome(), "scripts", "opencode-adapter.sh")
 	taskFile := filepath.Join(repoDir, "task.md")
 	os.WriteFile(taskFile, []byte("goal: \"Sleep for a long time\"\nmax_minutes: 1\n"), 0644)
 
@@ -2173,7 +2174,7 @@ func TestOpenCodeAdapterRunInfoWritten(t *testing.T) {
 	exec.Command("git", "-C", repoDir, "add", ".").Run()
 	exec.Command("git", "-C", repoDir, "commit", "-m", "initial").Run()
 
-	adapterPath := filepath.Join(os.Getenv("HOME"), "C1-forge", "scripts", "opencode-adapter.sh")
+	adapterPath := filepath.Join(c1ForgeHome(), "scripts", "opencode-adapter.sh")
 	taskFile := filepath.Join(repoDir, "task.md")
 	os.WriteFile(taskFile, []byte("goal: \"Add a line to README.md\"\nmax_minutes: 1\n"), 0644)
 
@@ -2277,11 +2278,7 @@ func TestAdd(t *testing.T) {
 // openCodeAdapterPath returns the absolute path to the opencode-adapter.sh script.
 func openCodeAdapterPath(t *testing.T) string {
 	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("UserHomeDir: %v", err)
-	}
-	return filepath.Join(home, "C1-forge", "scripts", "opencode-adapter.sh")
+	return filepath.Join(c1ForgeHome(), "scripts", "opencode-adapter.sh")
 }
 
 // runOpenCodeTask is a helper that runs processOneTask with the opencode-adapter.sh

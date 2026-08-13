@@ -616,6 +616,22 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 	// Set notification mode on receipt
 	forgeReceipt.NotificationMode = resolvedNotifyMode(cfg)
 
+	// 12f. GateChain: adapt receipt into ChainSteps and write steps.json
+	runDir := filepath.Join(qm.RunsDir(), fmt.Sprintf("run-%s", taskID))
+	if steps, err := gatechain.AdaptReceipt(forgeReceipt); err == nil {
+		if data, jsonErr := json.MarshalIndent(steps, "", "  "); jsonErr == nil {
+			os.MkdirAll(runDir, 0755)
+			os.WriteFile(filepath.Join(runDir, "steps.json"), data, 0644)
+		}
+		if verdict, verr := gatechain.VerifyAdaptation(forgeReceipt); verr == nil {
+			forgeReceipt.GateChainAction = string(verdict.Action)
+			forgeReceipt.GateChainStopRequired = verdict.StopRequired
+			forgeReceipt.GateChainReviewRequired = verdict.ReviewRequired
+			forgeReceipt.GateChainFinalStatus = string(verdict.FinalStatus)
+			forgeReceipt.GateChainActionReason = verdict.ActionReason
+		}
+	}
+
 	rw.WriteReceipt(forgeReceipt, taskMeta, diff, testOutput, safetyHits)
 
 	// 14. Move task to appropriate directory
