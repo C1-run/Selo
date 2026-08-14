@@ -44,10 +44,28 @@ func NewLocal(workdir string) *LocalCell {
 
 func (c *LocalCell) Workdir() string { return c.workdir }
 
+// envAllowlist is the only host environment inherited by a LocalCell agent.
+// Everything else on the host (API keys, tokens, database URLs) stays out.
+// The caller's explicit env (C1_* etc.) is appended after.
+var envAllowlist = map[string]bool{
+	"PATH": true, "HOME": true, "TMPDIR": true, "TMP": true, "TEMP": true,
+	"LANG": true, "LC_ALL": true, "SHELL": true, "TERM": true,
+}
+
+func sanitizedEnv() []string {
+	var out []string
+	for _, kv := range os.Environ() {
+		if k, _, ok := strings.Cut(kv, "="); ok && envAllowlist[k] {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
 func (c *LocalCell) Run(cmdArgs []string, env []string, timeout time.Duration) (*Result, error) {
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Dir = c.workdir
-	cmd.Env = append(os.Environ(), env...)
+	cmd.Env = append(sanitizedEnv(), env...)
 	var out strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = &out
@@ -89,11 +107,12 @@ func (c *LocalCell) Kill() error {
 
 // DockerCell runs the agent in an ephemeral container. Requires docker.
 type DockerCell struct {
-	workdir  string // host path mounted RO as /work (workspace base)
-	writable []string
-	extra    []string // additional "host:guest:mode" mounts
-	image    string
+	workdir   string // host path mounted RO as /work (workspace base)
+	writable  []string
+	extra     []string // additional "host:guest:mode" mounts
+	image     string
 	container string
+	volumes   []string // named volumes to clean up after the run
 }
 
 func NewDocker(workdir string, writable []string, image string, extra ...string) *DockerCell {
@@ -111,8 +130,18 @@ func (c *DockerCell) Run(cmdArgs []string, env []string, timeout time.Duration) 
 		"--tmpfs", "/tmp:rw,size=64m",
 		"-v", c.workdir + ":/work:ro",
 	}
-	for _, w := range c.writable {
-		args = append(args, "-v", w+":/work/"+strings.TrimPrefix(w, c.workdir+"/")+":rw")
+	// Writable scope uses named volumes, never bind mounts: a bind mount
+	// shares the host filesystem with the RO workspace, so an agent could
+	// hardlink a file out of the RO tree into a writable dir and then modify
+	// it (hardlink == same inode). Named volumes live on a different
+	// filesystem; hardlinking across them fails with EXDEV.
+	// ponytail: agent output inside writable volumes is not mirrored back to
+	// the host tree; the pipeline reads results from the runs dir, not the
+	// workspace. Add a docker cp back if that ever changes.
+	for i, w := range c.writable {
+		vol := fmt.Sprintf("c1_w_%d_%d", os.Getpid(), i)
+		args = append(args, "-v", vol+":/work/"+strings.TrimPrefix(w, c.workdir+"/")+":rw")
+		c.volumes = append(c.volumes, vol)
 	}
 	for _, m := range c.extra {
 		args = append(args, "-v", m)
@@ -153,6 +182,9 @@ func (c *DockerCell) Run(cmdArgs []string, env []string, timeout time.Duration) 
 		r.ExitCode = -1
 	}
 	r.Output = out.String()
+	for _, vol := range c.volumes {
+		exec.Command("docker", "volume", "rm", "-f", vol).Run()
+	}
 	return &r, nil
 }
 

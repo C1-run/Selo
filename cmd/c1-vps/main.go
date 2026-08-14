@@ -82,8 +82,14 @@ func run(o *runOptions) error {
 	ledger.AppendFlow("MANIFEST_FROZEN", "hash="+frozen.Hash)
 	fmt.Printf("manifest frozen: %s hash=%s\n", m.RunID, frozen.Hash)
 
-	// 2. Start the capability broker over a unix socket.
-	sock := filepath.Join(os.TempDir(), "c1-"+m.RunID+".sock")
+	// 2. Start the capability broker over a unix socket. The socket lives in a
+	// dedicated c1-forge subdir of the host temp dir; only that subdir is ever
+	// mounted into the cell, never the whole $TMPDIR.
+	// ponytail: stale entries in the socket dir are fine — each run removes its
+	// own socket and the dir holds no secrets.
+	sockDir := filepath.Join(os.TempDir(), "c1-forge")
+	os.MkdirAll(sockDir, 0755)
+	sock := filepath.Join(sockDir, m.RunID+".sock")
 	os.Remove(sock)
 	brk := broker.New(m)
 	brk.OnDecide = func(req broker.CapabilityRequest, d broker.Decision) {
@@ -123,7 +129,6 @@ func run(o *runOptions) error {
 	agentWorkdir := ""
 	if cell.DockerAvailable() {
 		workdir = m.Repo.Path
-		sockDir := filepath.Dir(sock)
 		agentDir := filepath.Dir(agentBin)
 		c = cell.NewDocker(workdir, writeMounts(workdir, m.Capability.Filesystem.Write), m.Agent.Image,
 			sockDir+":/c1run:rw", agentDir+":/agent:ro")
