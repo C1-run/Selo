@@ -1,0 +1,64 @@
+# selo example configuration
+# Copy to config/selo.yaml and edit.
+
+forge:
+  # Queue polling interval in seconds
+  poll_interval_sec: 5
+
+  # Default timeout per task in minutes
+  default_max_minutes: 30
+
+  # Default max C1 Loop rounds per task
+  default_max_rounds: 3
+
+  # Default max files modified per task
+  default_max_files: 10
+
+  # Default max patch lines per task
+  default_max_patch_lines: 200
+
+  # Stop file path (touch this file to stop after current task)
+  stop_file: ".selo-stop"
+
+  # Lock file for the daemon itself
+  lock_file: ".selo.lock"
+
+  # Notification method: "stdout" or "ntfy"
+  notify: "stdout"
+
+  # ntfy topic (only used if notify == "ntfy")
+  ntfy_topic: ""
+
+  # Paths to scan tools (empty = skip)
+  scan_tools:
+    secret_scan: ""
+    forbidden_claims_scan: ""
+    pinocchio: ""
+
+  # Forbidden claim terms (substring match)
+  forbidden_claims:
+    - "PROFITABLE"
+    - "LIVE_READY"
+    - "MONEY_ENGINE"
+    - "CAPITAL_APPROVED"
+    - "LIVE_CAPITAL_APPROVED"
+    - "MONEY_MACHINE"
+
+  # Runner configuration
+  runner:
+    # mode: "mock" (placeholder echo) or "real" (configured command)
+    mode: "mock"
+
+    # Real runner command (only used when mode is "real")
+    # Examples:
+    #   c1 binary: command: "c1", args: ["loop", "--task-file", "{{task_file}}", "--workdir", "{{worktree}}"]
+    #   c1-loop.sh: command: "scripts/c1-loop.sh", args: ["loop", "--task-file", "{{task_file}}", "--workdir", "{{worktree}}"]
+    #   fixture_agent: command: "scripts/fixture_agent.sh", args: ["{{task_file}}", "{{worktree}}"]
+    #   opencode: command: "opencode", args: ["run", "--task-file", "{{task_file}}", "--workdir", "{{worktree}}"]
+    # command: "c1"
+    # args:
+    #   - "loop"
+    #   - "--task-file"
+    #   - "{{task_file}}"
+    #   - "--workdir"
+    #   - "{{worktree}}"

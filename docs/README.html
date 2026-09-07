@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selo Developer Documentation - Selo</title>
+    
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: 'SF Pro Display', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; 
+        background: #FBFBFA; 
+        color: #111111; 
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 80px 24px; }
+    a { color: #111111; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 2.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: #111111; 
+        margin-bottom: 32px; 
+    }
+    h2 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 1.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: #111111; 
+        margin: 48px 0 16px; 
+        padding-bottom: 12px;
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    h3 { 
+        font-size: 1.125rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 32px 0 12px; 
+    }
+    h4 { 
+        font-size: 0.9375rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 24px 0 8px; 
+    }
+    p { margin-bottom: 16px; color: #787774; font-size: 0.9375rem; }
+    code { 
+        background: #F7F6F3; 
+        padding: 2px 6px; 
+        border-radius: 3px; 
+        font-family: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace; 
+        color: #111111; 
+        font-size: 0.875em; 
+    }
+    pre { 
+        background: #F7F6F3; 
+        padding: 20px; 
+        border-radius: 6px; 
+        overflow-x: auto; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA; 
+    }
+    pre code { background: none; padding: 0; color: #111111; }
+    ul, ol { margin: 16px 0; padding-left: 24px; color: #787774; }
+    li { margin: 8px 0; font-size: 0.9375rem; }
+    .back { 
+        display: inline-block; 
+        margin-bottom: 40px; 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    .back:hover { color: #111111; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    th, td { 
+        padding: 12px 16px; 
+        text-align: left; 
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    th { 
+        color: #111111; 
+        background: #F7F6F3;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    td { 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    blockquote { 
+        border-left: 3px solid #EAEAEA; 
+        padding: 12px 20px; 
+        margin: 16px 0; 
+        background: #F7F6F3; 
+        border-radius: 0 6px 6px 0; 
+    }
+    blockquote p { color: #787774; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #EAEAEA; margin: 32px 0; }
+    strong { color: #111111; font-weight: 600; }
+    em { color: #787774; font-style: italic; }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back">&larr; Back to Home</a>
+        <h1>Selo Developer Documentation</h1>
+
+<p>Complete documentation for developers contributing to or extending Selo.</p>
+
+<h2>Table of Contents</h2>
+
+<h3>Core Documentation</h3>
+
+<table>
+<tr><th>Document</th><th>Description</th></tr>
+<tr><th>[User Guide](user-guide/README.md)</th><th>**Start here** — how to use Selo in your projects</th></tr>
+<tr><th>[Architecture](architecture/README.md)</th><th>System design, components, data flow</th></tr>
+<tr><th>[API Reference](api/README.md)</th><th>Go packages, interfaces, function signatures</th></tr>
+<tr><th>[Configuration](configuration/README.md)</th><th>All config options, YAML reference</th></tr>
+<tr><th>[Development](development/README.md)</th><th>Setup, testing, contributing guidelines</th></tr>
+<tr><th>[Deployment](deployment/README.md)</th><th>Production deployment, CI/CD, Docker</th></tr>
+<tr><th>[Plugins](plugins/README.md)</th><th>OpenCode plugin development, tool creation</th></tr>
+</table>
+
+<h3>Additional Resources</h3>
+
+<table>
+<tr><th>Document</th><th>Description</th></tr>
+<tr><th>[Demo](demo.md)</th><th>Step-by-step walkthrough</th></tr>
+<tr><th>[White Paper](white-paper.md)</th><th>Problem/solution overview</th></tr>
+<tr><th>[Landing Page](index.html)</th><th>Project website</th></tr>
+</table>
+
+<hr>
+
+<h2>Quick Links</h2>
+
+<h3>For New Developers</h3>
+
+<ol>
+<li>Start with <a href="user-guide/README.md">User Guide</a> for quick setup</li>
+<li>Read <a href="architecture/README.md">Architecture</a> for system overview</li>
+<li>Review <a href="api/README.md">API Reference</a> for package details</li>
+</ol>
+
+<h3>For Contributors</h3>
+
+<ol>
+<li>Read <a href="development/README.md">Development Guide</a> for conventions</li>
+<li>Check <a href="configuration/README.md">Configuration</a> for config options</li>
+<li>Review <a href="plugins/README.md">Plugins</a> for plugin development</li>
+</ol>
+
+<h3>For Deployment</h3>
+
+<ol>
+<li>Start with <a href="deployment/README.md">Deployment Guide</a></li>
+<li>Review <a href="configuration/README.md">Configuration</a> for production settings</li>
+<li>Check <a href="architecture/README.md">Architecture</a> for system requirements</li>
+</ol>
+
+<hr>
+
+<h2>Getting Started</h2>
+
+<pre><code class="language-bash">
+# Clone the repository
+git clone https://github.com/selo-dev/selo.git
+cd selo
+
+# Build
+go build -o selo ./cmd/selo/
+
+# Run tests
+go test ./...
+
+# Run vet
+go vet ./...
+</code></pre>
+
+<hr>
+
+<h2>Architecture Overview</h2>
+
+<pre><code class="language-">
+selo
+├── cmd/selo/          # CLI (Cobra)
+│   ├── root.go             # Root command, global flags
+│   ├── cmd_daemon.go       # Daemon mode
+│   ├── cmd_run.go          # One-shot execution
+│   ├── cmd_status.go       # Status display
+│   ├── cmd_init.go         # Workspace init
+│   ├── cmd_check.go        # GateChain check
+│   ├── cmd_smoke.go        # Smoke tests
+│   ├── cmd_soak.go         # Soak tests
+│   └── cmd_completion.go   # Shell completions
+├── internal/
+│   ├── containment/        # Unified isolation interface
+│   ├── opencode/           # Native Go OpenCode adapter
+│   ├── pipeline/           # Safety pipeline
+│   ├── receipt/            # Cryptographic receipts
+│   ├── governor/           # Policy enforcement
+│   ├── pinocchio/          # Consistency checks
+│   ├── gatechain/          # Compliance gates
+│   ├── runner/             # C1 Loop runner
+│   ├── queue/              # Task queue
+│   ├── workspace/          # Git worktree management
+│   └── ...
+├── .opencode/              # OpenCode plugin
+│   ├── plugin.ts           # Plugin entry point
+│   └── tools/              # Plugin tools
+└── docs/                   # This documentation
+</code></pre>
+
+<hr>
+
+<h2>Key Concepts</h2>
+
+<h3>Task Lifecycle</h3>
+
+<pre><code class="language-">
+1. User submits task (CLI or plugin)
+2. Task queued in .selo/queue/pending/
+3. Daemon claims task → moves to queue/running/
+4. Worktree created (isolation)
+5. Agent executes in worktree
+6. Safety pipeline runs (4 stages)
+7. GateChain decides verdict
+8. Receipt written to runs/
+9. Task moved to queue/done/ or queue/failed/
+</code></pre>
+
+<h3>Safety Pipeline</h3>
+
+<pre><code class="language-">
+Governor → Scans → Pinocchio → GateChain
+   ↓         ↓         ↓           ↓
+ Policy   Secrets   Consistency  Compliance
+ Claims   Files     Tests        Receipts
+ Timeout  Forbidden Phantom      Verdict
+</code></pre>
+
+<h3>Containment Strategies</h3>
+
+<table>
+<tr><th>Strategy</th><th>Isolation</th><th>Use Case</th></tr>
+<tr><th>`worktree`</th><th>Git worktree</th><th>Lightweight, host-based</th></tr>
+<tr><th>`docker`</th><th>Container</th><th>Strong, network-isolated</th></tr>
+<tr><th>`local`</th><th>Process</th><th>Development, testing</th></tr>
+</table>
+
+<hr>
+
+<h2>Contributing</h2>
+
+<p>See <a href="development/README.md">Development Guide</a> for:</p>
+
+<ul>
+<li>Code style and conventions</li>
+<li>Testing requirements</li>
+<li>Pull request process</li>
+<li>Issue templates</li>
+</ul>
+
+<hr>
+
+<h2>License</h2>
+
+<p>Apache-2.0 - see <a href="../LICENSE">LICENSE</a> for details.</p>
+
+    </div>
+</body>
+</html>

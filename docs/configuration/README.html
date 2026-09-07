@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration Reference - Selo</title>
+    
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: 'SF Pro Display', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; 
+        background: #FBFBFA; 
+        color: #111111; 
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 80px 24px; }
+    a { color: #111111; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 2.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: #111111; 
+        margin-bottom: 32px; 
+    }
+    h2 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 1.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: #111111; 
+        margin: 48px 0 16px; 
+        padding-bottom: 12px;
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    h3 { 
+        font-size: 1.125rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 32px 0 12px; 
+    }
+    h4 { 
+        font-size: 0.9375rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 24px 0 8px; 
+    }
+    p { margin-bottom: 16px; color: #787774; font-size: 0.9375rem; }
+    code { 
+        background: #F7F6F3; 
+        padding: 2px 6px; 
+        border-radius: 3px; 
+        font-family: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace; 
+        color: #111111; 
+        font-size: 0.875em; 
+    }
+    pre { 
+        background: #F7F6F3; 
+        padding: 20px; 
+        border-radius: 6px; 
+        overflow-x: auto; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA; 
+    }
+    pre code { background: none; padding: 0; color: #111111; }
+    ul, ol { margin: 16px 0; padding-left: 24px; color: #787774; }
+    li { margin: 8px 0; font-size: 0.9375rem; }
+    .back { 
+        display: inline-block; 
+        margin-bottom: 40px; 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    .back:hover { color: #111111; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    th, td { 
+        padding: 12px 16px; 
+        text-align: left; 
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    th { 
+        color: #111111; 
+        background: #F7F6F3;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    td { 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    blockquote { 
+        border-left: 3px solid #EAEAEA; 
+        padding: 12px 20px; 
+        margin: 16px 0; 
+        background: #F7F6F3; 
+        border-radius: 0 6px 6px 0; 
+    }
+    blockquote p { color: #787774; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #EAEAEA; margin: 32px 0; }
+    strong { color: #111111; font-weight: 600; }
+    em { color: #787774; font-style: italic; }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back">&larr; Back to Home</a>
+        <h1>Configuration Reference</h1>
+
+<p>Complete configuration options for Selo.</p>
+
+<h2>Configuration File</h2>
+
+<p>Selo uses YAML configuration. The default location is <code>config/selo.yaml</code>.</p>
+
+<h3>File Locations</h3>
+
+<table>
+<tr><th>Priority</th><th>Location</th><th>Description</th></tr>
+<tr><th>1</th><th>`--config` flag</th><th>Command-line override</th></tr>
+<tr><th>2</th><th>`./config/selo.yaml`</th><th>Project-local config</th></tr>
+<tr><th>3</th><th>`~/.config/selo/config.yaml`</th><th>User-global config</th></tr>
+<tr><th>4</th><th>Built-in defaults</th><th>Fallback values</th></tr>
+</table>
+
+<h3>Environment Variables</h3>
+
+<table>
+<tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+<tr><th>`SELO_CONFIG`</th><th>Path to config file</th><th>`config/selo.yaml`</th></tr>
+<tr><th>`SELO_OPENCODE_BIN`</th><th>Path to OpenCode binary</th><th>Auto-discover</th></tr>
+<tr><th>`SELO_DANGEROUSLY_SKIP_PERMISSIONS`</th><th>Override permissions flag</th><th>`false`</th></tr>
+</table>
+
+<hr>
+
+<h2>Full Configuration Reference</h2>
+
+<pre><code class="language-yaml">
+# config/selo.yaml
+
+# Forge settings
+forge:
+  # Poll interval for daemon (seconds)
+  poll_interval_sec: 5
+  
+  # Default maximum minutes per task
+  default_max_minutes: 30
+  
+  # Default maximum rounds per task
+  default_max_rounds: 3
+  
+  # Default maximum files changed per task
+  default_max_files: 10
+  
+  # Default maximum patch lines per task
+  default_max_patch_lines: 200
+  
+  # Stop file path (relative to worktree)
+  stop_file: ".selo-stop"
+  
+  # Lock file path (relative to base dir)
+  lock_file: ".selo.lock"
+  
+  # Notification mode: stdout, ntfy, none
+  notify: stdout
+  
+  # Notification configuration
+  notify_config:
+    # Notification mode
+    mode: stdout
+    
+    # Ntfy URL (for ntfy.sh)
+    ntfy_url: "https://ntfy.sh/your-topic"
+    
+    # Timeout for notifications (seconds)
+    timeout_seconds: 5
+  
+  # Ntfy topic (legacy, use notify_config.ntfy_url)
+  ntfy_topic: ""
+  
+  # Forbidden claims (block tasks containing these terms)
+  forbidden_claims:
+    - PROFITABLE
+    - LIVE_READY
+    - MONEY_ENGINE
+    - CAPITAL_APPROVED
+    - LIVE_CAPITAL_APPROVED
+    - MONEY_MACHINE
+  
+  # Runner configuration
+  runner:
+    # Runner mode: opencode, c1-loop, mock
+    mode: opencode
+    
+    # Runner command (binary path or command)
+    command: opencode
+    
+    # Extra arguments for the runner
+    args:
+      - "--model"
+      - "anthropic/claude-sonnet-4-5"
+  
+  # OpenCode-specific configuration
+  opencode:
+    # Model to use
+    model: anthropic/claude-sonnet-4-5
+    
+    # Agent to use
+    agent: default
+    
+    # Serve timeout (seconds)
+    serve_timeout: 30
+    
+    # Dangerously skip permissions (WARNING: disables safety checks)
+    dangerously_skip_permissions: false
+    
+    # Permission allowlist (glob patterns)
+    permission_allowlist:
+      - "/project/src/*.go"
+      - "/project/tests/*"
+      - "/project/cmd/*"
+</code></pre>
+
+<hr>
+
+<h2>Configuration Sections</h2>
+
+<h3><code>forge</code> (Root)</h3>
+
+<p>The top-level configuration section.</p>
+
+<table>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><th>`poll_interval_sec`</th><th>int</th><th>`5`</th><th>Daemon poll interval (seconds)</th></tr>
+<tr><th>`default_max_minutes`</th><th>int</th><th>`30`</th><th>Default task timeout</th></tr>
+<tr><th>`default_max_rounds`</th><th>int</th><th>`3`</th><th>Default max agent rounds</th></tr>
+<tr><th>`default_max_files`</th><th>int</th><th>`10`</th><th>Default max files changed</th></tr>
+<tr><th>`default_max_patch_lines`</th><th>int</th><th>`200`</th><th>Default max patch lines</th></tr>
+<tr><th>`stop_file`</th><th>string</th><th>`.selo-stop`</th><th>Stop file path</th></tr>
+<tr><th>`lock_file`</th><th>string</th><th>`.selo.lock`</th><th>Lock file path</th></tr>
+<tr><th>`notify`</th><th>string</th><th>`stdout`</th><th>Notification mode</th></tr>
+<tr><th>`forbidden_claims`</th><th>[]string</th><th>[...]</th><th>Blocked terms</th></tr>
+</table>
+
+<h3><code>forge.runner</code></h3>
+
+<p>Agent runner configuration.</p>
+
+<table>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><th>`mode`</th><th>string</th><th>`opencode`</th><th>Runner mode</th></tr>
+<tr><th>`command`</th><th>string</th><th>`opencode`</th><th>Runner command</th></tr>
+<tr><th>`args`</th><th>[]string</th><th>`[]`</th><th>Extra arguments</th></tr>
+</table>
+
+<p><strong>Runner Modes:</strong></p>
+
+<table>
+<tr><th>Mode</th><th>Description</th></tr>
+<tr><th>`opencode`</th><th>Native Go OpenCode adapter</th></tr>
+<tr><th>`c1-loop`</th><th>Shell-based C1 Loop runner</th></tr>
+<tr><th>`mock`</th><th>Mock agent for testing</th></tr>
+</table>
+
+<h3><code>forge.opencode</code></h3>
+
+<p>OpenCode-specific configuration.</p>
+
+<table>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><th>`model`</th><th>string</th><th>`anthropic/claude-sonnet-4-5`</th><th>AI model</th></tr>
+<tr><th>`agent`</th><th>string</th><th>`default`</th><th>Agent name</th></tr>
+<tr><th>`serve_timeout`</th><th>int</th><th>`30`</th><th>Serve timeout (seconds)</th></tr>
+<tr><th>`dangerously_skip_permissions`</th><th>bool</th><th>`false`</th><th>Skip permissions</th></tr>
+<tr><th>`permission_allowlist`</th><th>[]string</th><th>`[]`</th><th>File allowlist</th></tr>
+</table>
+
+<h3><code>forge.notify_config</code></h3>
+
+<p>Notification configuration.</p>
+
+<table>
+<tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><th>`mode`</th><th>string</th><th>`stdout`</th><th>Notification mode</th></tr>
+<tr><th>`ntfy_url`</th><th>string</th><th>`""`</th><th>Ntfy URL</th></tr>
+<tr><th>`timeout_seconds`</th><th>int</th><th>`5`</th><th>Timeout (seconds)</th></tr>
+</table>
+
+<p><strong>Notification Modes:</strong></p>
+
+<table>
+<tr><th>Mode</th><th>Description</th></tr>
+<tr><th>`stdout`</th><th>Print to terminal</th></tr>
+<tr><th>`ntfy`</th><th>Send via ntfy.sh</th></tr>
+<tr><th>`none`</th><th>Disable notifications</th></tr>
+</table>
+
+<hr>
+
+<h2>Examples</h2>
+
+<h3>Minimal Configuration</h3>
+
+<pre><code class="language-yaml">
+forge:
+  runner:
+    mode: opencode
+    command: opencode
+  opencode:
+    model: anthropic/claude-sonnet-4-5
+</code></pre>
+
+<h3>Development Configuration</h3>
+
+<pre><code class="language-yaml">
+forge:
+  poll_interval_sec: 2
+  default_max_minutes: 10
+  runner:
+    mode: mock
+  opencode:
+    dangerously_skip_permissions: true
+    permission_allowlist:
+      - "*"
+</code></pre>
+
+<h3>Production Configuration</h3>
+
+<pre><code class="language-yaml">
+forge:
+  poll_interval_sec: 10
+  default_max_minutes: 60
+  default_max_rounds: 5
+  default_max_files: 20
+  default_max_patch_lines: 500
+  notify: ntfy
+  notify_config:
+    mode: ntfy
+    ntfy_url: "https://ntfy.sh/selo-alerts"
+    timeout_seconds: 10
+  forbidden_claims:
+    - PROFITABLE
+    - LIVE_READY
+    - MONEY_ENGINE
+    - DEPLOY_NOW
+    - SKIP_TESTS
+  runner:
+    mode: opencode
+    command: /usr/local/bin/opencode
+    args:
+      - "--model"
+      - "anthropic/claude-sonnet-4-5"
+      - "--agent"
+      - "default"
+  opencode:
+    model: anthropic/claude-sonnet-4-5
+    agent: default
+    serve_timeout: 60
+    dangerously_skip_permissions: false
+    permission_allowlist:
+      - "/project/src/*.go"
+      - "/project/internal/**/*.go"
+      - "/project/cmd/**/*.go"
+      - "/project/tests/**/*"
+      - "/project/config/*"
+</code></pre>
+
+<h3>CI/CD Configuration</h3>
+
+<pre><code class="language-yaml">
+forge:
+  poll_interval_sec: 1
+  default_max_minutes: 15
+  runner:
+    mode: opencode
+  opencode:
+    model: anthropic/claude-sonnet-4-5
+    dangerously_skip_permissions: false
+    permission_allowlist:
+      - "/github/workspace/**/*.go"
+</code></pre>
+
+<hr>
+
+<h2>Permission Allowlist</h2>
+
+<p>The <code>permission_allowlist</code> restricts which files the agent can modify.</p>
+
+<h3>Pattern Syntax</h3>
+
+<table>
+<tr><th>Pattern</th><th>Description</th><th>Example Match</th></tr>
+<tr><th>`*.go`</th><th>Any .go file</th><th>`main.go`</th></tr>
+<tr><th>`src/*.go`</th><th>.go files in src/</th><th>`src/main.go`</th></tr>
+<tr><th>`src/**/*.go`</th><th>.go files recursively</th><th>`src/cmd/main.go`</th></tr>
+<tr><th>`/absolute/path/*`</th><th>Absolute path</th><th>`/project/main.go`</th></tr>
+<tr><th>`dir/`</th><th>Directory prefix</th><th>`dir/file.txt`</th></tr>
+</table>
+
+<h3>Examples</h3>
+
+<pre><code class="language-yaml">
+permission_allowlist:
+  # Only Go source files
+  - "/project/src/*.go"
+  
+  # All files in tests/
+  - "/project/tests/*"
+  
+  # Recursive Go files
+  - "/project/**/*.go"
+  
+  # Multiple patterns
+  - "/project/src/*.go"
+  - "/project/internal/**/*.go"
+  - "/project/cmd/**/*.go"
+</code></pre>
+
+<h3>Security Notes</h3>
+
+<ul>
+<li>Empty allowlist = permissive (all files allowed)</li>
+<li><code>dangerously_skip_permissions: true</code> overrides allowlist</li>
+<li>Environment variable <code>SELO_DANGEROUSLY_SKIP_PERMISSIONS=1</code> overrides config</li>
+</ul>
+
+<hr>
+
+<h2>Forbidden Claims</h2>
+
+<p>The <code>forbidden_claims</code> list blocks tasks containing specific terms.</p>
+
+<h3>Default Blocked Terms</h3>
+
+<pre><code class="language-yaml">
+forbidden_claims:
+  - PROFITABLE
+  - LIVE_READY
+  - MONEY_ENGINE
+  - CAPITAL_APPROVED
+  - LIVE_CAPITAL_APPROVED
+  - MONEY_MACHINE
+</code></pre>
+
+<h3>Custom Terms</h3>
+
+<pre><code class="language-yaml">
+forbidden_claims:
+  - DEPLOY_NOW
+  - SKIP_TESTS
+  - IGNORE_ERRORS
+  - DISABLE_SECURITY
+  - BYPASS_CHECKS
+</code></pre>
+
+<h3>How It Works</h3>
+
+<ol>
+<li>Task goal is scanned for forbidden terms</li>
+<li>If any term is found, task is blocked</li>
+<li>GateChain records the violation</li>
+<li>Receipt shows <code>STOP</code> verdict</li>
+</ol>
+
+<hr>
+
+<h2>Validation</h2>
+
+<h3>Config Validation Rules</h3>
+
+<table>
+<tr><th>Rule</th><th>Description</th></tr>
+<tr><th>`poll_interval_sec`</th><th>Must be > 0</th></tr>
+<tr><th>`default_max_minutes`</th><th>Must be > 0</th></tr>
+<tr><th>`default_max_rounds`</th><th>Must be > 0</th></tr>
+<tr><th>`default_max_files`</th><th>Must be > 0</th></tr>
+<tr><th>`default_max_patch_lines`</th><th>Must be > 0</th></tr>
+<tr><th>`serve_timeout`</th><th>Must be > 0</th></tr>
+<tr><th>`timeout_seconds`</th><th>Must be > 0</th></tr>
+</table>
+
+<h3>Example Validation Error</h3>
+
+<pre><code class="language-">
+Error: invalid config: poll_interval_sec must be &gt; 0 (got -1)
+</code></pre>
+
+<hr>
+
+<h2>Migration</h2>
+
+<h3>From v0 to v1</h3>
+
+<pre><code class="language-yaml">
+# v0 config
+runner:
+  mode: shell
+  command: ./adapter.sh
+
+# v1 config
+runner:
+  mode: opencode
+  command: opencode
+</code></pre>
+
+<h3>Legacy Fields</h3>
+
+<table>
+<tr><th>Old Field</th><th>New Field</th><th>Notes</th></tr>
+<tr><th>`notify`</th><th>`notify_config.mode`</th><th>Migrated automatically</th></tr>
+<tr><th>`ntfy_topic`</th><th>`notify_config.nttfy_url`</th><th>Derived automatically</th></tr>
+</table>
+
+<hr>
+
+<h2>References</h2>
+
+<ul>
+<li><a href="../architecture/README.md">Architecture</a> — System design</li>
+<li><a href="../api/README.md">API Reference</a> — Package documentation</li>
+<li><a href="../development/README.md">Development</a> — Contributing guide</li>
+</ul>
+
+    </div>
+</body>
+</html>

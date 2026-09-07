@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plugin Development Guide - Selo</title>
+    
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: 'SF Pro Display', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; 
+        background: #FBFBFA; 
+        color: #111111; 
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 80px 24px; }
+    a { color: #111111; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 2.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: #111111; 
+        margin-bottom: 32px; 
+    }
+    h2 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 1.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: #111111; 
+        margin: 48px 0 16px; 
+        padding-bottom: 12px;
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    h3 { 
+        font-size: 1.125rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 32px 0 12px; 
+    }
+    h4 { 
+        font-size: 0.9375rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 24px 0 8px; 
+    }
+    p { margin-bottom: 16px; color: #787774; font-size: 0.9375rem; }
+    code { 
+        background: #F7F6F3; 
+        padding: 2px 6px; 
+        border-radius: 3px; 
+        font-family: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace; 
+        color: #111111; 
+        font-size: 0.875em; 
+    }
+    pre { 
+        background: #F7F6F3; 
+        padding: 20px; 
+        border-radius: 6px; 
+        overflow-x: auto; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA; 
+    }
+    pre code { background: none; padding: 0; color: #111111; }
+    ul, ol { margin: 16px 0; padding-left: 24px; color: #787774; }
+    li { margin: 8px 0; font-size: 0.9375rem; }
+    .back { 
+        display: inline-block; 
+        margin-bottom: 40px; 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    .back:hover { color: #111111; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    th, td { 
+        padding: 12px 16px; 
+        text-align: left; 
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    th { 
+        color: #111111; 
+        background: #F7F6F3;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    td { 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    blockquote { 
+        border-left: 3px solid #EAEAEA; 
+        padding: 12px 20px; 
+        margin: 16px 0; 
+        background: #F7F6F3; 
+        border-radius: 0 6px 6px 0; 
+    }
+    blockquote p { color: #787774; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #EAEAEA; margin: 32px 0; }
+    strong { color: #111111; font-weight: 600; }
+    em { color: #787774; font-style: italic; }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back">&larr; Back to Home</a>
+        <h1>Plugin Development Guide</h1>
+
+<p>Guide for developing and extending OpenCode plugins for Selo.</p>
+
+<h2>Overview</h2>
+
+<p>Selo provides an OpenCode plugin that adds safety tools directly to your editor. The plugin is built using the <code>@opencode-ai/plugin</code> SDK.</p>
+
+<h2>Plugin Structure</h2>
+
+<pre><code class="language-">
+.opencode/
+├── plugin.ts                    # Plugin entry point
+├── tools/
+│   ├── selo_compliance_check.ts  # GateChain compliance tool
+│   └── selo_plugin_tools.ts       # Additional tools
+├── package.json                 # Dependencies
+└── node_modules/               # Installed packages
+</code></pre>
+
+<h2>Entry Point</h2>
+
+<p>The plugin entry point is <code>.opencode/plugin.ts</code>:</p>
+
+<pre><code class="language-typescript">
+import type { Plugin, Hooks } from "@opencode-ai/plugin";
+import { selo_compliance_check } from "./tools/selo_compliance_check";
+import {
+  selo_submit_task,
+  selo_task_status,
+  selo_safety_scan,
+  selo_daemon_status,
+} from "./tools/selo_plugin_tools";
+
+const server: Plugin = async (): Promise&lt;Hooks&gt; =&gt; {
+  return {
+    tool: {
+      selo_compliance_check,
+      selo_submit_task,
+      selo_task_status,
+      selo_safety_scan,
+      selo_daemon_status,
+    },
+  };
+};
+
+export const id = "selo";
+export default { id, server };
+</code></pre>
+
+<h3>Key Exports</h3>
+
+<table>
+<tr><th>Export</th><th>Type</th><th>Description</th></tr>
+<tr><th>`id`</th><th>`string`</th><th>Plugin identifier</th></tr>
+<tr><th>`server`</th><th>`Plugin`</th><th>Plugin function returning hooks</th></tr>
+</table>
+
+<hr>
+
+<h2>Tool Definition</h2>
+
+<p>Each tool is defined using the <code>tool</code> helper from the SDK:</p>
+
+<pre><code class="language-typescript">
+import { tool } from "@opencode-ai/plugin";
+
+const myTool = tool({
+  description: "Description of what the tool does",
+  args: {
+    param1: tool.schema.string().describe("Parameter description"),
+    param2: tool.schema.number().describe("Another parameter"),
+  },
+  async execute(args) {
+    // Tool implementation
+    return `Result: ${args.param1}`;
+  },
+});
+</code></pre>
+
+<h3>Tool Schema Types</h3>
+
+<table>
+<tr><th>Type</th><th>Description</th><th>Example</th></tr>
+<tr><th>`tool.schema.string()`</th><th>String parameter</th><th>`"hello"`</th></tr>
+<tr><th>`tool.schema.number()`</th><th>Number parameter</th><th>`42`</th></tr>
+<tr><th>`tool.schema.boolean()`</th><th>Boolean parameter</th><th>`true`</th></tr>
+<tr><th>`tool.schema.array()`</th><th>Array parameter</th><th>`["a", "b"]`</th></tr>
+<tr><th>`tool.schema.object()`</th><th>Object parameter</th><th>`{ key: "value" }`</th></tr>
+</table>
+
+<h3>Tool Options</h3>
+
+<pre><code class="language-typescript">
+const myTool = tool({
+  description: "Tool description",
+  args: {
+    // Required parameter
+    required: tool.schema.string().describe("Required param"),
+    
+    // Optional parameter with default
+    optional: tool.schema.string().default("default").describe("Optional param"),
+    
+    // Enum parameter
+    mode: tool.schema.enum(["fast", "slow"]).describe("Mode"),
+  },
+  async execute(args) {
+    // args.required is string
+    // args.optional is string (with default)
+    // args.mode is "fast" | "slow"
+    return "result";
+  },
+});
+</code></pre>
+
+<hr>
+
+<h2>Existing Tools</h2>
+
+<h3>1. Compliance Check</h3>
+
+<p><strong>File:</strong> <code>.opencode/tools/selo_compliance_check.ts</code></p>
+
+<p><strong>Description:</strong> Run GateChain compliance check on a steps file.</p>
+
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>stepsFile</code> (string): Path to the steps.json file</li>
+</ul>
+
+<p><strong>Usage:</strong></p>
+<pre><code class="language-typescript">
+selo_compliance_check({ stepsFile: "steps.json" })
+</code></pre>
+
+<h3>2. Submit Task</h3>
+
+<p><strong>File:</strong> <code>.opencode/tools/selo_plugin_tools.ts</code></p>
+
+<p><strong>Description:</strong> Submit a coding task to Selo.</p>
+
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>goal</code> (string): Task goal/description</li>
+<li><code>repo</code> (string, optional): Git repository path</li>
+<li><code>commands</code> (string[], optional): Test commands</li>
+<li><code>maxMinutes</code> (number, optional): Maximum minutes</li>
+<li><code>forbiddenFiles</code> (string[], optional): Files agent must not modify</li>
+</ul>
+
+<p><strong>Usage:</strong></p>
+<pre><code class="language-typescript">
+selo_submit_task({
+  goal: "Fix the login bug",
+  commands: ["go test ./..."],
+  maxMinutes: 30
+})
+</code></pre>
+
+<h3>3. Task Status</h3>
+
+<p><strong>File:</strong> <code>.opencode/tools/selo_plugin_tools.ts</code></p>
+
+<p><strong>Description:</strong> Check the status and receipt of a Selo task.</p>
+
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>taskId</code> (string): Task ID (e.g., 'run-task-123')</li>
+</ul>
+
+<p><strong>Usage:</strong></p>
+<pre><code class="language-typescript">
+selo_task_status({ taskId: "run-task-123" })
+</code></pre>
+
+<h3>4. Safety Scan</h3>
+
+<p><strong>File:</strong> <code>.opencode/tools/selo_plugin_tools.ts</code></p>
+
+<p><strong>Description:</strong> View recent safety scan results.</p>
+
+<p><strong>Parameters:</strong> None</p>
+
+<p><strong>Usage:</strong></p>
+<pre><code class="language-typescript">
+selo_safety_scan()
+</code></pre>
+
+<h3>5. Daemon Status</h3>
+
+<p><strong>File:</strong> <code>.opencode/tools/selo_plugin_tools.ts</code></p>
+
+<p><strong>Description:</strong> Check if the Selo daemon is running.</p>
+
+<p><strong>Parameters:</strong> None</p>
+
+<p><strong>Usage:</strong></p>
+<pre><code class="language-typescript">
+selo_daemon_status()
+</code></pre>
+
+<hr>
+
+<h2>Creating a New Tool</h2>
+
+<h3>Step 1: Create Tool File</h3>
+
+<pre><code class="language-typescript">
+// .opencode/tools/my_new_tool.ts
+import { tool } from "@opencode-ai/plugin";
+import { execSync } from "child_process";
+
+export const my_new_tool = tool({
+  description: "My new tool description",
+  args: {
+    input: tool.schema.string().describe("Input parameter"),
+  },
+  async execute(args) {
+    // Tool logic here
+    const result = execSync(`selo my-command "${args.input}"`, {
+      encoding: "utf-8",
+    });
+    return result;
+  },
+});
+</code></pre>
+
+<h3>Step 2: Register in Plugin</h3>
+
+<pre><code class="language-typescript">
+// .opencode/plugin.ts
+import { my_new_tool } from "./tools/my_new_tool";
+
+const server: Plugin = async (): Promise&lt;Hooks&gt; =&gt; {
+  return {
+    tool: {
+      // ... existing tools
+      my_new_tool,
+    },
+  };
+};
+</code></pre>
+
+<h3>Step 3: Test the Tool</h3>
+
+<ol>
+<li>Restart OpenCode</li>
+<li>Use the tool in the TUI</li>
+<li>Verify output</li>
+</ol>
+
+<hr>
+
+<h2>Advanced Patterns</h2>
+
+<h3>Executing Shell Commands</h3>
+
+<pre><code class="language-typescript">
+import { execSync, spawn } from "child_process";
+
+// Synchronous
+const output = execSync("selo status", { encoding: "utf-8" });
+
+// Asynchronous
+const output = await new Promise((resolve, reject) =&gt; {
+  exec("selo status", (error, stdout, stderr) =&gt; {
+    if (error) reject(error);
+    else resolve(stdout);
+  });
+});
+</code></pre>
+
+<h3>Reading Files</h3>
+
+<pre><code class="language-typescript">
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
+
+const filePath = join(process.cwd(), "receipt.json");
+if (existsSync(filePath)) {
+  const content = readFileSync(filePath, "utf-8");
+  const receipt = JSON.parse(content);
+  return receipt;
+}
+</code></pre>
+
+<h3>Error Handling</h3>
+
+<pre><code class="language-typescript">
+export const my_tool = tool({
+  description: "Tool with error handling",
+  args: {
+    input: tool.schema.string().describe("Input"),
+  },
+  async execute(args) {
+    try {
+      const result = await doSomething(args.input);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+});
+</code></pre>
+
+<h3>Returning Structured Data</h3>
+
+<pre><code class="language-typescript">
+export const my_tool = tool({
+  description: "Tool returning structured data",
+  args: {},
+  async execute() {
+    return {
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      data: {
+        count: 42,
+        items: ["a", "b", "c"],
+      },
+    };
+  },
+});
+</code></pre>
+
+<hr>
+
+<h2>Configuration</h2>
+
+<h3>Plugin Registration</h3>
+
+<p>The plugin is registered in <code>opencode.json</code>:</p>
+
+<pre><code class="language-json">
+{
+  "plugin": ["./.opencode/plugin.ts"]
+}
+</code></pre>
+
+<h3>Dependencies</h3>
+
+<p>The plugin requires:</p>
+
+<pre><code class="language-json">
+{
+  "dependencies": {
+    "@opencode-ai/plugin": "1.18.16"
+  }
+}
+</code></pre>
+
+<h3>TypeScript Configuration</h3>
+
+<p>The plugin uses TypeScript with ES modules:</p>
+
+<pre><code class="language-json">
+{
+  "type": "module"
+}
+</code></pre>
+
+<hr>
+
+<h2>Testing</h2>
+
+<h3>Manual Testing</h3>
+
+<ol>
+<li>Start OpenCode in the project directory</li>
+<li>Use each tool in the TUI</li>
+<li>Verify output matches expectations</li>
+</ol>
+
+<h3>Automated Testing</h3>
+
+<pre><code class="language-typescript">
+// .opencode/tools/__tests__/my_tool.test.ts
+import { describe, it, expect } from "vitest";
+import { my_tool } from "../my_tool";
+
+describe("my_tool", () =&gt; {
+  it("should return expected result", async () =&gt; {
+    const result = await my_tool.execute({ input: "test" });
+    expect(result).toBe("expected");
+  });
+});
+</code></pre>
+
+<hr>
+
+<h2>Best Practices</h2>
+
+<h3>1. Descriptive Names</h3>
+
+<pre><code class="language-typescript">
+// Good
+selo_submit_task
+selo_task_status
+
+// Bad
+submit
+status
+</code></pre>
+
+<h3>2. Clear Descriptions</h3>
+
+<pre><code class="language-typescript">
+tool({
+  description: "Submit a coding task to Selo for safe execution",
+  // ...
+})
+</code></pre>
+
+<h3>3. Parameter Validation</h3>
+
+<pre><code class="language-typescript">
+args: {
+  goal: tool.schema.string()
+    .describe("Task goal")
+    .min(1)
+    .max(1000),
+}
+</code></pre>
+
+<h3>4. Error Messages</h3>
+
+<pre><code class="language-typescript">
+async execute(args) {
+  if (!args.goal) {
+    throw new Error("Goal is required");
+  }
+  // ...
+}
+</code></pre>
+
+<h3>5. Consistent Return Types</h3>
+
+<pre><code class="language-typescript">
+// Always return the same structure
+return {
+  success: boolean,
+  data?: any,
+  error?: string,
+}
+</code></pre>
+
+<hr>
+
+<h2>Troubleshooting</h2>
+
+<h3>Tool Not Found</h3>
+
+<ol>
+<li>Check <code>plugin.ts</code> exports the tool</li>
+<li>Restart OpenCode</li>
+<li>Check debug logs: <code>opencode run --print-logs --log-level DEBUG "test"</code></li>
+</ol>
+
+<h3>TypeScript Errors</h3>
+
+<ol>
+<li>Run <code>npm install</code> in <code>.opencode/</code></li>
+<li>Check <code>tsconfig.json</code></li>
+<li>Verify imports</li>
+</ol>
+
+<h3>Plugin Not Loading</h3>
+
+<ol>
+<li>Check <code>opencode.json</code> has <code>"plugin": ["./.opencode/plugin.ts"]</code></li>
+<li>Verify <code>plugin.ts</code> exports <code>id</code> and <code>server</code></li>
+<li>Check debug logs for errors</li>
+</ol>
+
+<hr>
+
+<h2>References</h2>
+
+<ul>
+<li><a href="../api/README.md">API Reference</a> — Package documentation</li>
+<li><a href="../configuration/README.md">Configuration</a> — Config options</li>
+<li><a href="../architecture/README.md">Architecture</a> — System design</li>
+</ul>
+
+    </div>
+</body>
+</html>

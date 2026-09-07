@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference - Selo</title>
+    
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: 'SF Pro Display', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; 
+        background: #FBFBFA; 
+        color: #111111; 
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 80px 24px; }
+    a { color: #111111; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 2.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: #111111; 
+        margin-bottom: 32px; 
+    }
+    h2 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 1.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: #111111; 
+        margin: 48px 0 16px; 
+        padding-bottom: 12px;
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    h3 { 
+        font-size: 1.125rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 32px 0 12px; 
+    }
+    h4 { 
+        font-size: 0.9375rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 24px 0 8px; 
+    }
+    p { margin-bottom: 16px; color: #787774; font-size: 0.9375rem; }
+    code { 
+        background: #F7F6F3; 
+        padding: 2px 6px; 
+        border-radius: 3px; 
+        font-family: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace; 
+        color: #111111; 
+        font-size: 0.875em; 
+    }
+    pre { 
+        background: #F7F6F3; 
+        padding: 20px; 
+        border-radius: 6px; 
+        overflow-x: auto; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA; 
+    }
+    pre code { background: none; padding: 0; color: #111111; }
+    ul, ol { margin: 16px 0; padding-left: 24px; color: #787774; }
+    li { margin: 8px 0; font-size: 0.9375rem; }
+    .back { 
+        display: inline-block; 
+        margin-bottom: 40px; 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    .back:hover { color: #111111; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    th, td { 
+        padding: 12px 16px; 
+        text-align: left; 
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    th { 
+        color: #111111; 
+        background: #F7F6F3;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    td { 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    blockquote { 
+        border-left: 3px solid #EAEAEA; 
+        padding: 12px 20px; 
+        margin: 16px 0; 
+        background: #F7F6F3; 
+        border-radius: 0 6px 6px 0; 
+    }
+    blockquote p { color: #787774; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #EAEAEA; margin: 32px 0; }
+    strong { color: #111111; font-weight: 600; }
+    em { color: #787774; font-style: italic; }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back">&larr; Back to Home</a>
+        <h1>API Reference</h1>
+
+<p>Complete Go package documentation for Selo.</p>
+
+<h2>Package Index</h2>
+
+<table>
+<tr><th>Package</th><th>Description</th></tr>
+<tr><th>`cmd/selo`</th><th>CLI entry point and commands</th></tr>
+<tr><th>`internal/containment`</th><th>Unified isolation interface</th></tr>
+<tr><th>`internal/opencode`</th><th>Native Go OpenCode adapter</th></tr>
+<tr><th>`internal/pipeline`</th><th>Safety pipeline</th></tr>
+<tr><th>`internal/receipt`</th><th>Cryptographic receipts</th></tr>
+<tr><th>`internal/governor`</th><th>Policy enforcement</th></tr>
+<tr><th>`internal/pinocchio`</th><th>Consistency checks</th></tr>
+<tr><th>`internal/gatechain`</th><th>Compliance gates</th></tr>
+<tr><th>`internal/runner`</th><th>C1 Loop runner</th></tr>
+<tr><th>`internal/queue`</th><th>Task queue</th></tr>
+<tr><th>`internal/workspace`</th><th>Git worktree management</th></tr>
+</table>
+
+<hr>
+
+<h2><code>cmd/selo</code></h2>
+
+<h3>Functions</h3>
+
+<h4><code>Execute()</code></h4>
+
+<pre><code class="language-go">
+func Execute()
+</code></pre>
+
+<p>Runs the root Cobra command. Entry point for the CLI.</p>
+
+<h4><code>loadConfig(configPath, baseDir string) *Config</code></h4>
+
+<pre><code class="language-go">
+func loadConfig(configPath string, baseDir string) *Config
+</code></pre>
+
+<p>Loads and parses the YAML configuration file.</p>
+
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>configPath</code> — Path to config file (relative to <code>baseDir</code>)</li>
+<li><code>baseDir</code> — Base directory for resolving paths</li>
+</ul>
+
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>*Config</code> — Parsed configuration with defaults applied</li>
+</ul>
+
+<h4><code>processOneTask(qm, rw, wtm, cfg) bool</code></h4>
+
+<pre><code class="language-go">
+func processOneTask(
+    qm *queue.QueueManager,
+    rw *receipt.ReceiptWriter,
+    wtm *workspace.WorktreeManager,
+    cfg *Config,
+) bool
+</code></pre>
+
+<p>Processes a single task from the queue. This is the core task execution function.</p>
+
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>true</code> if a task was processed (success or failure)</li>
+<li><code>false</code> if no tasks were pending</li>
+</ul>
+
+<hr>
+
+<h2><code>internal/containment</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>Containment</code> (interface)</h4>
+
+<pre><code class="language-go">
+type Containment interface {
+    Setup(repoPath, taskID string) (string, error)
+    Run(cmd []string, env []string, timeout time.Duration) (*Result, error)
+    Teardown(repoPath, taskID string) error
+    Workdir() string
+}
+</code></pre>
+
+<p>Unified interface for isolated task execution.</p>
+
+<h4><code>Config</code></h4>
+
+<pre><code class="language-go">
+type Config struct {
+    Strategy  Strategy
+    WorkDir   string
+    Image     string
+    Writable  []string
+    Extra     []string
+}
+</code></pre>
+
+<p>Configuration for creating a Containment instance.</p>
+
+<h4><code>Result</code></h4>
+
+<pre><code class="language-go">
+type Result struct {
+    ExitCode int
+    TimedOut bool
+    Output   string
+}
+</code></pre>
+
+<p>Result of a command execution.</p>
+
+<h4><code>Strategy</code></h4>
+
+<pre><code class="language-go">
+type Strategy string
+
+const (
+    StrategyWorktree Strategy = "worktree"
+    StrategyDocker   Strategy = "docker"
+    StrategyLocal    Strategy = "local"
+)
+</code></pre>
+
+<h3>Functions</h3>
+
+<h4><code>New(cfg Config) (Containment, error)</code></h4>
+
+<pre><code class="language-go">
+func New(cfg Config) (Containment, error)
+</code></pre>
+
+<p>Creates a Containment instance based on the strategy.</p>
+
+<p><strong>Example:</strong></p>
+
+<pre><code class="language-go">
+c, err := containment.New(containment.Config{
+    Strategy: containment.StrategyWorktree,
+    WorkDir:  "/tmp/selo/worktrees",
+})
+
+path, err := c.Setup("/path/to/repo", "task-123")
+result, err := c.Run([]string{"go", "test", "./..."}, nil, 5*time.Minute)
+err = c.Teardown("/path/to/repo", "task-123")
+</code></pre>
+
+<h4><code>DockerAvailable() bool</code></h4>
+
+<pre><code class="language-go">
+func DockerAvailable() bool
+</code></pre>
+
+<p>Reports whether a Docker daemon is reachable.</p>
+
+<hr>
+
+<h2><code>internal/opencode</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>Adapter</code></h4>
+
+<pre><code class="language-go">
+type Adapter struct {
+    opts AdapterOpts
+}
+</code></pre>
+
+<p>Wraps the OpenCode binary for Selo task execution.</p>
+
+<h4><code>AdapterOpts</code></h4>
+
+<pre><code class="language-go">
+type AdapterOpts struct {
+    BinaryPath      string
+    WorkDir         string
+    TaskFilePath    string
+    Model           string
+    Agent           string
+    MaxMinutes      int
+    ServeTimeoutSec int
+    RunTimeoutSec   int
+    Permissions     bool
+    Allowlist       []string
+}
+</code></pre>
+
+<p>Configuration for the OpenCode adapter.</p>
+
+<h4><code>RunResult</code></h4>
+
+<pre><code class="language-go">
+type RunResult struct {
+    ExitCode   int
+    Stdout     string
+    Stderr     string
+    TimedOut   bool
+    SessionID  string
+    DurationMs int64
+}
+</code></pre>
+
+<p>Outcome of a one-shot OpenCode run.</p>
+
+<h4><code>ServerOpts</code></h4>
+
+<pre><code class="language-go">
+type ServerOpts struct {
+    BinaryPath  string
+    Port        int
+    WorkDir     string
+    Model       string
+    Agent       string
+    Permissions bool
+    Allowlist   []string
+}
+</code></pre>
+
+<p>Configuration for the OpenCode serve process.</p>
+
+<h4><code>Client</code></h4>
+
+<pre><code class="language-go">
+type Client struct {
+    baseURL    string
+    httpClient *http.Client
+}
+</code></pre>
+
+<p>REST API client for OpenCode.</p>
+
+<h3>Functions</h3>
+
+<h4><code>NewAdapter(opts AdapterOpts) *Adapter</code></h4>
+
+<pre><code class="language-go">
+func NewAdapter(opts AdapterOpts) *Adapter
+</code></pre>
+
+<p>Creates a new OpenCode adapter.</p>
+
+<h4><code>(a <em>Adapter) Run(ctx context.Context, goal string) </em>RunResult</code></h4>
+
+<pre><code class="language-go">
+func (a *Adapter) Run(ctx context.Context, goal string) *RunResult
+</code></pre>
+
+<p>Executes a task using the OpenCode binary.</p>
+
+<h4><code>NewClient(baseURL string) *Client</code></h4>
+
+<pre><code class="language-go">
+func NewClient(baseURL string) *Client
+</code></pre>
+
+<p>Creates a new REST API client.</p>
+
+<h4><code>(c <em>Client) CreateSession(ctx context.Context) (</em>Session, error)</code></h4>
+
+<pre><code class="language-go">
+func (c *Client) CreateSession(ctx context.Context) (*Session, error)
+</code></pre>
+
+<p>Creates a new OpenCode session.</p>
+
+<h4><code>(c <em>Client) Prompt(ctx context.Context, sessionID string, req PromptRequest) (</em>PromptResponse, error)</code></h4>
+
+<pre><code class="language-go">
+func (c *Client) Prompt(ctx context.Context, sessionID string, req PromptRequest) (*PromptResponse, error)
+</code></pre>
+
+<p>Sends a prompt to a session.</p>
+
+<h4><code>Start(ctx context.Context, opts ServerOpts) (*Server, error)</code></h4>
+
+<pre><code class="language-go">
+func Start(ctx context.Context, opts ServerOpts) (*Server, error)
+</code></pre>
+
+<p>Starts the OpenCode serve process.</p>
+
+<h4><code>ValidateFilePath(path string, allowlist []string) error</code></h4>
+
+<pre><code class="language-go">
+func ValidateFilePath(path string, allowlist []string) error
+</code></pre>
+
+<p>Checks if a file path matches the allowlist patterns.</p>
+
+<hr>
+
+<h2><code>internal/pipeline</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>Pipeline</code></h4>
+
+<pre><code class="language-go">
+type Pipeline struct {
+    Ctx PipelineContext
+}
+</code></pre>
+
+<p>Safety pipeline for task verification.</p>
+
+<h4><code>PipelineContext</code></h4>
+
+<pre><code class="language-go">
+type PipelineContext struct {
+    TaskID          string
+    WorktreePath    string
+    AllowedFiles    []string
+    ForbiddenFiles  []string
+    ForbiddenClaims []string
+    Commands        []string
+    BaseDir         string
+}
+</code></pre>
+
+<p>Context for pipeline execution.</p>
+
+<h4><code>CheckResult</code></h4>
+
+<pre><code class="language-go">
+type CheckResult struct {
+    Passed  bool
+    Message string
+    Details interface{}
+}
+</code></pre>
+
+<p>Result of a pipeline check.</p>
+
+<h4><code>PipelineResult</code></h4>
+
+<pre><code class="language-go">
+type PipelineResult struct {
+    Governor  *CheckResult
+    Scans     *CheckResult
+    Pinocchio *CheckResult
+    GateChain *CheckResult
+}
+</code></pre>
+
+<p>Complete pipeline result.</p>
+
+<h3>Functions</h3>
+
+<h4><code>NewPipeline(ctx PipelineContext) *Pipeline</code></h4>
+
+<pre><code class="language-go">
+func NewPipeline(ctx PipelineContext) *Pipeline
+</code></pre>
+
+<p>Creates a new pipeline instance.</p>
+
+<h4><code>(p <em>Pipeline) Run(ctx context.Context) (</em>PipelineResult, error)</code></h4>
+
+<pre><code class="language-go">
+func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error)
+</code></pre>
+
+<p>Runs all pipeline stages sequentially.</p>
+
+<hr>
+
+<h2><code>internal/receipt</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>Receipt</code></h4>
+
+<pre><code class="language-go">
+type Receipt struct {
+    ReceiptID             string            `json:"receipt_id"`
+    TaskID                string            `json:"task_id"`
+    Verdict               string            `json:"verdict"`
+    StartedAt             time.Time         `json:"started_at"`
+    FinishedAt            time.Time         `json:"finished_at"`
+    DurationSec           float64           `json:"duration_sec"`
+    RoundsUsed            int               `json:"rounds_used"`
+    ExitCode              int               `json:"exit_code"`
+    TimedOut              bool              `json:"timed_out"`
+    FilesChanged          int               `json:"files_changed"`
+    PatchLines            int               `json:"patch_lines"`
+    HasDiff               bool              `json:"has_diff"`
+    TestOutput            string            `json:"test_output"`
+    RunnerMode            string            `json:"runner_mode"`
+    RunnerCommand         string            `json:"runner_command"`
+    RunnerBinaryKind      string            `json:"runner_binary_kind"`
+    RunnerBinaryPath      string            `json:"runner_binary_path"`
+    RunnerBinaryVersion   string            `json:"runner_binary_version"`
+    RunnerBinaryVerified  bool              `json:"runner_binary_verified"`
+    C1RuntimeRequested    string            `json:"c1_runtime_requested"`
+    C1RuntimeUsed         string            `json:"c1_runtime_used"`
+    C1RuntimeIsMock       bool              `json:"c1_runtime_is_mock"`
+    WorktreePath          string            `json:"worktree_path"`
+    BaseCommit            string            `json:"base_commit"`
+    ScansPassed           bool              `json:"scans_passed"`
+    PinocchioVerified     bool              `json:"pinocchio_verified"`
+    PinocchioResultPath   string            `json:"pinocchio_result_path"`
+    InitialVerdict        string            `json:"initial_verdict"`
+    FinalVerdict          string            `json:"final_verdict"`
+    VerdictOverridden     bool              `json:"verdict_overridden"`
+    TestIntegrityPassed   bool              `json:"test_integrity_passed"`
+    TestIntegrityResultPath string          `json:"test_integrity_result_path"`
+    TestInventoryBeforeCount int            `json:"test_inventory_before_count"`
+    TestInventoryAfterCount  int            `json:"test_inventory_after_count"`
+    OpenCodeTimedOut      bool              `json:"opencode_timed_out"`
+    NotificationMode      string            `json:"notification_mode"`
+    NotificationSuccess   bool              `json:"notification_success"`
+    GateChainAction       string            `json:"gatechain_action"`
+    GateChainStopRequired bool              `json:"gatechain_stop_required"`
+    GateChainReviewRequired bool            `json:"gatechain_review_required"`
+    GateChainFinalStatus  string            `json:"gatechain_final_status"`
+    GateChainActionReason string            `json:"gatechain_action_reason"`
+}
+</code></pre>
+
+<p>Cryptographic audit trail for a task.</p>
+
+<h4><code>ReceiptWriter</code></h4>
+
+<pre><code class="language-go">
+type ReceiptWriter struct {
+    BaseDir string
+}
+</code></pre>
+
+<p>Writes receipts to disk.</p>
+
+<h4><code>TaskMeta</code></h4>
+
+<pre><code class="language-go">
+type TaskMeta struct {
+    ID             string   `yaml:"id"`
+    Goal           string   `yaml:"goal"`
+    Repo           string   `yaml:"repo"`
+    MaxMinutes     int      `yaml:"max_minutes"`
+    MaxRounds      int      `yaml:"max_rounds"`
+    MaxFiles       int      `yaml:"max_files"`
+    MaxPatchLines  int      `yaml:"max_patch_lines"`
+    Commands       []string `yaml:"commands"`
+    ForbiddenFiles []string `yaml:"forbidden_files"`
+}
+</code></pre>
+
+<p>Metadata from a task file.</p>
+
+<h3>Functions</h3>
+
+<h4><code>NewReceiptWriter(baseDir string) *ReceiptWriter</code></h4>
+
+<pre><code class="language-go">
+func NewReceiptWriter(baseDir string) *ReceiptWriter
+</code></pre>
+
+<p>Creates a new receipt writer.</p>
+
+<h4><code>(rw <em>ReceiptWriter) WriteReceipt(receipt </em>Receipt) error</code></h4>
+
+<pre><code class="language-go">
+func (rw *ReceiptWriter) WriteReceipt(receipt *Receipt) error
+</code></pre>
+
+<p>Writes a receipt to disk (JSON + Markdown).</p>
+
+<h4><code>ParseTaskMeta(taskPath string) (*TaskMeta, error)</code></h4>
+
+<pre><code class="language-go">
+func ParseTaskMeta(taskPath string) (*TaskMeta, error)
+</code></pre>
+
+<p>Parses task metadata from a YAML file.</p>
+
+<hr>
+
+<h2><code>internal/queue</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>QueueManager</code></h4>
+
+<pre><code class="language-go">
+type QueueManager struct {
+    BaseDir string
+}
+</code></pre>
+
+<p>Manages the task queue.</p>
+
+<h3>Functions</h3>
+
+<h4><code>NewQueueManager(baseDir string) *QueueManager</code></h4>
+
+<pre><code class="language-go">
+func NewQueueManager(baseDir string) *QueueManager
+</code></pre>
+
+<p>Creates a new queue manager.</p>
+
+<h4><code>(qm *QueueManager) ScanPending() ([]string, error)</code></h4>
+
+<pre><code class="language-go">
+func (qm *QueueManager) ScanPending() ([]string, error)
+</code></pre>
+
+<p>Returns paths to pending tasks.</p>
+
+<h4><code>(qm *QueueManager) ClaimTask(taskPath string) (string, error)</code></h4>
+
+<pre><code class="language-go">
+func (qm *QueueManager) ClaimTask(taskPath string) (string, error)
+</code></pre>
+
+<p>Atomically claims a task by moving it to running/.</p>
+
+<h4><code>(qm *QueueManager) MoveTask(from, to string) error</code></h4>
+
+<pre><code class="language-go">
+func (qm *QueueManager) MoveTask(from, to string) error
+</code></pre>
+
+<p>Moves a task between queue directories.</p>
+
+<hr>
+
+<h2><code>internal/workspace</code></h2>
+
+<h3>Types</h3>
+
+<h4><code>WorktreeManager</code></h4>
+
+<pre><code class="language-go">
+type WorktreeManager struct {
+    WorkDir string
+}
+</code></pre>
+
+<p>Creates and removes git worktrees.</p>
+
+<h3>Functions</h3>
+
+<h4><code>NewWorktreeManager(workDir string) *WorktreeManager</code></h4>
+
+<pre><code class="language-go">
+func NewWorktreeManager(workDir string) *WorktreeManager
+</code></pre>
+
+<p>Creates a new worktree manager.</p>
+
+<h4><code>(wm *WorktreeManager) CreateWorktree(repoPath, taskID string) (string, error)</code></h4>
+
+<pre><code class="language-go">
+func (wm *WorktreeManager) CreateWorktree(repoPath, taskID string) (string, error)
+</code></pre>
+
+<p>Creates a git worktree for a task.</p>
+
+<h4><code>(wm *WorktreeManager) RemoveWorktree(repoPath, taskID string) error</code></h4>
+
+<pre><code class="language-go">
+func (wm *WorktreeManager) RemoveWorktree(repoPath, taskID string) error
+</code></pre>
+
+<p>Removes a git worktree.</p>
+
+<h4><code>(wm *WorktreeManager) CleanupAll(repoPath string) error</code></h4>
+
+<pre><code class="language-go">
+func (wm *WorktreeManager) CleanupAll(repoPath string) error
+</code></pre>
+
+<p>Removes all selo worktrees.</p>
+
+<hr>
+
+<h2>Error Types</h2>
+
+<h3>Common Errors</h3>
+
+<table>
+<tr><th>Error</th><th>Package</th><th>Description</th></tr>
+<tr><th>`ErrTaskNotFound`</th><th>`queue`</th><th>Task not in queue</th></tr>
+<tr><th>`ErrTaskAlreadyClaimed`</th><th>`queue`</th><th>Task already running</th></tr>
+<tr><th>`ErrWorktreeExists`</th><th>`workspace`</th><th>Worktree already exists</th></tr>
+<tr><th>`ErrBinaryNotFound`</th><th>`opencode`</th><th>OpenCode binary not found</th></tr>
+<tr><th>`ErrSessionNotFound`</th><th>`opencode`</th><th>Session doesn't exist</th></tr>
+<tr><th>`ErrPipelineFailed`</th><th>`pipeline`</th><th>Safety check failed</th></tr>
+<tr><th>`ErrGateChainBlocked`</th><th>`gatechain`</th><th>Task blocked by policy</th></tr>
+</table>
+
+<h3>Error Handling Pattern</h3>
+
+<pre><code class="language-go">
+result, err := adapter.Run(ctx, goal)
+if err != nil {
+    log.Printf("adapter error: %v", err)
+    // Handle error
+}
+
+if result.ExitCode != 0 {
+    log.Printf("task failed with exit code %d", result.ExitCode)
+    // Handle failure
+}
+</code></pre>
+
+<hr>
+
+<h2>Constants</h2>
+
+<h3>Verdicts</h3>
+
+<pre><code class="language-go">
+const (
+    VerdictPass          = "PASS"
+    VerdictReview        = "NEEDS_HUMAN"
+    VerdictStop          = "STOP"
+    VerdictNoopWithReceipt = "NOOP_WITH_RECEIPT"
+)
+</code></pre>
+
+<h3>Pipeline Actions</h3>
+
+<pre><code class="language-go">
+const (
+    ActionPass   = "pass"
+    ActionReview = "review"
+    ActionStop   = "stop"
+)
+</code></pre>
+
+<hr>
+
+<h2>Examples</h2>
+
+<h3>Basic Usage</h3>
+
+<pre><code class="language-go">
+package main
+
+import (
+    "context"
+    "fmt"
+    "github.com/selo-dev/selo/internal/opencode"
+)
+
+func main() {
+    adapter := opencode.NewAdapter(opencode.AdapterOpts{
+        BinaryPath: "/usr/local/bin/opencode",
+        WorkDir:    "/tmp/my-project",
+        Model:      "anthropic/claude-sonnet-4-5",
+    })
+    
+    result := adapter.Run(context.Background(), "fix the login bug")
+    
+    fmt.Printf("Exit code: %d\n", result.ExitCode)
+    fmt.Printf("Duration: %dms\n", result.DurationMs)
+}
+</code></pre>
+
+<h3>Containment</h3>
+
+<pre><code class="language-go">
+package main
+
+import (
+    "fmt"
+    "github.com/selo-dev/selo/internal/containment"
+)
+
+func main() {
+    c, err := containment.New(containment.Config{
+        Strategy: containment.StrategyWorktree,
+        WorkDir:  "/tmp/selo/worktrees",
+    })
+    if err != nil {
+        panic(err)
+    }
+    
+    path, err := c.Setup("/path/to/repo", "task-123")
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Worktree: %s\n", path)
+    
+    result, err := c.Run([]string{"go", "test", "./..."}, nil, 5*time.Minute)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Exit code: %d\n", result.ExitCode)
+    
+    c.Teardown("/path/to/repo", "task-123")
+}
+</code></pre>
+
+<h3>Pipeline</h3>
+
+<pre><code class="language-go">
+package main
+
+import (
+    "context"
+    "github.com/selo-dev/selo/internal/pipeline"
+)
+
+func main() {
+    p := pipeline.NewPipeline(pipeline.PipelineContext{
+        TaskID:       "task-123",
+        WorktreePath: "/tmp/selo/worktrees/wt-task-123",
+        Commands:     []string{"go test ./..."},
+    })
+    
+    result, err := p.Run(context.Background())
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Governor: %v\n", result.Governor.Passed)
+    fmt.Printf("Scans: %v\n", result.Scans.Passed)
+    fmt.Printf("Pinocchio: %v\n", result.Pinocchio.Passed)
+    fmt.Printf("GateChain: %v\n", result.GateChain.Passed)
+}
+</code></pre>
+
+    </div>
+</body>
+</html>

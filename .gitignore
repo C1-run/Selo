@@ -1,0 +1,26 @@
+# Compiled binaries
+/selo
+/c1-forged
+
+# Test binaries and coverage
+*.test
+coverage.out
+coverage.html
+
+# Runtime artifacts (root-level only — must not match internal/ dirs)
+.queue/
+/queue/
+/runs/
+/.selo/
+/worktrees/
+/receipts/
+/config/*.local.yaml
+/.ct/
+
+# Landing (standalone site, deps not tracked)
+/landing/node_modules/
+/landing/.wrangler/
+/landing/dist/
+
+# macOS
+.DS_Store
