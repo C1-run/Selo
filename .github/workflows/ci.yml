@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Internal package tests
+        run: go test ./internal/... -count=1
+
+      - name: Daemon tests
+        env:
+          SELO_HOME: ${{ github.workspace }}
+        run: go test ./cmd/selo/ -count=1

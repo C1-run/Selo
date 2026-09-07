@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architecture - Selo</title>
+    
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+        font-family: 'SF Pro Display', 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; 
+        background: #FBFBFA; 
+        color: #111111; 
+        line-height: 1.7;
+        -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 80px 24px; }
+    a { color: #111111; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    h1 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 2.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: #111111; 
+        margin-bottom: 32px; 
+    }
+    h2 { 
+        font-family: 'Lyon Text', 'Newsreader', 'Playfair Display', 'Instrument Serif', serif;
+        font-size: 1.5rem; 
+        font-weight: 400;
+        letter-spacing: -0.02em;
+        color: #111111; 
+        margin: 48px 0 16px; 
+        padding-bottom: 12px;
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    h3 { 
+        font-size: 1.125rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 32px 0 12px; 
+    }
+    h4 { 
+        font-size: 0.9375rem; 
+        font-weight: 600;
+        color: #111111; 
+        margin: 24px 0 8px; 
+    }
+    p { margin-bottom: 16px; color: #787774; font-size: 0.9375rem; }
+    code { 
+        background: #F7F6F3; 
+        padding: 2px 6px; 
+        border-radius: 3px; 
+        font-family: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace; 
+        color: #111111; 
+        font-size: 0.875em; 
+    }
+    pre { 
+        background: #F7F6F3; 
+        padding: 20px; 
+        border-radius: 6px; 
+        overflow-x: auto; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA; 
+    }
+    pre code { background: none; padding: 0; color: #111111; }
+    ul, ol { margin: 16px 0; padding-left: 24px; color: #787774; }
+    li { margin: 8px 0; font-size: 0.9375rem; }
+    .back { 
+        display: inline-block; 
+        margin-bottom: 40px; 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    .back:hover { color: #111111; }
+    table { 
+        width: 100%; 
+        border-collapse: collapse; 
+        margin: 16px 0; 
+        border: 1px solid #EAEAEA;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    th, td { 
+        padding: 12px 16px; 
+        text-align: left; 
+        border-bottom: 1px solid #EAEAEA; 
+    }
+    th { 
+        color: #111111; 
+        background: #F7F6F3;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    td { 
+        color: #787774;
+        font-size: 0.875rem;
+    }
+    blockquote { 
+        border-left: 3px solid #EAEAEA; 
+        padding: 12px 20px; 
+        margin: 16px 0; 
+        background: #F7F6F3; 
+        border-radius: 0 6px 6px 0; 
+    }
+    blockquote p { color: #787774; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #EAEAEA; margin: 32px 0; }
+    strong { color: #111111; font-weight: 600; }
+    em { color: #787774; font-style: italic; }
+</style>
+
+</head>
+<body>
+    <div class="container">
+        <a href="../index.html" class="back">&larr; Back to Home</a>
+        <h1>Architecture</h1>
+
+<p>Selo architecture, system design, and component relationships.</p>
+
+<h2>System Overview</h2>
+
+<p>Selo is a safety-first task runner that wraps coding agents and produces cryptographic audit trails. It consists of:</p>
+
+<ol>
+<li><strong>CLI</strong> — User interface (Cobra)</li>
+<li><strong>Daemon</strong> — Background task processor</li>
+<li><strong>Pipeline</strong> — Safety verification (4 stages)</li>
+<li><strong>Adapter</strong> — Agent execution (OpenCode, mock, etc.)</li>
+<li><strong>Receipt</strong> — Cryptographic audit trail</li>
+</ol>
+
+<h2>Data Flow</h2>
+
+<pre><code class="language-">
+┌─────────────────────────────────────────────────────────────┐
+│                        User Input                           │
+│  CLI: selo run "fix the bug"                          │
+│  Plugin: selo_submit_task goal="fix the bug"            │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                     Task Queue                              │
+│  .selo/queue/pending/   →  Task files (.md)            │
+│  .selo/queue/running/   →  Active tasks                │
+│  .selo/queue/done/      →  Completed tasks             │
+│  .selo/queue/failed/    →  Failed tasks                │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Worktree Creation                          │
+│  git worktree add -b selo/&lt;task-id&gt; &lt;path&gt; HEAD        │
+│  Isolated directory for agent execution                     │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Agent Execution                            │
+│  OpenCode: Native Go adapter (REST API)                     │
+│  Mock: fixture_agent.sh (testing)                           │
+│  C1 Loop: Shell adapter (legacy)                            │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Safety Pipeline                            │
+│  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌───────────┐   │
+│  │Governor │→ │ Scans   │→ │Pinocchio │→ │GateChain  │   │
+│  └─────────┘  └─────────┘  └──────────┘  └───────────┘   │
+│  - Policies   - Secrets    - Consistency   - Compliance    │
+│  - Claims     - Files      - Tests         - Receipts     │
+│  - Timeout    - Forbidden  - Phantom       - Verdict      │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Receipt                                   │
+│  runs/&lt;task-id&gt;/receipt.json  — Machine-readable            │
+│  runs/&lt;task-id&gt;/receipt.md    — Human-readable              │
+│  runs/&lt;task-id&gt;/pinocchio.json — Consistency check          │
+│  runs/&lt;task-id&gt;/test_integrity.json — Test inventory        │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+
+<h2>Component Details</h2>
+
+<h3>CLI (<code>cmd/selo/</code>)</h3>
+
+<p><strong>File Structure:</strong></p>
+
+<table>
+<tr><th>File</th><th>Purpose</th></tr>
+<tr><th>`root.go`</th><th>Root command, global flags (`--config`)</th></tr>
+<tr><th>`cmd_daemon.go`</th><th>Daemon mode (`--one-shot`)</th></tr>
+<tr><th>`cmd_run.go`</th><th>One-shot task execution</th></tr>
+<tr><th>`cmd_status.go`</th><th>Queue/daemon status (`--json`)</th></tr>
+<tr><th>`cmd_init.go`</th><th>Workspace initialization</th></tr>
+<tr><th>`cmd_check.go`</th><th>GateChain compliance check</th></tr>
+<tr><th>`cmd_smoke.go`</th><th>Smoke test dispatch</th></tr>
+<tr><th>`cmd_soak.go`</th><th>Soak test dispatch</th></tr>
+<tr><th>`cmd_completion.go`</th><th>Shell completions</th></tr>
+<tr><th>`helpers.go`</th><th>Shared utilities</th></tr>
+<tr><th>`smoke.go`</th><th>Smoke test functions</th></tr>
+<tr><th>`soak_opencode.go`</th><th>Soak test helpers</th></tr>
+</table>
+
+<p><strong>Entry Point:</strong></p>
+
+<pre><code class="language-go">
+// main.go
+func main() {
+    Execute() // Cobra root command
+}
+</code></pre>
+
+<p><strong>Global Flags:</strong></p>
+
+<pre><code class="language-bash">
+--config string   Path to config file (default "config/selo.yaml")
+-h, --help       Help
+</code></pre>
+
+<h3>Daemon (<code>cmd/selo/cmd_daemon.go</code>)</h3>
+
+<p>The daemon continuously processes tasks from the queue:</p>
+
+<pre><code class="language-go">
+func runDaemon(cfg *Config, baseDir string, oneShot bool) {
+    qm := queue.NewQueueManager(baseDir)
+    rw := receipt.NewReceiptWriter(baseDir)
+    wtm := workspace.NewWorktreeManager(filepath.Join(baseDir, "worktrees"))
+    
+    for {
+        processed := processOneTask(qm, rw, wtm, cfg)
+        if oneShot && !processed {
+            break
+        }
+        time.Sleep(time.Duration(cfg.Forge.PollIntervalSec) * time.Second)
+    }
+}
+</code></pre>
+
+<p><strong>Task Processing:</strong></p>
+
+<pre><code class="language-go">
+func processOneTask(qm, rw, wtm, cfg) bool {
+    // 1. Scan pending tasks
+    // 2. Claim task (atomic rename)
+    // 3. Parse task metadata
+    // 4. Create lock file
+    // 5. Resolve configuration
+    // 6. Create worktree
+    // 7. Run agent (OpenCode or C1 Loop)
+    // 8. Capture diff
+    // 9. Run safety pipeline
+    // 10. Write receipt
+    // 11. Cleanup worktree
+}
+</code></pre>
+
+<h3>Pipeline (<code>internal/pipeline/</code>)</h3>
+
+<p><strong>Interface:</strong></p>
+
+<pre><code class="language-go">
+type Pipeline struct {
+    Ctx PipelineContext
+}
+
+type PipelineContext struct {
+    TaskID        string
+    WorktreePath  string
+    AllowedFiles  []string
+    ForbiddenFiles []string
+    ForbiddenClaims []string
+    Commands      []string
+    BaseDir       string
+}
+
+type CheckResult struct {
+    Passed  bool
+    Message string
+    Details interface{}
+}
+</code></pre>
+
+<p><strong>Pipeline Stages:</strong></p>
+
+<pre><code class="language-go">
+func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
+    // Stage 1: Governor
+    governorResult := p.runGovernor(ctx)
+    
+    // Stage 2: Scans
+    scanResult := p.runScans(ctx)
+    
+    // Stage 3: Pinocchio
+    pinocchioResult := p.runPinocchio(ctx)
+    
+    // Stage 4: GateChain
+    gatechainResult := p.runGateChain(ctx)
+    
+    return &PipelineResult{
+        Governor:  governorResult,
+        Scans:     scanResult,
+        Pinocchio: pinocchioResult,
+        GateChain: gatechainResult,
+    }, nil
+}
+</code></pre>
+
+<h3>Adapter (<code>internal/opencode/</code>)</h3>
+
+<p><strong>Interface:</strong></p>
+
+<pre><code class="language-go">
+type Adapter struct {
+    opts AdapterOpts
+}
+
+type AdapterOpts struct {
+    BinaryPath      string
+    WorkDir         string
+    TaskFilePath    string
+    Model           string
+    Agent           string
+    MaxMinutes      int
+    ServeTimeoutSec int
+    RunTimeoutSec   int
+    Permissions     bool
+    Allowlist       []string
+}
+
+func (a *Adapter) Run(ctx context.Context, goal string) *RunResult
+</code></pre>
+
+<p><strong>Execution Flow:</strong></p>
+
+<pre><code class="language-go">
+func (a *Adapter) Run(ctx context.Context, goal string) *RunResult {
+    // 1. Discover OpenCode binary
+    binPath := a.resolveBinary()
+    
+    // 2. Start serve process
+    server, _ := Start(ctx, ServerOpts{...})
+    
+    // 3. Create REST client
+    client := NewClient(server.URL())
+    
+    // 4. Create session
+    session, _ := client.CreateSession(ctx)
+    
+    // 5. Send prompt
+    response, _ := client.Prompt(ctx, session.ID, PromptRequest{Prompt: goal})
+    
+    // 6. Capture output
+    // 7. Return result
+}
+</code></pre>
+
+<h3>Receipt (<code>internal/receipt/</code>)</h3>
+
+<p><strong>Structure:</strong></p>
+
+<pre><code class="language-go">
+type Receipt struct {
+    ReceiptID        string            `json:"receipt_id"`
+    TaskID           string            `json:"task_id"`
+    Verdict          string            `json:"verdict"`
+    StartedAt        time.Time         `json:"started_at"`
+    FinishedAt       time.Time         `json:"finished_at"`
+    DurationSec      float64           `json:"duration_sec"`
+    RoundsUsed       int               `json:"rounds_used"`
+    ExitCode         int               `json:"exit_code"`
+    TimedOut         bool              `json:"timed_out"`
+    FilesChanged     int               `json:"files_changed"`
+    PatchLines       int               `json:"patch_lines"`
+    HasDiff          bool              `json:"has_diff"`
+    TestOutput       string            `json:"test_output"`
+    RunnerMode       string            `json:"runner_mode"`
+    RunnerCommand    string            `json:"runner_command"`
+    RunnerBinaryKind string            `json:"runner_binary_kind"`
+    RunnerBinaryPath string            `json:"runner_binary_path"`
+    RunnerBinaryVersion string         `json:"runner_binary_version"`
+    RunnerBinaryVerified bool          `json:"runner_binary_verified"`
+    C1RuntimeRequested string          `json:"c1_runtime_requested"`
+    C1RuntimeUsed    string            `json:"c1_runtime_used"`
+    C1RuntimeIsMock  bool              `json:"c1_runtime_is_mock"`
+    WorktreePath     string            `json:"worktree_path"`
+    BaseCommit       string            `json:"base_commit"`
+    ScansPassed      bool              `json:"scans_passed"`
+    PinocchioVerified bool             `json:"pinocchio_verified"`
+    PinocchioResultPath string         `json:"pinocchio_result_path"`
+    InitialVerdict   string            `json:"initial_verdict"`
+    FinalVerdict     string            `json:"final_verdict"`
+    VerdictOverridden bool             `json:"verdict_overridden"`
+    TestIntegrityPassed bool           `json:"test_integrity_passed"`
+    TestIntegrityResultPath string     `json:"test_integrity_result_path"`
+    TestInventoryBeforeCount int       `json:"test_inventory_before_count"`
+    TestInventoryAfterCount int        `json:"test_inventory_after_count"`
+    OpenCodeTimedOut bool              `json:"opencode_timed_out"`
+    NotificationMode string            `json:"notification_mode"`
+    NotificationSuccess bool           `json:"notification_success"`
+    GateChainAction  string            `json:"gatechain_action"`
+    GateChainStopRequired bool         `json:"gatechain_stop_required"`
+    GateChainReviewRequired bool       `json:"gatechain_review_required"`
+    GateChainFinalStatus string        `json:"gatechain_final_status"`
+    GateChainActionReason string       `json:"gatechain_action_reason"`
+}
+</code></pre>
+
+<h3>Queue (<code>internal/queue/</code>)</h3>
+
+<p><strong>Directory Structure:</strong></p>
+
+<pre><code class="language-">
+.selo/queue/
+├── pending/           # New tasks
+│   └── run-abc123.md
+├── running/           # Active tasks
+│   └── run-abc123.md
+├── done/              # Completed tasks
+│   └── task-run-abc123.md
+├── failed/            # Failed tasks
+│   └── task-run-abc123.md
+└── review/            # Needs human review
+    └── task-run-abc123.md
+</code></pre>
+
+<p><strong>Task File Format:</strong></p>
+
+<pre><code class="language-markdown">
+---
+id: run-abc123
+goal: Fix the login bug
+repo: /path/to/repo
+max_minutes: 30
+max_rounds: 3
+commands:
+  - go test ./...
+forbidden_files:
+  - secrets.yaml
+---
+
+Fix the login bug that causes timeout errors.
+</code></pre>
+
+<h3>Containment (<code>internal/containment/</code>)</h3>
+
+<p><strong>Interface:</strong></p>
+
+<pre><code class="language-go">
+type Containment interface {
+    Setup(repoPath, taskID string) (string, error)
+    Run(cmd []string, env []string, timeout time.Duration) (*Result, error)
+    Teardown(repoPath, taskID string) error
+    Workdir() string
+}
+</code></pre>
+
+<p><strong>Implementations:</strong></p>
+
+<table>
+<tr><th>Type</th><th>File</th><th>Isolation</th></tr>
+<tr><th>`WorktreeContainment`</th><th>`containment.go`</th><th>Git worktree</th></tr>
+<tr><th>`DockerContainment`</th><th>`containment.go`</th><th>Container</th></tr>
+<tr><th>`LocalContainment`</th><th>`containment.go`</th><th>Process</th></tr>
+</table>
+
+<p><strong>Factory:</strong></p>
+
+<pre><code class="language-go">
+func New(cfg Config) (Containment, error) {
+    switch cfg.Strategy {
+    case StrategyWorktree:
+        return &WorktreeContainment{workDir: cfg.WorkDir}, nil
+    case StrategyDocker:
+        return &DockerContainment{...}, nil
+    case StrategyLocal:
+        return &LocalContainment{workDir: cfg.WorkDir}, nil
+    }
+}
+</code></pre>
+
+<h2>Concurrency Model</h2>
+
+<h3>Queue Locking</h3>
+
+<p>Tasks are locked using filesystem locks:</p>
+
+<pre><code class="language-go">
+type Lock struct {
+    Path   string
+    TaskID string
+    File   *os.File
+}
+
+func WriteLock(path, taskID string) (*Lock, error) {
+    // Atomic create + write
+}
+
+func (l *Lock) Remove() error {
+    // Release lock
+}
+</code></pre>
+
+<h3>Worktree Isolation</h3>
+
+<p>Each task gets its own worktree:</p>
+
+<pre><code class="language-">
+.selo/worktrees/
+├── wt-run-abc123/    # Task 1
+├── wt-run-def456/    # Task 2
+└── wt-run-ghi789/    # Task 3
+</code></pre>
+
+<h3>Daemon Polling</h3>
+
+<pre><code class="language-go">
+for {
+    processed := processOneTask(...)
+    if oneShot && !processed {
+        break
+    }
+    time.Sleep(pollInterval)
+}
+</code></pre>
+
+<h2>Error Handling</h2>
+
+<h3>Error Categories</h3>
+
+<table>
+<tr><th>Category</th><th>Example</th><th>Action</th></tr>
+<tr><th>Transient</th><th>Network timeout</th><th>Retry</th></tr>
+<tr><th>Permanent</th><th>Invalid config</th><th>Fail fast</th></tr>
+<tr><th>Safety</th><th>Secret detected</th><th>Block task</th></tr>
+<tr><th>Resource</th><th>Disk full</th><th>Alert user</th></tr>
+</table>
+
+<h3>Error Propagation</h3>
+
+<pre><code class="language-go">
+func processOneTask(...) bool {
+    tasks, err := qm.ScanPending()
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        return false // Retry on next poll
+    }
+    
+    runningPath, err := qm.ClaimTask(taskPath)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        qm.MoveTask(taskPath, qm.FailedDir())
+        return true // Task failed
+    }
+    // ...
+}
+</code></pre>
+
+<h2>Performance Characteristics</h2>
+
+<table>
+<tr><th>Operation</th><th>Complexity</th><th>Notes</th></tr>
+<tr><th>Task scan</th><th>O(n)</th><th>n = pending tasks</th></tr>
+<tr><th>Worktree create</th><th>O(1)</th><th>Git worktree add</th></tr>
+<tr><th>Safety pipeline</th><th>O(m)</th><th>m = files changed</th></tr>
+<tr><th>Receipt write</th><th>O(1)</th><th>JSON + Markdown</th></tr>
+</table>
+
+<h2>Security Model</h2>
+
+<h3>Trust Boundaries</h3>
+
+<ol>
+<li><strong>User → CLI</strong>: Trusted input</li>
+<li><strong>CLI → Daemon</strong>: Local IPC</li>
+<li><strong>Daemon → Agent</strong>: Isolated execution</li>
+<li><strong>Agent → Files</strong>: Contained (worktree/container)</li>
+<li><strong>Pipeline → Verdict</strong>: Tamper-proof receipts)</li>
+</ol>
+
+<h3>Permission Model</h3>
+
+<pre><code class="language-yaml">
+forge:
+  opencode:
+    dangerously_skip_permissions: false
+    permission_allowlist:
+      - "/project/src/*.go"
+      - "/project/tests/*"
+</code></pre>
+
+<h3>Secret Detection</h3>
+
+<p>The scans stage detects:</p>
+<ul>
+<li>API keys (AWS, GCP, Azure, etc.)</li>
+<li>Hardcoded credentials</li>
+<li>Private keys</li>
+<li>Connection strings</li>
+</ul>
+
+<h2>Extension Points</h2>
+
+<h3>Custom Containment</h3>
+
+<p>Implement the <code>Containment</code> interface:</p>
+
+<pre><code class="language-go">
+type MyContainment struct {
+    // ...
+}
+
+func (c *MyContainment) Setup(repoPath, taskID string) (string, error) { ... }
+func (c *MyContainment) Run(cmd []string, env []string, timeout time.Duration) (*Result, error) { ... }
+func (c *MyContainment) Teardown(repoPath, taskID string) error { ... }
+func (c *MyContainment) Workdir() string { ... }
+</code></pre>
+
+<h3>Custom Pipeline Stage</h3>
+
+<p>Add a new stage to the pipeline:</p>
+
+<pre><code class="language-go">
+func (p *Pipeline) runCustomCheck(ctx context.Context) *CheckResult {
+    // Implement check logic
+    return &CheckResult{
+        Passed:  true,
+        Message: "Custom check passed",
+    }
+}
+</code></pre>
+
+<h3>Custom Receipt Field</h3>
+
+<p>Extend the receipt struct:</p>
+
+<pre><code class="language-go">
+type Receipt struct {
+    // ... existing fields
+    CustomField string `json:"custom_field,omitempty"`
+}
+</code></pre>
+
+<h2>References</h2>
+
+<ul>
+<li><a href="../api/README.md">API Reference</a> — Package documentation</li>
+<li><a href="../configuration/README.md">Configuration</a> — Config options</li>
+<li><a href="../development/README.md">Development</a> — Contributing guide</li>
+</ul>
+
+    </div>
+</body>
+</html>

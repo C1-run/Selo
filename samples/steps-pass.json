@@ -1,0 +1,50 @@
+[
+  {
+    "id": "p45-contain",
+    "label": "P45: Containment check",
+    "status": "pass",
+    "coverage": "covered",
+    "risk": "low",
+    "reason_code": "containment_ok",
+    "evidence_ref": "ref://p45/contain-001",
+    "raw_text_included": false,
+    "secrets_included": false,
+    "adapter": "p45"
+  },
+  {
+    "id": "ct-scope",
+    "label": "CT: Scope compliance",
+    "status": "pass",
+    "coverage": "covered",
+    "risk": "low",
+    "reason_code": "scope_ok",
+    "evidence_ref": "ref://ct/scope-001",
+    "raw_text_included": false,
+    "secrets_included": false,
+    "adapter": "ct"
+  },
+  {
+    "id": "redline-policy",
+    "label": "Redline: Boundary policy",
+    "status": "pass",
+    "coverage": "covered",
+    "risk": "low",
+    "reason_code": "policy_ok",
+    "evidence_ref": "ref://redline/policy-001",
+    "raw_text_included": false,
+    "secrets_included": false,
+    "adapter": "redline"
+  },
+  {
+    "id": "tuttut-risk",
+    "label": "tuttut: Risk exposure",
+    "status": "pass",
+    "coverage": "covered",
+    "risk": "low",
+    "reason_code": "exposure_low",
+    "evidence_ref": "ref://tuttut/risk-001",
+    "raw_text_included": false,
+    "secrets_included": false,
+    "adapter": "tuttut"
+  }
+]

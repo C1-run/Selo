@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Guide - Selo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f23; color: #e0e0e0; line-height: 1.8; }
+        .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+        a { color: #64ffda; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        h1 { font-size: 2.5rem; color: #64ffda; margin-bottom: 30px; }
+        h2 { font-size: 1.8rem; color: #64ffda; margin: 40px 0 20px; border-bottom: 1px solid #233554; padding-bottom: 10px; }
+        h3 { font-size: 1.3rem; color: #e94560; margin: 30px 0 15px; }
+        p { margin-bottom: 15px; color: #8892b0; }
+        code { background: #1a1a2e; padding: 2px 8px; border-radius: 4px; font-family: 'Monaco', monospace; color: #e94560; }
+        pre { background: #1a1a2e; padding: 20px; border-radius: 8px; overflow-x: auto; margin: 15px 0; border: 1px solid #233554; }
+        pre code { background: none; padding: 0; color: #e0e0e0; }
+        ul, ol { margin: 15px 0; padding-left: 30px; color: #8892b0; }
+        li { margin: 8px 0; }
+        .back { display: inline-block; margin-bottom: 30px; color: #64ffda; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #233554; }
+        th { color: #64ffda; }
+        td { color: #8892b0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back">&larr; Back to Home</a>
+        
+        <h1>User Guide</h1>
+        <p>How to set up and use Selo in your projects.</p>
+        
+        <h2>Two Ways to Use Selo</h2>
+        
+        <h3>Option 1: Standalone CLI</h3>
+        <p>Run Selo as a command-line tool in your project.</p>
+        <pre><code># Install
+go build -o selo ./cmd/selo/
+sudo mv selo /usr/local/bin/
+
+# Use in your project
+cd /path/to/your/project
+selo init
+selo run "fix the login bug"</code></pre>
+        
+        <h3>Option 2: OpenCode Integration</h3>
+        <p>Use Selo as a plugin in OpenCode (your AI coding assistant).</p>
+        <pre><code># Start OpenCode in your project
+cd /path/to/your/project
+opencode
+
+# Use Selo tools directly in the TUI
+selo_submit_task goal="fix the bug"
+selo_task_status taskId="run-123"</code></pre>
+        
+        <h2>Quick Start (Standalone)</h2>
+        
+        <h3>Step 1: Install Selo</h3>
+        <pre><code># Option A: Build from source
+git clone https://github.com/selo-dev/selo.git
+cd selo
+go build -o selo ./cmd/selo/
+sudo mv selo /usr/local/bin/
+
+# Option B: Download binary
+curl -L https://github.com/selo-dev/selo/releases/latest/download/selo-linux-amd64 -o selo
+chmod +x selo
+sudo mv selo /usr/local/bin/</code></pre>
+        
+        <h3>Step 2: Initialize Your Project</h3>
+        <pre><code>cd /path/to/your/project
+selo init</code></pre>
+        <p>This creates:</p>
+        <pre><code>your-project/
+├── .selo/
+│   ├── queue/           # Task queue
+│   ├── runs/            # Receipts
+│   ├── receipts/        # Historical receipts
+│   └── worktrees/       # Isolated workspaces
+└── config/
+    └── selo.yaml    # Configuration</code></pre>
+        
+        <h3>Step 3: Configure</h3>
+        <p>Edit <code>config/selo.yaml</code>:</p>
+        <pre><code>forge:
+  runner:
+    mode: opencode
+    command: opencode
+  opencode:
+    model: anthropic/claude-sonnet-4-5
+    dangerously_skip_permissions: false
+    permission_allowlist:
+      - "src/**/*.go"
+      - "tests/**/*.go"</code></pre>
+        
+        <h3>Step 4: Run a Task</h3>
+        <pre><code># One-shot execution
+selo run "fix the login bug" \
+  --repo . \
+  --commands "go test ./..." \
+  --max-minutes 30
+
+# Or start daemon for continuous processing
+selo daemon</code></pre>
+        
+        <h3>Step 5: Check Results</h3>
+        <pre><code># View status
+selo status
+
+# View specific receipt
+cat runs/run-*/receipt.json</code></pre>
+        
+        <h2>Quick Start (OpenCode Integration)</h2>
+        
+        <h3>Step 1: Set Up OpenCode</h3>
+        <pre><code># Install OpenCode
+curl -fsSL https://opencode.ai/install.sh | sh
+
+# Configure API key
+export ANTHROPIC_API_KEY=your-key-here</code></pre>
+        
+        <h3>Step 2: Set Up Selo Plugin</h3>
+        <pre><code># Clone Selo
+git clone https://github.com/selo-dev/selo.git
+cd /path/to/your/project
+
+# Create .opencode directory
+mkdir -p .opencode/tools
+
+# Copy plugin files
+cp /path/to/selo/.opencode/plugin.ts .opencode/
+cp /path/to/selo/.opencode/tools/*.ts .opencode/tools/
+cp /path/to/selo/.opencode/package.json .opencode/
+
+# Install dependencies
+cd .opencode && npm install && cd ..</code></pre>
+        
+        <h3>Step 3: Configure Plugin</h3>
+        <p>Create <code>opencode.json</code> in your project root:</p>
+        <pre><code>{
+  "plugin": ["./.opencode/plugin.ts"]
+}</code></pre>
+        
+        <h3>Step 4: Start OpenCode</h3>
+        <pre><code>opencode</code></pre>
+        
+        <h3>Step 5: Use Selo Tools</h3>
+        <p>In the OpenCode TUI:</p>
+        <pre><code># Check daemon status
+selo_daemon_status
+
+# Submit a task
+selo_submit_task goal="fix the login bug"
+
+# Check task status
+selo_task_status taskId="run-123"
+
+# View safety scan results
+selo_safety_scan</code></pre>
+        
+        <h2>Integration with AI Assistants</h2>
+        
+        <h3>OpenCode (Recommended)</h3>
+        <p>Selo has native integration with OpenCode:</p>
+        <pre><code># Install OpenCode
+curl -fsSL https://opencode.ai/install.sh | sh
+
+# Use Selo in OpenCode
+opencode
+&gt; selo_submit_task goal="add error handling"</code></pre>
+        
+        <h3>Claude (Anthropic)</h3>
+        <p>Selo can wrap Claude via OpenCode:</p>
+        <pre><code># Configure OpenCode to use Claude
+export ANTHROPIC_API_KEY=your-key-here
+
+# Use Selo with Claude
+selo run "refactor the auth module" \
+  --repo . \
+  --commands "go test ./..."</code></pre>
+        
+        <h3>Custom AI Agent</h3>
+        <p>Integrate your own AI agent:</p>
+        <pre><code>forge:
+  runner:
+    mode: custom
+    command: /path/to/your/agent
+    args:
+      - "--model"
+      - "your-model"</code></pre>
+        
+        <h2>Common Use Cases</h2>
+        
+        <h3>1. Safe Code Review</h3>
+        <pre><code>selo run "review this pull request for security issues" \
+  --repo . \
+  --commands "go vet ./..." \
+  --max-minutes 15</code></pre>
+        
+        <h3>2. Automated Refactoring</h3>
+        <pre><code>selo run "refactor the database layer to use interfaces" \
+  --repo . \
+  --commands "go test ./..." \
+  --forbidden-files ".env"</code></pre>
+        
+        <h3>3. Bug Fix with Verification</h3>
+        <pre><code>selo run "fix the race condition in the worker pool" \
+  --repo . \
+  --commands "go test -race ./..."</code></pre>
+        
+        <h3>4. Feature Development</h3>
+        <pre><code>selo run "add rate limiting to the API" \
+  --repo . \
+  --commands "go test ./..." \
+  --max-minutes 60</code></pre>
+        
+        <h2>Configuration Reference</h2>
+        
+        <h3>Minimal Configuration</h3>
+        <pre><code>forge:
+  runner:
+    mode: opencode
+    command: opencode
+  opencode:
+    model: anthropic/claude-sonnet-4-5</code></pre>
+        
+        <h3>Environment Variables</h3>
+        <table>
+            <tr><th>Variable</th><th>Description</th><th>Default</th></tr>
+            <tr><td><code>SELO_CONFIG</code></td><td>Config file path</td><td><code>config/selo.yaml</code></td></tr>
+            <tr><td><code>SELO_OPENCODE_BIN</code></td><td>OpenCode binary path</td><td>Auto-discover</td></tr>
+            <tr><td><code>SELO_DANGEROUSLY_SKIP_PERMISSIONS</code></td><td>Override permissions</td><td><code>false</code></td></tr>
+            <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Anthropic API key</td><td>Required for Claude</td></tr>
+        </table>
+        
+        <h2>Troubleshooting</h2>
+        
+        <h3>Common Issues</h3>
+        <table>
+            <tr><th>Issue</th><th>Solution</th></tr>
+            <tr><td><code>opencode not found</code></td><td>Install OpenCode or set <code>SELO_OPENCODE_BIN</code></td></tr>
+            <tr><td><code>model not available</code></td><td>Check <code>ANTHROPIC_API_KEY</code> is set</td></tr>
+            <tr><td><code>permission denied</code></td><td>Check file permissions or use <code>--repo</code> flag</td></tr>
+            <tr><td><code>queue locked</code></td><td>Remove <code>.selo/queue/running/*.lock</code></td></tr>
+            <tr><td><code>worktree exists</code></td><td>Run <code>git worktree prune</code></td></tr>
+        </table>
+        
+        <h3>Debug Mode</h3>
+        <pre><code>SELO_DEBUG=1 selo run "fix the bug" --repo .</code></pre>
+        
+        <h2>Next Steps</h2>
+        <ul>
+            <li><a href="configuration/README.html">Configuration Reference</a> — All config options</li>
+            <li><a href="architecture/README.html">Architecture</a> — System design</li>
+            <li><a href="plugins/README.html">Plugin Development</a> — Extend Selo</li>
+            <li><a href="deployment/README.html">Deployment</a> — Production setup</li>
+        </ul>
+    </div>
+</body>
+</html>
