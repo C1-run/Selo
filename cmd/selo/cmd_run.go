@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/desmondkam/selo/internal/queue"
-	"github.com/desmondkam/selo/internal/receipt"
-	"github.com/desmondkam/selo/internal/workspace"
+	"github.com/C1-run/selo/internal/queue"
+	"github.com/C1-run/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/workspace"
 	"github.com/spf13/cobra"
 )
 

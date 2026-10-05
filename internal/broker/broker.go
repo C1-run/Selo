@@ -10,7 +10,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/desmondkam/selo/internal/manifest"
+	"github.com/C1-run/selo/internal/manifest"
 )
 
 type CapabilityRequest struct {

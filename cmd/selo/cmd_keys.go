@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/desmondkam/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/receipt"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/desmondkam/selo/internal/soak"
+	"github.com/C1-run/selo/internal/soak"
 	"github.com/spf13/cobra"
 )
 

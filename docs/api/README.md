@@ -641,7 +641,7 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/desmondkam/selo/internal/opencode"
+    "github.com/C1-run/selo/internal/opencode"
 )
 
 func main() {
@@ -665,7 +665,7 @@ package main
 
 import (
     "fmt"
-    "github.com/desmondkam/selo/internal/containment"
+    "github.com/C1-run/selo/internal/containment"
 )
 
 func main() {
@@ -702,7 +702,7 @@ package main
 
 import (
     "context"
-    "github.com/desmondkam/selo/internal/pipeline"
+    "github.com/C1-run/selo/internal/pipeline"
 )
 
 func main() {

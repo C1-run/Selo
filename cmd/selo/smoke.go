@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/desmondkam/selo/internal/runner"
+	"github.com/C1-run/selo/internal/runner"
 )
 
 func smokeC1Loop() {

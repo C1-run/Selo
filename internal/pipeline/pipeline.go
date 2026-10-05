@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/desmondkam/selo/internal/governor"
-	"github.com/desmondkam/selo/internal/runner"
-	"github.com/desmondkam/selo/internal/testintegrity"
+	"github.com/C1-run/selo/internal/governor"
+	"github.com/C1-run/selo/internal/runner"
+	"github.com/C1-run/selo/internal/testintegrity"
 )
 
 // NOTE: POST-EXECUTION AUDIT ONLY — checks run on Diff/TestOutput after the

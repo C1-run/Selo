@@ -19,12 +19,12 @@ Production deployment, CI/CD, and Docker setup for C1 Forge.
 
 ```bash
 # Linux (amd64)
-curl -L https://github.com/desmondkam/selo/releases/latest/download/selo-linux-amd64 -o selo
+curl -L https://github.com/C1-run/selo/releases/latest/download/selo-linux-amd64 -o selo
 chmod +x selo
 sudo mv selo /usr/local/bin/
 
 # macOS (arm64)
-curl -L https://github.com/desmondkam/selo/releases/latest/download/selo-darwin-arm64 -o selo
+curl -L https://github.com/C1-run/selo/releases/latest/download/selo-darwin-arm64 -o selo
 chmod +x selo
 sudo mv selo /usr/local/bin/
 ```
@@ -32,7 +32,7 @@ sudo mv selo /usr/local/bin/
 ### Build from Source
 
 ```bash
-git clone https://github.com/desmondkam/selo.git
+git clone https://github.com/C1-run/selo.git
 cd selo
 CGO_ENABLED=0 go build -ldflags="-s -w" -o selo ./cmd/selo/
 sudo mv selo /usr/local/bin/

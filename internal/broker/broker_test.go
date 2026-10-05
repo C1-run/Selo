@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desmondkam/selo/internal/manifest"
+	"github.com/C1-run/selo/internal/manifest"
 )
 
 func testManifest() *manifest.RunManifest {

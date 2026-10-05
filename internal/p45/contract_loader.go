@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/desmondkam/selo/internal/containment"
+	"github.com/C1-run/selo/internal/containment"
 )
 
 type P45GoalContract struct {
