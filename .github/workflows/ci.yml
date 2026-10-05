@@ -19,6 +19,11 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Format check
+        run: |
+          out=$$(go env GOROOT)/bin/gofmt -l $$(git ls-files '*.go')
+          if [ -n "$$out" ]; then echo "unformatted files:"; echo "$$out"; exit 1; fi
+
       - name: Build
         run: go build ./...
 
