@@ -29,12 +29,6 @@ forge:
   # ntfy topic (only used if notify == "ntfy")
   ntfy_topic: ""
 
-  # Paths to scan tools (empty = skip)
-  scan_tools:
-    secret_scan: ""
-    forbidden_claims_scan: ""
-    pinocchio: ""
-
   # Forbidden claim terms (substring match against the diff; any hit fails the
   # safety scan). These are generic examples — replace them with claims specific
   # to your domain (e.g. "PROFITABLE", "MONEY_ENGINE").

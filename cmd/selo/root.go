@@ -8,9 +8,9 @@ import (
 
 // rootCmd is the top-level command.
 var rootCmd = &cobra.Command{
-	Use:   "selo",
-	Short: "Selo — the audit brain for AI coding agents",
-	Long:  `Selo is a safety-first task runner that wraps any coding agent and produces a cryptographic audit trail.`,
+	Use:          "selo",
+	Short:        "Selo — the audit brain for AI coding agents",
+	Long:         `Selo is a safety-first task runner that wraps any coding agent and produces a cryptographic audit trail.`,
 	SilenceUsage: true,
 }
 
@@ -24,6 +24,7 @@ func init() {
 		checkCmd,
 		verifyCmd,
 		receiptCmd,
+		keysCmd,
 		statusCmd,
 		initCmd,
 		smokeCmd,

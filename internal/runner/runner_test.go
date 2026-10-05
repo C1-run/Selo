@@ -300,3 +300,44 @@ func TestCheckForbiddenFileEditAllowlistGlob(t *testing.T) {
 		t.Error("expected violation for file outside glob allowlist")
 	}
 }
+
+func TestForbiddenClaimsScanDiffScopedFoldsEvasions(t *testing.T) {
+	workDir := t.TempDir()
+	content := "package main\n\n// lowercase: production_ready\n// leet: pr0ducti0n_ready\n// zero-width: pro\u200bduction_ready\n// unrelated: production finished\n"
+	if err := os.WriteFile(filepath.Join(workDir, "main.go"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hits, err := RunForbiddenClaimsScanDiffScoped(workDir, []string{"PRODUCTION_READY"}, []string{"main.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 3 {
+		t.Fatalf("hits = %d (%v), want 3 (lowercase, leet, zero-width)", len(hits), hits)
+	}
+	hits, err = RunForbiddenClaimsScanDiffScoped(workDir, []string{"PRODUCTION_READY"}, []string{"other.go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 0 {
+		t.Errorf("unchanged file produced hits: %v", hits)
+	}
+}
+
+func TestSecretScanDetectsCommonTokens(t *testing.T) {
+	workDir := t.TempDir()
+	content := "aws = AKIAIOSFODNN7EXAMPLE\n" +
+		"gh = ghp_" + strings.Repeat("a", 36) + "\n" +
+		"slack = xoxb-123456789012-abcdef\n" +
+		"google = AIza" + strings.Repeat("A", 35) + "\n" +
+		"openai = sk-" + strings.Repeat("x", 25) + "\n"
+	if err := os.WriteFile(filepath.Join(workDir, "creds.env"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hits, err := RunSecretScan(workDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) < 5 {
+		t.Fatalf("hits = %d (%v), want >= 5 common token types", len(hits), hits)
+	}
+}
