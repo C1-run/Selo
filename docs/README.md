@@ -1,6 +1,6 @@
-# C1 Forge Developer Documentation
+# Selo Developer Documentation
 
-Complete documentation for developers contributing to or extending C1 Forge.
+Complete documentation for developers contributing to or extending Selo.
 
 ## Table of Contents
 
@@ -8,7 +8,7 @@ Complete documentation for developers contributing to or extending C1 Forge.
 
 | Document | Description |
 |----------|-------------|
-| [User Guide](user-guide/README.md) | **Start here** — how to use C1 Forge in your projects |
+| [User Guide](user-guide/README.md) | **Start here** — how to use Selo in your projects |
 | [Architecture](architecture/README.md) | System design, components, data flow |
 | [API Reference](api/README.md) | Go packages, interfaces, function signatures |
 | [Configuration](configuration/README.md) | All config options, YAML reference |

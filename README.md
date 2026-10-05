@@ -10,7 +10,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/C1-run/selo.svg)](https://pkg.go.dev/github.com/C1-run/selo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/C1-run/selo)](https://goreportcard.com/report/github.com/C1-run/selo)
 
-[Changelog](CHANGELOG.md) · [What works](#what-works-in-v04) · [Why not Selo](#why-not-selo) · [selo.c1.run](https://selo.c1.run)
+[Changelog](CHANGELOG.md) · [What works](#what-works-in-v04) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
 Selo wraps any AI coding agent (OpenCode, Claude, GPT, …) in a contained worktree, audits what it
 actually changed, and produces an Ed25519-signed receipt for every outcome. Not *"the agent said
