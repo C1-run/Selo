@@ -25,6 +25,7 @@ func init() {
 		verifyCmd,
 		receiptCmd,
 		keysCmd,
+		mcpCmd,
 		statusCmd,
 		initCmd,
 		smokeCmd,

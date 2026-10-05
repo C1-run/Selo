@@ -22,6 +22,7 @@ Selo wraps any coding agent (OpenCode, Claude, GPT, etc.) and produces a tamper-
 | `selo verify` | New in v0.2. Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. |
 | `selo receipt` | New in v0.3. `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary. |
 | Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600) and prints the export line and public key; without `SELO_SIGNING_KEY` an ephemeral per-process key is used, with a warning. |
+| `selo mcp serve` | New in v0.4. Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |
 
@@ -182,7 +183,11 @@ Apache-2.0 — see [LICENSE](LICENSE) for details.
 Selo is maintained by [C1-run](https://github.com/C1-run) — reach the team at
 team@c1.run. Forks must use a different name to avoid confusion.
 
-**Commercial boundary:** the Selo core (CLI, containment, broker,
-pipeline, receipt format + verifier) is Apache-2.0 open source. Hosted
-receipt ledger, team policy distribution, SSO/RBAC, and compliance
-exports will be offered as separate services or private modules.
+**Open-core boundary:** everything in this repository is open source under
+Apache-2.0 — the CLI, containment, every safety check, the receipt format,
+the verifier, the plugins, and the MCP server. Hosted, org-scale features
+(central receipt ledger, team policy distribution, SSO/RBAC, compliance
+exports) may be offered as separate commercial services later; none of that
+is in this repository, and none of it is being built yet. The checks and the
+verifier will never be paywalled — a receipt you cannot verify independently
+is not non-repudiable.
