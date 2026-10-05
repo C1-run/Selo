@@ -5,10 +5,10 @@ import (
 )
 
 type Adapter struct {
-	Enabled     bool
-	RunsDir     string
-	RunID       string
-	lastHash    string
+	Enabled  bool
+	RunsDir  string
+	RunID    string
+	lastHash string
 }
 
 func NewAdapter(runsDir, runID string, enabled bool) *Adapter {

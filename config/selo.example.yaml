@@ -35,18 +35,21 @@ forge:
     forbidden_claims_scan: ""
     pinocchio: ""
 
-  # Forbidden claim terms (substring match)
+  # Forbidden claim terms (substring match against the diff; any hit fails the
+  # safety scan). These are generic examples — replace them with claims specific
+  # to your domain (e.g. "PROFITABLE", "MONEY_ENGINE").
   forbidden_claims:
-    - "PROFITABLE"
-    - "LIVE_READY"
-    - "MONEY_ENGINE"
-    - "CAPITAL_APPROVED"
-    - "LIVE_CAPITAL_APPROVED"
-    - "MONEY_MACHINE"
+    - "PRODUCTION_READY"
+    - "BATTLE_TESTED"
+    - "FULLY_TESTED"
+    - "ENTERPRISE_GRADE"
+    - "SOC2_COMPLIANT"
+    - "SECURE_BY_DESIGN"
 
   # Runner configuration
   runner:
-    # mode: "mock" (placeholder echo) or "real" (configured command)
+    # mode: "mock" (placeholder echo), "real" (configured command), or
+    # "opencode" (discover and run the OpenCode binary). Anything else is refused.
     mode: "mock"
 
     # Real runner command (only used when mode is "real")
@@ -62,3 +65,9 @@ forge:
     #   - "{{task_file}}"
     #   - "--workdir"
     #   - "{{worktree}}"
+
+  # Containment strategy for task execution. Only "worktree" is implemented;
+  # "docker" and "local" are refused instead of silently running with
+  # different isolation than configured.
+  containment:
+    strategy: "worktree"

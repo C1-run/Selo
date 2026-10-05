@@ -157,22 +157,28 @@ func ParseTaskConfig(taskPath string) (int, int, int, int, []string, []string, [
 		}
 
 		if inCommands && strings.HasPrefix(trimmed, "- ") {
-			cmd := strings.TrimPrefix(trimmed, "- ")
-			cmd = strings.TrimSpace(cmd)
-			cmd = strings.Trim(cmd, "\"")
-			cmd = strings.Trim(cmd, "'")
-			commands = append(commands, cmd)
+			commands = append(commands, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
 		}
 		if inAllowed && strings.HasPrefix(trimmed, "- ") {
-			allowedFiles = append(allowedFiles, strings.TrimPrefix(trimmed, "- "))
+			allowedFiles = append(allowedFiles, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
 		}
 		if inForbidden && strings.HasPrefix(trimmed, "- ") {
-			forbiddenFiles = append(forbiddenFiles, strings.TrimPrefix(trimmed, "- "))
+			forbiddenFiles = append(forbiddenFiles, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
 		}
 		if inForbiddenClaims && strings.HasPrefix(trimmed, "- ") {
-			forbiddenClaims = append(forbiddenClaims, strings.TrimPrefix(trimmed, "- "))
+			forbiddenClaims = append(forbiddenClaims, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
 		}
 	}
 
 	return maxMinutes, maxRounds, maxFiles, maxPatchLines, commands, allowedFiles, forbiddenFiles, forbiddenClaims, allowTestMods, nil
+}
+
+// unquoteTaskItem strips surrounding quotes from a task.md list value.
+// cmd_run writes list items quoted; a quoted forbidden_files entry never
+// substring-matches the paths it is audited against, and a quoted
+// allowed_files entry never prefix-matches, so the quotes must go.
+func unquoteTaskItem(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "\"")
+	return strings.Trim(s, "'")
 }

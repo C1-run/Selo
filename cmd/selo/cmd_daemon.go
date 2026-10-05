@@ -33,6 +33,9 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := loadConfig(globalCfgFile, baseDir)
+	if err := validateConfig(cfg); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
 
 	qm := queue.NewQueueManager(baseDir)
 	receiptWriter := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())

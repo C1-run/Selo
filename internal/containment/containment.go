@@ -47,11 +47,11 @@ const (
 
 // Config configures the containment.
 type Config struct {
-	Strategy  Strategy
-	WorkDir   string // base directory for worktrees or container mounts
-	Image     string // Docker image (only for StrategyDocker)
-	Writable  []string // writable paths (only for StrategyDocker)
-	Extra     []string // extra mounts (only for StrategyDocker)
+	Strategy Strategy
+	WorkDir  string   // base directory for worktrees or container mounts
+	Image    string   // Docker image (only for StrategyDocker)
+	Writable []string // writable paths (only for StrategyDocker)
+	Extra    []string // extra mounts (only for StrategyDocker)
 }
 
 // New creates a Containment based on the strategy.

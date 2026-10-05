@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/selo-dev/selo/internal/queue"
@@ -55,6 +57,9 @@ func runRunCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := loadConfig(globalCfgFile, baseDir)
+	if err := validateConfig(cfg); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
 
 	qm := queue.NewQueueManager(baseDir)
 	receiptWriter := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())
@@ -106,6 +111,28 @@ commands:
 	receiptPath := filepath.Join(qm.RunsDir(), "run-"+taskID, "receipt.json")
 	if _, err := os.Stat(receiptPath); err == nil {
 		fmt.Printf("[selo] Receipt: %s\n", receiptPath)
+	}
+
+	// Spec §2.2 exit codes: 0 success/noop, 1 failure, 2 timeout. A rejected
+	// task must fail the command so shell pipelines and CI stop on it.
+	if receiptData, err := os.ReadFile(receiptPath); err == nil {
+		var r struct {
+			Verdict      string `json:"verdict"`
+			FinalVerdict string `json:"final_verdict"`
+		}
+		if json.Unmarshal(receiptData, &r) == nil {
+			verdict := r.FinalVerdict
+			if verdict == "" {
+				verdict = r.Verdict
+			}
+			switch {
+			case verdict == "FAILED_TIMEOUT":
+				os.Exit(2)
+			case strings.HasPrefix(verdict, "FAILED"):
+				fmt.Printf("[selo] Task rejected: %s\n", verdict)
+				os.Exit(1)
+			}
+		}
 	}
 
 	return nil
