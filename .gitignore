@@ -24,3 +24,13 @@ coverage.html
 
 # macOS
 .DS_Store
+
+# Local/session junk and sensitive material — never publish
+_quarantine/
+.zcode/
+.openrun/
+.opencode/node_modules/
+*.key
+*.pem
+.env
+.selo-signing.key
