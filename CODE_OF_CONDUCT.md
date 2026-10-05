@@ -77,10 +77,10 @@ violation of this Code of Conduct:
 
 ## Reporting
 
-A dedicated conduct contact is still being set up. Until it exists, reports may
-be made privately to the maintainers through the repository (for example, via a
-private GitHub message or a private advisory addressed to the maintainers). Do
-not use a public issue to report a conduct incident.
+Report conduct incidents by email to **team@c1.run**, or privately to the
+maintainers through the repository (for example, via a private GitHub message
+addressed to the maintainers). Do not use a public issue to report a conduct
+incident.
 
 All complaints will be reviewed and investigated promptly and fairly.
 Maintainers are obligated to respect the privacy and security of the reporter of

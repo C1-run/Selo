@@ -179,8 +179,8 @@ go vet ./...
 
 Apache-2.0 — see [LICENSE](LICENSE) for details.
 
-"Selo" is a trademark of Anomaly. Forks must use a different name to
-avoid confusion.
+Selo is maintained by [C1-run](https://github.com/C1-run) — reach the team at
+team@c1.run. Forks must use a different name to avoid confusion.
 
 **Commercial boundary:** the Selo core (CLI, containment, broker,
 pipeline, receipt format + verifier) is Apache-2.0 open source. Hosted

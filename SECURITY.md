@@ -14,9 +14,8 @@ on this repository (Security tab → Report a vulnerability). That keeps the
 report private to the maintainers and gives us a place to coordinate a fix and
 a disclosure timeline with you.
 
-A dedicated security contact address is still being set up. Until it exists,
-the GitHub private advisory is the only supported channel. If you cannot use
-it, open a minimal public issue asking for a private channel and do not include
+Report vulnerabilities by email to **team@c1.run** (or via a GitHub private
+security advisory). Please do not include
 any vulnerability details in it.
 
 We will acknowledge reports as capacity allows; this is a v0.1 alpha maintained
