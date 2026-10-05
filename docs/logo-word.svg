@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 168" width="700" height="168" role="img" aria-label="Selo">
+  <g transform="translate(4,4) scale(0.3125)">
+    <path fill="#00d4ff" d="M156 64h200a20 20 0 0 1 20 20v300l-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34V84a20 20 0 0 1 20-20Z"/>
+    <rect x="176" y="150" width="160" height="30" rx="15" fill="#020204"/>
+    <rect x="176" y="212" width="118" height="30" rx="15" fill="#020204"/>
+    <circle cx="300" cy="322" r="56" fill="#ff007b"/>
+    <path d="M272 322l22 22 40-46" fill="none" stroke="#020204" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="180" y="118" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="104" font-weight="800" letter-spacing="10" fill="#0a0a14">SE<tspan fill="#00b8e6">LO</tspan></text>
+</svg>

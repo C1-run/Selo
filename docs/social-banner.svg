@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-label="Selo — every agent change, signed, audited, verifiable">
+  <rect width="1280" height="640" fill="#020204"/>
+  <g opacity="0.35">
+    <g stroke="rgba(0,212,255,0.10)" stroke-width="1">
+      <path d="M0 80h1280M0 160h1280M0 240h1280M0 320h1280M0 400h1280M0 480h1280M0 560h1280"/>
+      <path d="M80 0v640M160 0v640M240 0v640M320 0v640M400 0v640M480 0v640M560 0v640M640 0v640M720 0v640M800 0v640M880 0v640M960 0v640M1040 0v640M1120 0v640M1200 0v640"/>
+    </g>
+  </g>
+  <g transform="translate(96,168) scale(0.6)">
+    <path fill="#00d4ff" d="M156 64h200a20 20 0 0 1 20 20v300l-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34V84a20 20 0 0 1 20-20Z"/>
+    <rect x="176" y="150" width="160" height="30" rx="15" fill="#020204"/>
+    <rect x="176" y="212" width="118" height="30" rx="15" fill="#020204"/>
+    <circle cx="300" cy="322" r="56" fill="#ff007b"/>
+    <path d="M272 322l22 22 40-46" fill="none" stroke="#020204" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="420" y="270" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="110" font-weight="800" letter-spacing="10" fill="#e8e8ee" textLength="560" lengthAdjust="spacingAndGlyphs">SE<tspan fill="#00d4ff">LO</tspan></text>
+  <text x="424" y="330" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="27" fill="#8a8a99" textLength="640" lengthAdjust="spacingAndGlyphs">Every agent change. Signed, audited, verifiable.</text>
+  <rect x="424" y="368" width="300" height="46" rx="8" fill="rgba(0,212,255,0.08)" stroke="rgba(0,212,255,0.5)"/>
+  <text x="444" y="398" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="21" fill="#00d4ff">selo verify r.json</text>
+  <text x="96" y="580" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="21" fill="#8a8a99" textLength="300" lengthAdjust="spacingAndGlyphs">github.com/C1-run/Selo</text>
+  <text x="1184" y="580" text-anchor="end" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="21" fill="#8a8a99">Apache-2.0 · C1-run</text>
+</svg>
