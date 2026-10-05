@@ -50,14 +50,9 @@ type Config struct {
 		Notify               string        `yaml:"notify"`        // legacy: "stdout" | "ntfy"
 		NtfyTopic            string        `yaml:"ntfy_topic"`    // legacy: ntfy topic
 		NotifyConfig         notify.Config `yaml:"notify_config"` // new: structured config
-		ScanTools            struct {
-			SecretScan          string `yaml:"secret_scan"`
-			ForbiddenClaimsScan string `yaml:"forbidden_claims_scan"`
-			Pinocchio           string `yaml:"pinocchio"`
-		} `yaml:"scan_tools"`
-		ForbiddenClaims []string     `yaml:"forbidden_claims"`
-		Runner          RunnerConfig `yaml:"runner"`
-		OpenCode        struct {
+		ForbiddenClaims      []string      `yaml:"forbidden_claims"`
+		Runner               RunnerConfig  `yaml:"runner"`
+		OpenCode             struct {
 			Model                      string   `yaml:"model"`
 			Agent                      string   `yaml:"agent"`
 			ServeTimeout               int      `yaml:"serve_timeout"`

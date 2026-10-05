@@ -1,7 +1,8 @@
 # Selo Specification v0.1
 
-**Status**: Draft  
+**Status**: Draft (v0.1 design)  
 **Version**: 0.1.0  
+**Update (2026-10)**: v0.2 and v0.3 added `selo verify`, `selo receipt` and `selo keys` (not in this draft); receipt paths are `receipts/` and `runs/run-<taskID>/` (not `.selo/receipts/`); only the git-worktree containment is implemented. See the README "What works" table for the current capability list.  
 **Date**: 2026-09-03  
 **License**: Apache-2.0  
 

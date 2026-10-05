@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"regexp"
 	"fmt"
 	"os"
 	"os/exec"
@@ -334,7 +335,7 @@ func CaptureTestOutput(workDir string, commands []string) string {
 func RunForbiddenClaimsScan(workDir string, forbiddenTerms []string) ([]string, error) {
 	var hits []string
 	for _, term := range forbiddenTerms {
-		cmd := exec.Command("grep", "-rn", "--include=*.go", "--include=*.rs", "--include=*.md", "--include=*.yaml", "--include=*.toml", "--include=*.json", "--include=*.txt", term, workDir)
+		cmd := exec.Command("grep", "-rni", "--include=*.go", "--include=*.rs", "--include=*.md", "--include=*.yaml", "--include=*.toml", "--include=*.json", "--include=*.txt", term, workDir)
 		out, err := cmd.Output()
 		if err == nil {
 			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
@@ -353,6 +354,11 @@ func RunSecretScan(workDir string) ([]string, error) {
 	patterns := []string{
 		`-----BEGIN\s+(RSA|OPENSSH|EC|DSA|PGP)\s+PRIVATE\s+KEY-----`,
 		`(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`,
+		`\bAKIA[0-9A-Z]{16}\b`,
+		`\bgh[pousr]_[A-Za-z0-9]{36}\b`,
+		`\bxox[bpars]-[A-Za-z0-9-]{10,}\b`,
+		`\bAIza[0-9A-Za-z_-]{35}\b`,
+		`\bsk-[A-Za-z0-9]{20,}\b`,
 	}
 	var hits []string
 	for _, pattern := range patterns {
@@ -368,6 +374,34 @@ func RunSecretScan(workDir string) ([]string, error) {
 		}
 	}
 	return hits, nil
+}
+
+// maxClaimScanFileBytes caps per-file claim scanning so a huge generated file
+// cannot stall the audit.
+const maxClaimScanFileBytes = 1 << 20
+
+// claimEvasions maps letters to the characters commonly substituted for them
+// when an agent tries to slip a forbidden claim past a substring scan.
+var claimEvasions = map[rune]string{
+	'a': "aA4@", 'b': "bB8", 'e': "eE3", 'g': "gG9", 'i': "iI1l|!",
+	'l': "lL1|", 'o': "oO0", 's': "sS5$", 't': "tT7", 'z': "zZ2",
+}
+
+// compileClaimPattern builds a case-insensitive regexp for a forbidden claim
+// that also matches common evasion substitutions (pr0duct1on_ready, zero-width
+// characters between letters, and similar tricks a substring grep would miss).
+func compileClaimPattern(term string) (*regexp.Regexp, error) {
+	var b strings.Builder
+	b.WriteString("(?i)")
+	for _, r := range strings.ToLower(term) {
+		b.WriteString("[\\x{200b}\\x{200c}\\x{200d}\\x{feff}]*")
+		if class, ok := claimEvasions[r]; ok {
+			b.WriteString("[" + class + "]")
+		} else {
+			b.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	return regexp.Compile(b.String())
 }
 
 // GetChangedFiles extracts repo-relative changed file paths (b/ side)
@@ -398,17 +432,28 @@ func RunForbiddenClaimsScanDiffScoped(workDir string, forbiddenTerms, changedFil
 	if len(changedFiles) == 0 {
 		return RunForbiddenClaimsScan(workDir, forbiddenTerms)
 	}
-	var hits []string
+	patterns := make([]*regexp.Regexp, 0, len(forbiddenTerms))
 	for _, term := range forbiddenTerms {
-		args := append([]string{"-rn", term}, changedFiles...)
-		cmd := exec.Command("grep", args...)
-		cmd.Dir = workDir
-		out, err := cmd.Output()
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			for _, line := range lines {
-				if line != "" {
-					hits = append(hits, fmt.Sprintf("%s: %s", term, line))
+		re, err := compileClaimPattern(term)
+		if err != nil {
+			return nil, fmt.Errorf("compile claim pattern for %q: %w", term, err)
+		}
+		patterns = append(patterns, re)
+	}
+	var hits []string
+	for _, rel := range changedFiles {
+		path := filepath.Join(workDir, rel)
+		if info, err := os.Stat(path); err != nil || info.Size() > maxClaimScanFileBytes {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			for j, term := range forbiddenTerms {
+				if patterns[j].MatchString(line) {
+					hits = append(hits, fmt.Sprintf("%s: %s:%d: %s", term, rel, i+1, strings.TrimSpace(line)))
 				}
 			}
 		}

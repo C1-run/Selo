@@ -17,11 +17,11 @@ Selo wraps any coding agent (OpenCode, Claude, GPT, etc.) and produces a tamper-
 
 | Capability | Status in v0.2 |
 |---|---|
-| Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task and produce a signed receipt. |
+| Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task and produce a signed receipt. Claims matching is case-insensitive and folds common evasion (leetspeak, zero-width characters). |
 | `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
 | `selo verify` | New in v0.2. Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. |
 | `selo receipt` | New in v0.3. `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary. |
-| Signed receipts | Ed25519 over canonical receipt JSON. Set `SELO_SIGNING_KEY` (base64 seed) for signatures that stay verifiable across runs; otherwise an ephemeral key is generated per process, with a warning. |
+| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600) and prints the export line and public key; without `SELO_SIGNING_KEY` an ephemeral per-process key is used, with a warning. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |
 
@@ -33,6 +33,9 @@ go build -o selo ./cmd/selo/
 
 # Initialize workspace
 ./selo init
+
+# One-time: make receipt signatures attributable across runs
+./selo keys generate
 
 # Run a single task
 ./selo run "fix the login bug"
