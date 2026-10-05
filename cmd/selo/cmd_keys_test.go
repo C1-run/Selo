@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selo-dev/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/receipt"
 )
 
 func TestKeysGenerateAndPub(t *testing.T) {

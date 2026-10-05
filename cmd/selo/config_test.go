@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/selo-dev/selo/internal/receipt"
-	"github.com/selo-dev/selo/internal/soak"
+	"github.com/C1-run/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/soak"
 )
 
 // writeConfig writes a config file under <dir>/config/selo.yaml and returns dir.

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selo-dev/selo/internal/queue"
-	"github.com/selo-dev/selo/internal/receipt"
-	"github.com/selo-dev/selo/internal/soak"
-	"github.com/selo-dev/selo/internal/workspace"
+	"github.com/C1-run/selo/internal/queue"
+	"github.com/C1-run/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/soak"
+	"github.com/C1-run/selo/internal/workspace"
 )
 
 // openCodeFixtureRepo describes a disposable fixture repo for the OpenCode soak.

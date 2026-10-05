@@ -16,7 +16,7 @@ Guide for developers contributing to Selo.
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/selo-dev/selo.git
+git clone https://github.com/C1-run/selo.git
 cd selo
 ```
 

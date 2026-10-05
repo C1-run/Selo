@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/selo-dev/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/receipt"
 )
 
 func newVerifyTestReceipt() receipt.ForgeReceipt {
