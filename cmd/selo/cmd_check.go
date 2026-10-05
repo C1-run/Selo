@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/selo-dev/selo/internal/gatechain"
+	"github.com/desmondkam/openselo/internal/gatechain"
 	"github.com/spf13/cobra"
 )
 

@@ -41,13 +41,13 @@ c1forge_task_status taskId="run-123"
 
 ```bash
 # Option A: Build from source
-git clone https://github.com/selo-dev/selo.git
+git clone https://github.com/desmondkam/openselo.git
 cd selo
 go build -o selo ./cmd/selo/
 sudo mv selo /usr/local/bin/
 
 # Option B: Download binary
-curl -L https://github.com/selo-dev/selo/releases/latest/download/selo-linux-amd64 -o selo
+curl -L https://github.com/desmondkam/openselo/releases/latest/download/selo-linux-amd64 -o selo
 chmod +x selo
 sudo mv selo /usr/local/bin/
 ```
@@ -129,7 +129,7 @@ export ANTHROPIC_API_KEY=your-key-here
 
 ```bash
 # Clone C1 Forge
-git clone https://github.com/selo-dev/selo.git
+git clone https://github.com/desmondkam/openselo.git
 cd /path/to/your/project
 
 # Create .opencode directory

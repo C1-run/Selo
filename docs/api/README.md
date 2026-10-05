@@ -641,7 +641,7 @@ package main
 import (
     "context"
     "fmt"
-    "github.com/selo-dev/selo/internal/opencode"
+    "github.com/desmondkam/openselo/internal/opencode"
 )
 
 func main() {
@@ -665,7 +665,7 @@ package main
 
 import (
     "fmt"
-    "github.com/selo-dev/selo/internal/containment"
+    "github.com/desmondkam/openselo/internal/containment"
 )
 
 func main() {
@@ -702,7 +702,7 @@ package main
 
 import (
     "context"
-    "github.com/selo-dev/selo/internal/pipeline"
+    "github.com/desmondkam/openselo/internal/pipeline"
 )
 
 func main() {

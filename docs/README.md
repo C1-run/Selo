@@ -52,7 +52,7 @@ Complete documentation for developers contributing to or extending C1 Forge.
 
 ```bash
 # Clone the repository
-git clone https://github.com/selo-dev/selo.git
+git clone https://github.com/desmondkam/openselo.git
 cd selo
 
 # Build

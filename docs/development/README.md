@@ -16,7 +16,7 @@ Guide for developers contributing to C1 Forge.
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/selo-dev/selo.git
+git clone https://github.com/desmondkam/openselo.git
 cd selo
 ```
 

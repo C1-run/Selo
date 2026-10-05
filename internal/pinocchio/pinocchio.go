@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/selo-dev/selo/internal/receipt"
-	"github.com/selo-dev/selo/internal/runner"
+	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/openselo/internal/runner"
 )
 
 // PinocchioResult captures the deterministic consistency verification outcome.

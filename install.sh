@@ -1,9 +1,9 @@
 #!/bin/bash
 # Selo installer — downloads the latest binary from GitHub releases.
-# Usage: curl -fsSL https://raw.githubusercontent.com/selo-dev/selo/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/desmondkam/openselo/main/install.sh | bash
 set -euo pipefail
 
-REPO="selo-dev/selo"
+REPO="desmondkam/openselo"
 BINARY="selo"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 

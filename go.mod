@@ -1,4 +1,4 @@
-module github.com/selo-dev/selo
+module github.com/desmondkam/openselo
 
 go 1.21
 

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/selo-dev/selo/internal/queue"
+	"github.com/desmondkam/openselo/internal/queue"
 	"github.com/spf13/cobra"
 )
 

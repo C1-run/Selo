@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/selo-dev/selo/internal/receipt"
+	"github.com/desmondkam/openselo/internal/receipt"
 )
 
 func baseReceipt() *receipt.ForgeReceipt {

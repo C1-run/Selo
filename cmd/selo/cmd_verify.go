@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/selo-dev/selo/internal/receipt"
+	"github.com/desmondkam/openselo/internal/receipt"
 	"github.com/spf13/cobra"
 )
 

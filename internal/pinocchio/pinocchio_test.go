@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/selo-dev/selo/internal/receipt"
-	"github.com/selo-dev/selo/internal/runner"
+	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/openselo/internal/runner"
 )
 
 func TestPinocchioSuccessPasses(t *testing.T) {

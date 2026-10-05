@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/selo-dev/selo/internal/p45"
-	"github.com/selo-dev/selo/internal/queue"
-	"github.com/selo-dev/selo/internal/receipt"
-	"github.com/selo-dev/selo/internal/runner"
-	"github.com/selo-dev/selo/internal/soak"
-	"github.com/selo-dev/selo/internal/workspace"
+	"github.com/desmondkam/openselo/internal/p45"
+	"github.com/desmondkam/openselo/internal/queue"
+	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/openselo/internal/runner"
+	"github.com/desmondkam/openselo/internal/soak"
+	"github.com/desmondkam/openselo/internal/workspace"
 )
 
 // FixtureRepoPath is the disposable fixture repo used for real-run tests.
