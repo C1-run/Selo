@@ -3,7 +3,7 @@ package gatechain
 import (
 	"fmt"
 
-	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/selo/internal/receipt"
 )
 
 // AdaptReceipt converts a completed ForgeReceipt into GateChain steps.

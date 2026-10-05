@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/desmondkam/openselo/internal/gatechain"
+	"github.com/desmondkam/selo/internal/gatechain"
 )
 
 func TestLedgerChain(t *testing.T) {

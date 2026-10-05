@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desmondkam/openselo/internal/containment"
+	"github.com/desmondkam/selo/internal/containment"
 )
 
 func writeFixture(t *testing.T, dir, name string, v interface{}) {

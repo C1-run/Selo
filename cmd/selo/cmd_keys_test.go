@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/selo/internal/receipt"
 )
 
 func TestKeysGenerateAndPub(t *testing.T) {

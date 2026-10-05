@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/desmondkam/openselo/internal/queue"
-	"github.com/desmondkam/openselo/internal/receipt"
-	"github.com/desmondkam/openselo/internal/workspace"
+	"github.com/desmondkam/selo/internal/queue"
+	"github.com/desmondkam/selo/internal/receipt"
+	"github.com/desmondkam/selo/internal/workspace"
 	"github.com/spf13/cobra"
 )
 

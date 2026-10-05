@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/desmondkam/openselo/internal/governor"
-	"github.com/desmondkam/openselo/internal/testintegrity"
+	"github.com/desmondkam/selo/internal/governor"
+	"github.com/desmondkam/selo/internal/testintegrity"
 )
 
 func TestRunAllEmptyChecks(t *testing.T) {

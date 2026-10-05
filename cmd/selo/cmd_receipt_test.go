@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/desmondkam/openselo/internal/receipt"
+	"github.com/desmondkam/selo/internal/receipt"
 )
 
 // captureStdout runs fn with os.Stdout redirected into a pipe and returns what

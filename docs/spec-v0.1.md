@@ -54,7 +54,7 @@ Selo is a safety-first task runner for AI coding agents. It wraps any coding age
 ### 2.1 Binary
 
 - **Name**: `selo`
-- **Module**: `github.com/desmondkam/openselo`
+- **Module**: `github.com/desmondkam/selo`
 - **Go Version**: 1.21+
 
 ### 2.2 Commands
