@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an capability — ideally one that keeps a claim checkable.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do today? What claim about your agent's work can't you currently verify?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Selo do, concretely?
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This fits Selo's post-execution audit model (not inline interception)
+        - label: I checked the README "What works" table and it is not already there

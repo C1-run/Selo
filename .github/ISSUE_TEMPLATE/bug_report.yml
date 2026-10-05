@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in Selo did not do what the README says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Selo's promise: every claim matches the code. If a documented behavior
+        doesn't hold, that's a bug — please include the receipt if one was produced.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you run, what did you expect, what did you get?
+    validations:
+      required: true
+  - type: textarea
+    id: receipt
+    attributes:
+      label: Receipt (if any)
+      description: Paste the relevant part of `selo receipt show <id> --format text`, or the JSON.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Selo version
+      description: Output of `selo --help` header, or the release tag you installed.
+    validations:
+      required: true
+  - type: dropdown
+    id: runner
+    attributes:
+      label: Runner mode
+      options:
+        - mock
+        - real
+        - opencode
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config (redact secrets)
+      render: yaml
