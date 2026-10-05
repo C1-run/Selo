@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -469,20 +470,44 @@ func CheckForbiddenFileEdit(diff, workDir string, allowedFiles, forbiddenFiles [
 		}
 
 		// Check if file is in the allowed list (if allowed list is non-empty)
-		if len(allowedFiles) > 0 {
-			allowed := false
-			for _, allowedPath := range allowedFiles {
-				if strings.HasPrefix(filePath, allowedPath) {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				return true, fmt.Sprintf("file outside allowed scope: %s", filePath)
-			}
+		if len(allowedFiles) > 0 && !pathInAllowlist(filePath, allowedFiles) {
+			return true, fmt.Sprintf("file outside allowed scope: %s", filePath)
 		}
 	}
 	return false, ""
+}
+
+// pathInAllowlist reports whether relPath (repo-relative, slash-separated)
+// matches any allowlist pattern. A pattern matches by exact path, glob
+// (filepath.Match), or as a directory prefix: "src/", "src", "src/*" and
+// "src/**" all allow everything under src/.
+func pathInAllowlist(relPath string, patterns []string) bool {
+	relPath = filepath.ToSlash(relPath)
+	for _, pattern := range patterns {
+		pattern = strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(pattern)), "./")
+		if pattern == "" {
+			continue
+		}
+		if relPath == pattern {
+			return true
+		}
+		if strings.HasSuffix(pattern, "/**") {
+			if strings.HasPrefix(relPath, strings.TrimSuffix(pattern, "**")) {
+				return true
+			}
+			continue
+		}
+		if matched, err := filepath.Match(pattern, relPath); err == nil && matched {
+			return true
+		}
+		if !strings.ContainsAny(pattern, "*?[") || strings.HasSuffix(pattern, "/") || strings.HasSuffix(pattern, "/*") {
+			dir := strings.TrimSuffix(strings.TrimSuffix(pattern, "*"), "/")
+			if strings.HasPrefix(relPath, dir+"/") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // C1BinaryInfo holds the result of binary discovery.

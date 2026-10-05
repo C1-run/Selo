@@ -34,7 +34,7 @@ func (wm *WorktreeManager) CreateWorktree(repoPath, taskID string) (string, erro
 		os.RemoveAll(wtPath)
 	}
 
-	branchName := fmt.Sprintf("c1-forge/%s", taskID)
+	branchName := fmt.Sprintf("selo/%s", taskID)
 
 	// Remove existing branch if present
 	exec.Command("git", "branch", "-D", branchName, "2>/dev/null").Run()
@@ -69,7 +69,7 @@ func (wm *WorktreeManager) RemoveWorktree(repoPath, taskID string) error {
 	return nil
 }
 
-// CleanupAll removes all c1-forge worktrees.
+// CleanupAll removes all selo worktrees.
 func (wm *WorktreeManager) CleanupAll(repoPath string) error {
 	cmd := exec.Command("git", "worktree", "prune")
 	cmd.Dir = repoPath

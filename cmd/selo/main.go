@@ -7,15 +7,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/selo-dev/selo/internal/auditlog"
-	"github.com/selo-dev/selo/internal/governor"
-	"github.com/selo-dev/selo/internal/soak"
-	"github.com/selo-dev/selo/internal/supply"
 	"github.com/selo-dev/selo/internal/containment"
 	"github.com/selo-dev/selo/internal/gatechain"
+	"github.com/selo-dev/selo/internal/governor"
 	"github.com/selo-dev/selo/internal/notify"
 	"github.com/selo-dev/selo/internal/opencode"
 	"github.com/selo-dev/selo/internal/p45"
@@ -23,6 +24,8 @@ import (
 	"github.com/selo-dev/selo/internal/queue"
 	"github.com/selo-dev/selo/internal/receipt"
 	"github.com/selo-dev/selo/internal/runner"
+	"github.com/selo-dev/selo/internal/soak"
+	"github.com/selo-dev/selo/internal/supply"
 	"github.com/selo-dev/selo/internal/testintegrity"
 	"github.com/selo-dev/selo/internal/workspace"
 )
@@ -37,29 +40,29 @@ type RunnerConfig struct {
 // Config holds the daemon configuration.
 type Config struct {
 	Forge struct {
-		PollIntervalSec     int           `yaml:"poll_interval_sec"`
-		DefaultMaxMinutes   int           `yaml:"default_max_minutes"`
-		DefaultMaxRounds    int           `yaml:"default_max_rounds"`
-		DefaultMaxFiles     int           `yaml:"default_max_files"`
-		DefaultMaxPatchLines int          `yaml:"default_max_patch_lines"`
-		StopFile            string        `yaml:"stop_file"`
-		LockFile            string        `yaml:"lock_file"`
-		Notify              string        `yaml:"notify"`         // legacy: "stdout" | "ntfy"
-		NtfyTopic           string        `yaml:"ntfy_topic"`     // legacy: ntfy topic
-		NotifyConfig        notify.Config `yaml:"notify_config"`  // new: structured config
-		ScanTools           struct {
-			SecretScan       string `yaml:"secret_scan"`
+		PollIntervalSec      int           `yaml:"poll_interval_sec"`
+		DefaultMaxMinutes    int           `yaml:"default_max_minutes"`
+		DefaultMaxRounds     int           `yaml:"default_max_rounds"`
+		DefaultMaxFiles      int           `yaml:"default_max_files"`
+		DefaultMaxPatchLines int           `yaml:"default_max_patch_lines"`
+		StopFile             string        `yaml:"stop_file"`
+		LockFile             string        `yaml:"lock_file"`
+		Notify               string        `yaml:"notify"`        // legacy: "stdout" | "ntfy"
+		NtfyTopic            string        `yaml:"ntfy_topic"`    // legacy: ntfy topic
+		NotifyConfig         notify.Config `yaml:"notify_config"` // new: structured config
+		ScanTools            struct {
+			SecretScan          string `yaml:"secret_scan"`
 			ForbiddenClaimsScan string `yaml:"forbidden_claims_scan"`
-			Pinocchio        string `yaml:"pinocchio"`
+			Pinocchio           string `yaml:"pinocchio"`
 		} `yaml:"scan_tools"`
 		ForbiddenClaims []string     `yaml:"forbidden_claims"`
-		Runner         RunnerConfig `yaml:"runner"`
-		OpenCode       struct {
-			Model                   string   `yaml:"model"`
-			Agent                   string   `yaml:"agent"`
-			ServeTimeout            int      `yaml:"serve_timeout"`
-			DangerouslySkipPermissions bool  `yaml:"dangerously_skip_permissions"`
-			PermissionAllowlist     []string `yaml:"permission_allowlist"`
+		Runner          RunnerConfig `yaml:"runner"`
+		OpenCode        struct {
+			Model                      string   `yaml:"model"`
+			Agent                      string   `yaml:"agent"`
+			ServeTimeout               int      `yaml:"serve_timeout"`
+			DangerouslySkipPermissions bool     `yaml:"dangerously_skip_permissions"`
+			PermissionAllowlist        []string `yaml:"permission_allowlist"`
 		} `yaml:"opencode"`
 		Containment struct {
 			Strategy string `yaml:"strategy"` // worktree | docker | local
@@ -155,6 +158,17 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 	} else if cfg.Forge.Runner.Mode == "real" && cfg.Forge.Runner.Command == "" {
 		// Try env var and PATH without explicit config command
 		binInfo = runner.DiscoverC1BinaryWithKind("", false)
+		if binInfo.Path != "" {
+			runnerMode = runner.ModeReal
+			runnerCfg = runner.RunnerConfig{
+				Command: binInfo.Path,
+				Args:    []string{"loop", "--task-file", "{{task_file}}", "--workdir", "{{worktree}}"},
+			}
+		}
+	} else if cfg.Forge.Runner.Mode == "opencode" {
+		// mode: opencode — discover the OpenCode binary; the native adapter
+		// below takes over when the discovered kind is OpenCode.
+		binInfo = runner.DiscoverOpenCodeBinary()
 		if binInfo.Path != "" {
 			runnerMode = runner.ModeReal
 			runnerCfg = runner.RunnerConfig{
@@ -287,16 +301,16 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 	ocInfoPath := filepath.Join(worktreePath, "opencode-run-info.json")
 	if data, err := os.ReadFile(ocInfoPath); err == nil {
 		var oi struct {
-			BinaryPath      string `json:"binary_path"`
-			ExitCode        int    `json:"exit_code"`
-			Model           string `json:"model"`
-			Agent           string `json:"agent"`
-			ServerPID       int    `json:"server_pid"`
-			ServerStarted   string `json:"server_started"`
-			ServerKilled    string `json:"server_killed"`
+			BinaryPath       string `json:"binary_path"`
+			ExitCode         int    `json:"exit_code"`
+			Model            string `json:"model"`
+			Agent            string `json:"agent"`
+			ServerPID        int    `json:"server_pid"`
+			ServerStarted    string `json:"server_started"`
+			ServerKilled     string `json:"server_killed"`
 			ServerExitStatus *int   `json:"server_exit_status"`
-			RunExitStatus   *int   `json:"run_exit_status"`
-			TimeoutHit      bool   `json:"timeout_hit"`
+			RunExitStatus    *int   `json:"run_exit_status"`
+			TimeoutHit       bool   `json:"timeout_hit"`
 		}
 		if json.Unmarshal(data, &oi) == nil {
 			opencodeModel = oi.Model
@@ -395,8 +409,10 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		safetyHits = append(safetyHits, supplyRes.Hits...)
 	}
 
-	// 11a. Forbidden file edit check
-	violation, msg := runner.CheckForbiddenFileEdit(diff, worktreePath, allowedFiles, forbiddenFiles)
+	// 11a. Forbidden file edit check. opencode.permission_allowlist is enforced
+	// here as a post-run scope check for every runner mode, not inline interception.
+	scopeFiles := append(append([]string(nil), allowedFiles...), cfg.Forge.OpenCode.PermissionAllowlist...)
+	violation, msg := runner.CheckForbiddenFileEdit(diff, worktreePath, scopeFiles, forbiddenFiles)
 	if violation {
 		safetyHits = append(safetyHits, msg)
 	}
@@ -526,42 +542,42 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 
 	// 13. Write receipt with all new fields
 	forgeReceipt := &receipt.ForgeReceipt{
-		ReceiptID:              receipt.GenerateReceiptID(),
-		TaskID:                 taskID,
-		Verdict:                finalVerdict,
-		StartedAt:              startTime,
-		FinishedAt:             finishTime,
-		DurationSec:            int64(finishTime.Sub(startTime).Seconds()),
-		RoundsUsed:             1,
-		ExitCode:               result.ExitCode,
-		TimedOut:               result.TimedOut,
-		RunnerMode:             string(runnerMode),
-		RunnerCommand:          result.CommandLog,
-		RunnerExitCode:         result.ExitCode,
-		RunnerBinaryKind:       string(binInfo.Kind),
-		RunnerBinaryPath:       binInfo.Path,
-		RunnerBinaryVersion:    binInfo.Version,
-		RunnerBinaryVerified:   binInfo.Verified,
-		C1RuntimeRequested:     c1RuntimeRequested,
-		C1RuntimeUsed:          c1RuntimeUsed,
-		C1RuntimeIsMock:        c1RuntimeIsMock,
-		OpenCodeModel:          opencodeModel,
-		OpenCodeAgent:          opencodeAgent,
-		WorktreePath:           worktreePath,
-		BaseCommit:             baseCommit,
-		TestsPassed:            testsPassed,
-		ScansPassed:            scansPassed,
-		C1LoopReceiptPath:      c1LoopReceiptPath,
-		PinocchioVerified:      pinoResult.Verified,
-		PinocchioResultPath:    pinoPath,
-		InitialVerdict:         initialVerdict,
-		FinalVerdict:           finalVerdict,
-		VerdictOverridden:      verdictOverridden,
-		OverrideReason:         overrideReason,
-		PinocchioFalseClaims:      pinoResult.FalseClaims,
-		PinocchioInconsistencies:  pinoResult.Inconsistencies,
-		TestIntegrityPassed:       tiResult.Passed,
-		TestIntegrityResultPath:   tiResultPath,
+		ReceiptID:                receipt.GenerateReceiptID(),
+		TaskID:                   taskID,
+		Verdict:                  finalVerdict,
+		StartedAt:                startTime,
+		FinishedAt:               finishTime,
+		DurationSec:              int64(finishTime.Sub(startTime).Seconds()),
+		RoundsUsed:               1,
+		ExitCode:                 result.ExitCode,
+		TimedOut:                 result.TimedOut,
+		RunnerMode:               string(runnerMode),
+		RunnerCommand:            result.CommandLog,
+		RunnerExitCode:           result.ExitCode,
+		RunnerBinaryKind:         string(binInfo.Kind),
+		RunnerBinaryPath:         binInfo.Path,
+		RunnerBinaryVersion:      binInfo.Version,
+		RunnerBinaryVerified:     binInfo.Verified,
+		C1RuntimeRequested:       c1RuntimeRequested,
+		C1RuntimeUsed:            c1RuntimeUsed,
+		C1RuntimeIsMock:          c1RuntimeIsMock,
+		OpenCodeModel:            opencodeModel,
+		OpenCodeAgent:            opencodeAgent,
+		WorktreePath:             worktreePath,
+		BaseCommit:               baseCommit,
+		TestsPassed:              testsPassed,
+		ScansPassed:              scansPassed,
+		C1LoopReceiptPath:        c1LoopReceiptPath,
+		PinocchioVerified:        pinoResult.Verified,
+		PinocchioResultPath:      pinoPath,
+		InitialVerdict:           initialVerdict,
+		FinalVerdict:             finalVerdict,
+		VerdictOverridden:        verdictOverridden,
+		OverrideReason:           overrideReason,
+		PinocchioFalseClaims:     pinoResult.FalseClaims,
+		PinocchioInconsistencies: pinoResult.Inconsistencies,
+		TestIntegrityPassed:      tiResult.Passed,
+		TestIntegrityResultPath:  tiResultPath,
 		TestsRemoved:             tiResult.TestsRemoved,
 		TestsModified:            tiResult.TestsModified,
 		TestCommandsChanged:      tiResult.TestCommandsChanged,
@@ -569,9 +585,9 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		TestInventoryAfterCount:  tiResult.InventoryAfterCount,
 		OpenCodeRunInfoPath:      opencodeRunInfoPath,
 		OpenCodeTimedOut:         opencodeTimedOut,
-		SupplyComponents:  supplyComponents,
-		SupplyHits:        supplyRes.Hits,
-		SupplyCheckedAt:   func() *time.Time { t := supplyRes.CheckedAt; return &t }(),
+		SupplyComponents:         supplyComponents,
+		SupplyHits:               supplyRes.Hits,
+		SupplyCheckedAt:          func() *time.Time { t := supplyRes.CheckedAt; return &t }(),
 	}
 
 	// Set notification mode on receipt
@@ -627,26 +643,26 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 	if os.Getenv("SELO_DISABLE_ANCHOR") != "1" {
 		receiptPathFinal := filepath.Join(qm.RunsDir(), fmt.Sprintf("run-%s", taskID), "receipt.json")
 		if anchorRes, err := receipt.AnchorReceipt(receiptPathFinal, qm.BaseDir); err == nil {
-		forgeReceipt.AnchorCommit = anchorRes.GitCommit
-		forgeReceipt.AnchorBranch = anchorRes.GitBranch
-		t := anchorRes.AnchoredAt
-		forgeReceipt.AnchoredAt = &t
-		// Update receipt with anchor info (anchor excluded from canonical, no re-sign)
-		if data, err := json.MarshalIndent(forgeReceipt, "", "  "); err == nil {
-			os.WriteFile(receiptPathFinal, data, 0644)
-			receiptsDir := filepath.Join(filepath.Dir(qm.RunsDir()), "receipts")
-			if entries, err := os.ReadDir(receiptsDir); err == nil {
-				for _, e := range entries {
-					if strings.HasPrefix(e.Name(), forgeReceipt.ReceiptID) && strings.HasSuffix(e.Name(), ".json") {
-						os.WriteFile(filepath.Join(receiptsDir, e.Name()), data, 0644)
-						break
+			forgeReceipt.AnchorCommit = anchorRes.GitCommit
+			forgeReceipt.AnchorBranch = anchorRes.GitBranch
+			t := anchorRes.AnchoredAt
+			forgeReceipt.AnchoredAt = &t
+			// Update receipt with anchor info (anchor excluded from canonical, no re-sign)
+			if data, err := json.MarshalIndent(forgeReceipt, "", "  "); err == nil {
+				os.WriteFile(receiptPathFinal, data, 0644)
+				receiptsDir := filepath.Join(filepath.Dir(qm.RunsDir()), "receipts")
+				if entries, err := os.ReadDir(receiptsDir); err == nil {
+					for _, e := range entries {
+						if strings.HasPrefix(e.Name(), forgeReceipt.ReceiptID) && strings.HasSuffix(e.Name(), ".json") {
+							os.WriteFile(filepath.Join(receiptsDir, e.Name()), data, 0644)
+							break
+						}
 					}
 				}
 			}
+		} else {
+			fmt.Fprintf(os.Stderr, "[selo] anchor failed (non-fatal): %v\n", err)
 		}
-	} else {
-		fmt.Fprintf(os.Stderr, "[selo] anchor failed (non-fatal): %v\n", err)
-	}
 	}
 
 	return true
@@ -750,7 +766,7 @@ func runOpenCodeSoak(cfg soak.SoakConfig, ocBin, ocModel string) {
 		taskCfg.Forge.Runner.Mode = "real"
 		taskCfg.Forge.Runner.Command = filepath.Join(os.Getenv("HOME"), "C1-forge", "scripts", "opencode-adapter.sh")
 		taskCfg.Forge.Runner.Args = []string{"--task-file", "{{task_file}}", "--workdir", "{{worktree}}", "--max-minutes", "{{max_minutes}}"}
-		taskCfg.Forge.ForbiddenClaims = []string{"PROFITABLE", "LIVE_READY"}
+		taskCfg.Forge.ForbiddenClaims = append([]string(nil), defaultForbiddenClaims...)
 		taskCfg.Forge.Notify = "stdout"
 
 		processedResult := processOneTask(qm, rw, wtm, taskCfg)
@@ -1115,6 +1131,92 @@ func findBaseDir(configPath string) (string, error) {
 	return ".", nil
 }
 
+// validRunnerModes are the runner.mode values Selo implements. Anything else
+// would silently run the mock runner.
+var validRunnerModes = []string{"mock", "real", "opencode"}
+
+// defaultForbiddenClaims ships as generic overclaims. The retired
+// capital-markets tokens (PROFITABLE, MONEY_ENGINE, ...) must not come back as
+// defaults; they survive only as user-configured examples.
+var defaultForbiddenClaims = []string{
+	"PRODUCTION_READY", "BATTLE_TESTED", "FULLY_TESTED",
+	"ENTERPRISE_GRADE", "SOC2_COMPLIANT", "SECURE_BY_DESIGN",
+}
+
+// validateConfig refuses config values Selo cannot honor: an unimplemented
+// containment strategy would silently run in a weaker worktree, and an
+// unrecognized runner.mode would silently run the mock runner.
+func validateConfig(cfg *Config) error {
+	switch cfg.Forge.Containment.Strategy {
+	case "", "worktree":
+	default:
+		return fmt.Errorf("containment.strategy %q is not implemented (only \"worktree\"); refusing to run with weaker isolation than configured", cfg.Forge.Containment.Strategy)
+	}
+	switch cfg.Forge.Runner.Mode {
+	case "", "mock", "real", "opencode":
+	default:
+		return fmt.Errorf("runner.mode %q is not recognized; valid modes are %v", cfg.Forge.Runner.Mode, validRunnerModes)
+	}
+	return nil
+}
+
+// unknownConfigKeys returns the dotted key paths present in the YAML data that
+// the Config struct does not define, so a typo'd key cannot silently do nothing.
+func unknownConfigKeys(data []byte, cfg *Config) []string {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil || len(root.Content) == 0 {
+		return nil
+	}
+	known := map[string]bool{}
+	collectKnownKeys(reflect.ValueOf(cfg), "", known)
+	var unknown []string
+	var walk func(node *yaml.Node, prefix string)
+	walk = func(node *yaml.Node, prefix string) {
+		if node.Kind != yaml.MappingNode {
+			return
+		}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			path := node.Content[i].Value
+			if prefix != "" {
+				path = prefix + "." + path
+			}
+			if !known[path] {
+				unknown = append(unknown, path)
+				continue
+			}
+			walk(node.Content[i+1], path)
+		}
+	}
+	walk(root.Content[0], "")
+	return unknown
+}
+
+// collectKnownKeys records every yaml-tagged key path the struct defines.
+func collectKnownKeys(v reflect.Value, prefix string, known map[string]bool) {
+	for v.Kind() == reflect.Ptr || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return
+	}
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		name := strings.Split(t.Field(i).Tag.Get("yaml"), ",")[0]
+		if name == "" || name == "-" {
+			continue
+		}
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		known[path] = true
+		collectKnownKeys(v.Field(i), path, known)
+	}
+}
+
 func loadConfig(configPath string, baseDir string) *Config {
 	cfg := &Config{}
 	cfg.Forge.PollIntervalSec = 5
@@ -1127,124 +1229,16 @@ func loadConfig(configPath string, baseDir string) *Config {
 	cfg.Forge.Notify = "stdout"
 	cfg.Forge.NotifyConfig.Mode = "stdout"
 	cfg.Forge.NotifyConfig.TimeoutSeconds = 5
-	cfg.Forge.ForbiddenClaims = []string{
-		"PROFITABLE", "LIVE_READY", "MONEY_ENGINE",
-		"CAPITAL_APPROVED", "LIVE_CAPITAL_APPROVED", "MONEY_MACHINE",
-	}
-
-	// Try to read YAML config (simple implementation without yaml dependency)
-	stripQ := func(s string) string {
-		s = strings.TrimSpace(s)
-		s = strings.Trim(s, "\"")
-		s = strings.Trim(s, "'")
-		return s
-	}
+	cfg.Forge.ForbiddenClaims = append([]string(nil), defaultForbiddenClaims...)
 
 	fullPath := filepath.Join(baseDir, configPath)
 	if data, err := os.ReadFile(fullPath); err == nil {
-		content := string(data)
-		lines := strings.Split(content, "\n")
-
-		// Extract runner/containment sections
-		inRunner := false
-		inContainment := false
-		inArgs := false
-		inNotifyConfig := false
-		for _, line := range lines {
-			trimmed := strings.TrimSpace(line)
-
-			// Detect notify_config section boundaries
-			if trimmed == "notify_config:" {
-				inNotifyConfig = true
-				continue
-			}
-			if inNotifyConfig && trimmed != "" && !strings.HasPrefix(trimmed, "notify_config") &&
-				!strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && strings.Contains(trimmed, ":") {
-				inNotifyConfig = false
-			}
-
-			if strings.TrimSpace(line) == "containment:" {
-				inContainment = true
-				continue
-			}
-			if inContainment {
-				if strings.HasPrefix(trimmed, "strategy:") {
-					cfg.Forge.Containment.Strategy = stripQ(strings.TrimPrefix(trimmed, "strategy:"))
-				}
-				if strings.HasPrefix(trimmed, "image:") {
-					cfg.Forge.Containment.Image = stripQ(strings.TrimPrefix(trimmed, "image:"))
-				}
-				if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && strings.Contains(trimmed, ":") && !strings.HasPrefix(trimmed, "#") && trimmed != "containment:" {
-					inContainment = false
-				} else if strings.TrimSpace(line) == "runner:" || strings.TrimSpace(line) == "notify_config:" || strings.HasPrefix(trimmed, "poll_interval") {
-					inContainment = false
-				}
-				if inContainment {
-					continue
-				}
-			}
-
-			if strings.TrimSpace(line) == "runner:" {
-				inRunner = true
-				inArgs = false
-				continue
-			}
-
-			if inRunner {
-				// Detect args section
-				if strings.Contains(trimmed, "args:") {
-					inArgs = true
-					continue
-				}
-				// Detect end of args list
-				if inArgs && trimmed != "" && !strings.HasPrefix(trimmed, "- ") && !strings.HasPrefix(trimmed, "#") {
-					inArgs = false
-				}
-				// Collect args
-				if inArgs && strings.HasPrefix(trimmed, "- ") {
-					arg := stripQ(strings.TrimPrefix(trimmed, "- "))
-					cfg.Forge.Runner.Args = append(cfg.Forge.Runner.Args, arg)
-					continue
-				}
-				// Parse runner key-value pairs
-				if strings.HasPrefix(trimmed, "mode:") {
-					cfg.Forge.Runner.Mode = stripQ(strings.TrimPrefix(trimmed, "mode:"))
-				}
-				if strings.HasPrefix(trimmed, "command:") {
-					cfg.Forge.Runner.Command = stripQ(strings.TrimPrefix(trimmed, "command:"))
-				}
-				// Exit runner when we hit a top-level key (not indented)
-				if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && strings.Contains(trimmed, ":") && !strings.HasPrefix(trimmed, "#") && trimmed != "runner:" {
-					inRunner = false
-				}
-				continue
-			}
-
-			// Top-level keys
-			if strings.HasPrefix(trimmed, "poll_interval_sec:") {
-				fmt.Sscanf(trimmed, "poll_interval_sec: %d", &cfg.Forge.PollIntervalSec)
-			}
-			if strings.HasPrefix(trimmed, "default_max_minutes:") {
-				fmt.Sscanf(trimmed, "default_max_minutes: %d", &cfg.Forge.DefaultMaxMinutes)
-			}
-			if strings.HasPrefix(trimmed, "default_max_rounds:") {
-				fmt.Sscanf(trimmed, "default_max_rounds: %d", &cfg.Forge.DefaultMaxRounds)
-			}
-			if strings.HasPrefix(trimmed, "notify:") {
-				cfg.Forge.Notify = stripQ(strings.TrimPrefix(trimmed, "notify:"))
-			}
-			if strings.HasPrefix(trimmed, "notify_config:") {
-				// Skip the section header; sub-keys handled below
-			}
-			if strings.HasPrefix(trimmed, "mode:") && inNotifyConfig {
-				cfg.Forge.NotifyConfig.Mode = stripQ(strings.TrimPrefix(trimmed, "mode:"))
-			}
-			if strings.HasPrefix(trimmed, "ntfy_url:") && inNotifyConfig {
-				cfg.Forge.NotifyConfig.NtfyURL = stripQ(strings.TrimPrefix(trimmed, "ntfy_url:"))
-			}
-			if strings.HasPrefix(trimmed, "timeout_seconds:") && inNotifyConfig {
-				fmt.Sscanf(trimmed, "timeout_seconds: %d", &cfg.Forge.NotifyConfig.TimeoutSeconds)
-			}
+		if err := yaml.Unmarshal(data, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "[selo] config parse error in %s: %v\n", fullPath, err)
+			os.Exit(1)
+		}
+		for _, key := range unknownConfigKeys(data, cfg) {
+			fmt.Fprintf(os.Stderr, "[selo] ⚠️  config key %q is set but Selo does not read it (typo?)\n", key)
 		}
 	}
 

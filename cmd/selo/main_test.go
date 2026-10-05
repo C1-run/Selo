@@ -218,6 +218,11 @@ func runExternalTask(t *testing.T, baseDir, taskID, title, goal, fixtureRepo str
 func runExternalTaskWithOpts(t *testing.T, baseDir, taskID, title, goal, fixtureRepo string, cmds, forbiddenFiles []string, allowTestMods bool) map[string]interface{} {
 	t.Helper()
 
+	// The fixture repo lives in /tmp and periodic temp cleaners remove it;
+	// every task run depends on it, so make sure it exists (and has a commit)
+	// instead of relying on another test having created it first.
+	ensureFixtureRepo(t)
+
 	_ = os.RemoveAll(filepath.Join(baseDir, "worktrees"))
 	_ = os.RemoveAll(filepath.Join(baseDir, "queue"))
 	cleanupStaleBranches(t, fixtureRepo)
@@ -2026,14 +2031,14 @@ func TestOpenCodeServeProcessCleanedUp(t *testing.T) {
 	}
 
 	var runInfo struct {
-		BinaryPath      string `json:"binary_path"`
-		ExitCode        int    `json:"exit_code"`
-		ServerPID       int    `json:"server_pid"`
-		ServerStarted   string `json:"server_started"`
-		ServerKilled    string `json:"server_killed"`
+		BinaryPath       string `json:"binary_path"`
+		ExitCode         int    `json:"exit_code"`
+		ServerPID        int    `json:"server_pid"`
+		ServerStarted    string `json:"server_started"`
+		ServerKilled     string `json:"server_killed"`
 		ServerExitStatus *int   `json:"server_exit_status"`
-		RunExitStatus   *int   `json:"run_exit_status"`
-		TimeoutHit      bool   `json:"timeout_hit"`
+		RunExitStatus    *int   `json:"run_exit_status"`
+		TimeoutHit       bool   `json:"timeout_hit"`
 	}
 	if err := json.Unmarshal(runInfoData, &runInfo); err != nil {
 		t.Fatalf("unmarshal opencode-run-info.json: %v", err)
@@ -2105,7 +2110,7 @@ func TestOpenCodeTimeoutKillsServeProcess(t *testing.T) {
 	)
 	cmd.Env = append(os.Environ(),
 		"SELO_OPENCODE_BIN="+binInfo.Path,
-		"SELO_RUN_TIMEOUT_SEC=10",  // 10 second timeout
+		"SELO_RUN_TIMEOUT_SEC=10", // 10 second timeout
 		"SELO_SERVE_TIMEOUT=15",
 	)
 	out, err := cmd.CombinedOutput()
@@ -2119,10 +2124,10 @@ func TestOpenCodeTimeoutKillsServeProcess(t *testing.T) {
 	}
 
 	var runInfo struct {
-		ExitCode        int    `json:"exit_code"`
-		ServerPID       int    `json:"server_pid"`
-		ServerKilled    string `json:"server_killed"`
-		TimeoutHit      bool   `json:"timeout_hit"`
+		ExitCode     int    `json:"exit_code"`
+		ServerPID    int    `json:"server_pid"`
+		ServerKilled string `json:"server_killed"`
+		TimeoutHit   bool   `json:"timeout_hit"`
 	}
 	if err := json.Unmarshal(runInfoData, &runInfo); err != nil {
 		t.Fatalf("unmarshal opencode-run-info.json: %v", err)
@@ -2208,16 +2213,16 @@ func TestOpenCodeAdapterRunInfoWritten(t *testing.T) {
 	}
 
 	var runInfo struct {
-		BinaryPath      string `json:"binary_path"`
-		ExitCode        int    `json:"exit_code"`
-		Model           string `json:"model"`
-		Agent           string `json:"agent"`
-		ServerPID       int    `json:"server_pid"`
-		ServerStarted   string `json:"server_started"`
-		ServerKilled    string `json:"server_killed"`
+		BinaryPath       string `json:"binary_path"`
+		ExitCode         int    `json:"exit_code"`
+		Model            string `json:"model"`
+		Agent            string `json:"agent"`
+		ServerPID        int    `json:"server_pid"`
+		ServerStarted    string `json:"server_started"`
+		ServerKilled     string `json:"server_killed"`
 		ServerExitStatus *int   `json:"server_exit_status"`
-		RunExitStatus   *int   `json:"run_exit_status"`
-		TimeoutHit      bool   `json:"timeout_hit"`
+		RunExitStatus    *int   `json:"run_exit_status"`
+		TimeoutHit       bool   `json:"timeout_hit"`
 	}
 	if err := json.Unmarshal(runInfoData, &runInfo); err != nil {
 		t.Fatalf("unmarshal opencode-run-info.json: %v", err)
@@ -2344,6 +2349,7 @@ func runOpenCodeTask(t *testing.T, baseDir, taskID, title, goal, fixtureRepo str
 //  1. OpenCode fixes math.go → test_integrity_passed=true, tests pass, verdict=SUCCESS_WITH_RECEIPT
 //  2. OpenCode deletes/weakens math_test.go → test_integrity_passed=false, verdict=NEEDS_HUMAN
 //  3. OpenCode fails to fix → verdict=PARTIAL_FAILURE
+//
 // In all cases, no false SUCCESS is produced when test integrity fails.
 func TestOpenCodeCannotPassByDeletingTest(t *testing.T) {
 	if os.Getenv("SELO_RUN_OPENCODE_E2E") != "1" {

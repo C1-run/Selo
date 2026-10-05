@@ -5,10 +5,10 @@ import (
 )
 
 type Adapter struct {
-	Enabled     bool
-	RunsDir     string
-	RunID       string
-	lastHash    string
+	Enabled  bool
+	RunsDir  string
+	RunID    string
+	lastHash string
 }
 
 func NewAdapter(runsDir, runID string, enabled bool) *Adapter {
@@ -27,7 +27,7 @@ func (a *Adapter) WriteP45StopEvent(target, reason string) error {
 	if !a.Enabled {
 		return nil
 	}
-	ev := CreateAuditEvent("c1-forge", "p45_stop_written", target, reason,
+	ev := CreateAuditEvent("selo", "p45_stop_written", target, reason,
 		map[string]string{"raw_content_included": "false"},
 		a.lastHash,
 	)

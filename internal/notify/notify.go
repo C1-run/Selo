@@ -141,15 +141,15 @@ func newBody(n Notification) string {
 func severityPrefix(verdict string) string {
 	switch verdict {
 	case "SUCCESS_WITH_RECEIPT", "NOOP_WITH_RECEIPT":
-		return "✓ C1 Forge"
+		return "✓ Selo"
 	case "PARTIAL_FAILURE", "NEEDS_HUMAN":
-		return "! C1 Forge"
+		return "! Selo"
 	case "FAILED_SAFETY":
-		return "!! C1 Forge SAFETY"
+		return "!! Selo SAFETY"
 	case "FAILED_TIMEOUT", "FAILED_LIMIT_EXCEEDED", "FAILED_INTERNAL_ERROR", "FAILED_STALE_LOCK":
-		return "X C1 Forge"
+		return "X Selo"
 	default:
-		return "? C1 Forge"
+		return "? Selo"
 	}
 }
 

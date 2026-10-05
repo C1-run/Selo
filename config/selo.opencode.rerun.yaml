@@ -1,0 +1,29 @@
+forge:
+  poll_interval_sec: 5
+  default_max_minutes: 8
+  default_max_rounds: 1
+  default_max_files: 10
+  default_max_patch_lines: 200
+  stop_file: ".selo-stop"
+  lock_file: ".selo.lock"
+  notify: "stdout"
+  ntfy_topic: ""
+  forbidden_claims:
+    - "PROFITABLE"
+    - "LIVE_READY"
+    - "MONEY_ENGINE"
+  runner:
+    mode: "real"
+    command: "/Users/desmondkam/selo/scripts/opencode-adapter.sh"
+    args:
+      - "--task-file"
+      - "{{task_file}}"
+      - "--workdir"
+      - "{{worktree}}"
+      - "--max-rounds"
+      - "1"
+      - "--max-minutes"
+      - "{{max_minutes}}"
+  containment:
+    strategy: worktree
+    image: alpine:latest

@@ -34,18 +34,18 @@ func init() {
 	soakCmd.Flags().StringVar(&soakInterval, "interval", "1m", "Poll interval")
 	soakCmd.Flags().BoolVar(&soakFixtureMode, "fixture-mode", true, "Use generated fixture tasks")
 	soakCmd.Flags().BoolVar(&soakStopOnSafety, "stop-on-safety", true, "Stop on safety failure")
-	soakCmd.Flags().StringVar(&soakOutDir, "out", "runs/c1_forge_phase0_6", "Output directory")
+	soakCmd.Flags().StringVar(&soakOutDir, "out", "runs/soak", "Output directory")
 	soakCmd.Flags().StringVar(&soakRunner, "runner", "", "Runner type: opencode (requires SELO_OPENCODE_BIN)")
 }
 
 func runSoakCmd(cmd *cobra.Command, args []string) error {
 	cfg := soak.SoakConfig{
-		Duration:    24 * time.Hour,
-		TaskCount:   0,
-		Interval:    1 * time.Minute,
-		FixtureMode: true,
+		Duration:     24 * time.Hour,
+		TaskCount:    0,
+		Interval:     1 * time.Minute,
+		FixtureMode:  true,
 		StopOnSafety: true,
-		OutDir:      "runs/c1_forge_phase0_6",
+		OutDir:       "runs/soak",
 	}
 
 	if d, err := time.ParseDuration(soakDuration); err == nil {

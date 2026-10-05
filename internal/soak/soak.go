@@ -66,16 +66,16 @@ type SoakSummary struct {
 
 // Heartbeat is a point-in-time snapshot during the soak.
 type Heartbeat struct {
-	Timestamp     string `json:"timestamp"`
-	DaemonState   string `json:"daemon_state"`
-	QueuePending  int    `json:"queue_pending"`
-	QueueRunning  int    `json:"queue_running"`
-	QueueDone     int    `json:"queue_done"`
-	QueueFailed   int    `json:"queue_failed"`
-	QueueReview   int    `json:"queue_review"`
-	Processed     int    `json:"processed_count"`
-	LastVerdict   string `json:"last_verdict"`
-	ErrorsCount   int    `json:"errors_count"`
+	Timestamp    string `json:"timestamp"`
+	DaemonState  string `json:"daemon_state"`
+	QueuePending int    `json:"queue_pending"`
+	QueueRunning int    `json:"queue_running"`
+	QueueDone    int    `json:"queue_done"`
+	QueueFailed  int    `json:"queue_failed"`
+	QueueReview  int    `json:"queue_review"`
+	Processed    int    `json:"processed_count"`
+	LastVerdict  string `json:"last_verdict"`
+	ErrorsCount  int    `json:"errors_count"`
 }
 
 // FixtureTask describes a generated task file.
@@ -132,7 +132,7 @@ func (sr *SoakRunner) Run(ctx context.Context) (*SoakSummary, error) {
 		os.MkdirAll(queueDir, 0755)
 		writtenTasks := 0
 		for _, task := range tasks {
-			if err := writeTaskFile(queueDir, task); err != nil {
+			if err := WriteFixtureTask(queueDir, task); err != nil {
 				sr.mu.Lock()
 				sr.errors++
 				sr.mu.Unlock()
@@ -182,7 +182,7 @@ func (sr *SoakRunner) Run(ctx context.Context) (*SoakSummary, error) {
 				if sr.cfg.FixtureMode {
 					newTasks := GenerateFixtureTasks(3)
 					for _, t := range newTasks {
-						writeTaskFile(queueDir, t)
+						WriteFixtureTask(queueDir, t)
 						sr.mu.Lock()
 						sr.summary.TasksGenerated++
 						sr.mu.Unlock()
@@ -359,7 +359,9 @@ func GenerateFixtureTasks(count int) []FixtureTask {
 		{"SCAN_FAIL", 0.10},
 	}
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Fixed seed: the goal mix must be reproducible so two soak summaries can
+	// be compared task-for-task.
+	rng := rand.New(rand.NewSource(1))
 
 	tasks := make([]FixtureTask, count)
 	for i := 0; i < count; i++ {
@@ -397,28 +399,24 @@ func GenerateFixtureTasks(count int) []FixtureTask {
 
 // --- Helpers ---
 
-func writeTaskFile(dir string, task FixtureTask) error {
+func WriteFixtureTask(dir string, task FixtureTask) error {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("id: %q\n", task.ID))
 	b.WriteString(fmt.Sprintf("title: %q\n", task.Title))
-	b.WriteString(fmt.Sprintf("repo: %q\n", "/tmp/c1-forge-fixture"))
+	b.WriteString(fmt.Sprintf("repo: %q\n", "/tmp/selo-fixture"))
 	b.WriteString(fmt.Sprintf("goal: %q\n", task.Goal))
 	b.WriteString("allowed_files: []\n")
-	b.WriteString("forbidden_files:\n")
 	if len(task.ForbiddenFiles) > 0 {
+		b.WriteString("forbidden_files:\n")
 		for _, f := range task.ForbiddenFiles {
 			b.WriteString(fmt.Sprintf("  - %s\n", f))
 		}
-	} else {
-		b.WriteString("  []\n")
 	}
-	b.WriteString("commands:\n")
 	if len(task.Commands) > 0 {
+		b.WriteString("commands:\n")
 		for _, c := range task.Commands {
 			b.WriteString(fmt.Sprintf("  - %s\n", c))
 		}
-	} else {
-		b.WriteString("  []\n")
 	}
 	b.WriteString(fmt.Sprintf("max_minutes: %d\n", task.MaxMinutes))
 	b.WriteString("max_rounds: 3\n")

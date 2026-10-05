@@ -1,17 +1,29 @@
-# C1 Forge
+# Selo
 
 **Safety-first task runner for AI coding agents with cryptographic audit trails.**
 
-C1 Forge wraps any coding agent (OpenCode, Claude, GPT, etc.) and produces a tamper-proof receipt for every task. It ensures AI-generated code changes are verified, tested, and auditable before reaching production.
+Selo wraps any coding agent (OpenCode, Claude, GPT, etc.) and produces a tamper-proof receipt for every task. It ensures AI-generated code changes are verified, tested, and auditable before reaching production.
 
 ## Features
 
 - **Safety Pipeline**: Governor, scans, Pinocchio, GateChain — multi-layer verification
 - **Cryptographic Receipts**: Tamper-proof audit trail for every task
 - **OpenCode Integration**: Native Go adapter, plugin tools for seamless workflow
-- **Containment Strategies**: Git worktrees (lightweight) or Docker (strong isolation)
+- **Containment**: Git worktree isolation (the `docker`/`local` strategies are refused with an error — not implemented in v0.2)
 - **Permission Control**: Granular allowlists for file access
 - **CLI + Daemon**: Run one-shot tasks or start a processing queue
+
+## What works in v0.2
+
+| Capability | Status in v0.2 |
+|---|---|
+| Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task and produce a signed receipt. |
+| `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
+| `selo verify` | New in v0.2. Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. |
+| `selo receipt` | New in v0.3. `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary. |
+| Signed receipts | Ed25519 over canonical receipt JSON. Set `SELO_SIGNING_KEY` (base64 seed) for signatures that stay verifiable across runs; otherwise an ephemeral key is generated per process, with a warning. |
+| Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
+| Real-time interception | Does not exist. The audit is post-execution only. |
 
 ## Quick Start
 
@@ -32,27 +44,62 @@ go build -o selo ./cmd/selo/
 ./selo status
 ```
 
-> Note: v0.1 renamed the binary from `c1-forged` to `selo` (`cmd/c1-forged` removed).
+> History: v0.1 was the first public release under the Selo name.
+
+## Use in CI
+
+Surface the verdict where the merge decision happens — a GitHub Actions job
+summary, no extra permissions or tokens needed:
+
+```yaml
+- name: Run Selo task
+  run: |
+    go build -o selo ./cmd/selo/
+    ./selo run "NOOP" || true   # the receipt records the outcome either way
+
+- name: Post receipt card
+  run: |
+    receipt=$(ls -t receipts/*.json | head -1)
+    ./selo receipt show "$receipt" --format github >> "$GITHUB_STEP_SUMMARY"
+```
+
+The card always shows the receipt's integrity state. Anyone can reproduce the
+check with `selo verify <receipt.json>`.
+
+## ZCode Integration
+
+A ZCode skill teaches ZCode to submit tasks to the Selo daemon and surface
+the receipt verdict in the conversation before claiming a task done:
+
+```bash
+# Into a project (tracked with the repo) or ~/.agents/skills/ (all projects)
+cp -r .agents/skills/selo <project>/.agents/skills/
+```
+
+To wrap ZCode itself as the runner — Selo contains ZCode's run in a worktree,
+audits the diff, and signs a receipt — see `config/selo.zcode.yaml`. Point
+`runner.command` at your ZCode CLI's non-interactive mode; `{{task_file}}` and
+`{{worktree}}` are substituted at run time.
 
 ## OpenCode Integration
 
-C1 Forge integrates with OpenCode as a plugin, providing safety tools directly in your editor:
+Selo integrates with OpenCode as a plugin, providing safety tools directly in your editor:
 
 ```bash
 # Start OpenCode in your project
 opencode
 
-# Use C1 Forge tools
-c1forge_daemon_status                     # Check queue state
-c1forge_submit_task goal="fix the bug"    # Submit a task
-c1forge_task_status taskId="run-xxx"      # Check receipt
-c1forge_safety_scan                       # View safety results
-c1_forge_compliance_check stepsFile="steps.json"  # GateChain check
+# Use Selo tools
+selo_daemon_status                     # Check queue state
+selo_submit_task goal="fix the bug"    # Submit a task
+selo_task_status taskId="run-xxx"      # Check receipt
+selo_safety_scan                       # View safety results
+selo_compliance_check stepsFile="steps.json"  # GateChain check
 ```
 
 ## Configuration
 
-Create `config/c1-forge.yaml`:
+Create `config/selo.yaml`:
 
 ```yaml
 forge:
@@ -100,7 +147,7 @@ as an optional Check plugin — see `docs/BENCHMARK_SELO_VS_CODEX.md`.
 ## Architecture
 
 ```
-c1-forged/
+selo/
 ├── cmd/selo/          # CLI commands (Cobra)
 ├── internal/
 │   ├── containment/        # Unified isolation interface
@@ -108,7 +155,8 @@ c1-forged/
 │   ├── pipeline/           # Safety pipeline
 │   ├── receipt/            # Cryptographic receipts
 │   └── ...
-└── .opencode/              # OpenCode plugin
+├── .opencode/              # OpenCode plugin
+└── .agents/skills/selo/    # ZCode skill
 ```
 
 ## Development

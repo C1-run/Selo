@@ -261,3 +261,42 @@ func TestRunnerBinaryMetadataWrittenToReceipt(t *testing.T) {
 		t.Error("expected verified=true")
 	}
 }
+
+func TestPathInAllowlist(t *testing.T) {
+	cases := []struct {
+		name     string
+		path     string
+		patterns []string
+		want     bool
+	}{
+		{"exact match", "src/main.go", []string{"src/main.go"}, true},
+		{"glob one segment", "src/main.go", []string{"src/*.go"}, true},
+		{"glob does not cross directories", "src/deep/x.go", []string{"src/*.go"}, false},
+		{"dir star covers nested", "src/deep/x.go", []string{"src/*"}, true},
+		{"doublestar covers nested", "src/deep/x.go", []string{"src/**"}, true},
+		{"trailing slash covers nested", "src/deep/x.go", []string{"src/"}, true},
+		{"bare dir covers nested", "src/deep/x.go", []string{"src"}, true},
+		{"bare dir rejects sibling prefix", "srcx/other.go", []string{"src"}, false},
+		{"dot-slash normalizes", "src/main.go", []string{"./src/"}, true},
+		{"empty pattern ignored", "src/main.go", []string{""}, false},
+		{"empty list matches nothing", "src/main.go", nil, false},
+		{"unrelated dir rejected", "docs/x.md", []string{"src/"}, false},
+	}
+	for _, tc := range cases {
+		if got := pathInAllowlist(tc.path, tc.patterns); got != tc.want {
+			t.Errorf("%s: pathInAllowlist(%q, %v) = %v, want %v", tc.name, tc.path, tc.patterns, got, tc.want)
+		}
+	}
+}
+
+func TestCheckForbiddenFileEditAllowlistGlob(t *testing.T) {
+	diff := "diff --git a/src/main.go b/src/main.go\nindex abc..def 100644\n--- a/src/main.go\n+++ b/src/main.go\n@@ -1 +1 @@\n-foo\n+bar"
+	violation, msg := CheckForbiddenFileEdit(diff, "", []string{"src/*.go"}, nil)
+	if violation {
+		t.Errorf("unexpected violation: %s", msg)
+	}
+	violation, _ = CheckForbiddenFileEdit(diff, "", []string{"docs/"}, nil)
+	if !violation {
+		t.Error("expected violation for file outside glob allowlist")
+	}
+}

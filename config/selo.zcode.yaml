@@ -1,0 +1,30 @@
+# Dogfood config: wrap ZCode-driven tasks in Selo.
+#
+# Selo runs the command below inside a git worktree, then audits the resulting
+# diff and writes a signed receipt either way. Adjust `command`/`args` to your
+# ZCode CLI's non-interactive mode: {{task_file}} and {{worktree}} are
+# substituted with the task path and the worktree path, and the environment
+# gains C1_TASK, C1_WORKDIR and C1_MAX_MINUTES.
+#
+# Start the daemon (or one-shot `selo run`) with:
+#   selo run --config config/selo.zcode.yaml "<goal>"
+forge:
+  poll_interval_sec: 5
+  default_max_minutes: 30
+  default_max_rounds: 3
+  default_max_files: 10
+  default_max_patch_lines: 200
+  stop_file: ".selo-stop"
+  lock_file: ".selo.lock"
+  notify: "stdout"
+  runner:
+    mode: "real"
+    command: "zcode"
+    args:
+      - "exec"
+      - "--task-file"
+      - "{{task_file}}"
+      - "--workdir"
+      - "{{worktree}}"
+  containment:
+    strategy: "worktree"

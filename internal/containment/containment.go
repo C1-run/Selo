@@ -47,11 +47,11 @@ const (
 
 // Config configures the containment.
 type Config struct {
-	Strategy  Strategy
-	WorkDir   string // base directory for worktrees or container mounts
-	Image     string // Docker image (only for StrategyDocker)
-	Writable  []string // writable paths (only for StrategyDocker)
-	Extra     []string // extra mounts (only for StrategyDocker)
+	Strategy Strategy
+	WorkDir  string   // base directory for worktrees or container mounts
+	Image    string   // Docker image (only for StrategyDocker)
+	Writable []string // writable paths (only for StrategyDocker)
+	Extra    []string // extra mounts (only for StrategyDocker)
 }
 
 // New creates a Containment based on the strategy.
@@ -103,7 +103,7 @@ func (c *WorktreeContainment) Setup(repoPath, taskID string) (string, error) {
 		os.RemoveAll(wtPath)
 	}
 
-	branchName := fmt.Sprintf("c1-forge/%s", taskID)
+	branchName := fmt.Sprintf("selo/%s", taskID)
 	exec.Command("git", "branch", "-D", branchName).Run()
 
 	cmd := exec.Command("git", "worktree", "add", "-b", branchName, wtPath, "HEAD")

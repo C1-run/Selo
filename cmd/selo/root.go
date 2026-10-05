@@ -22,6 +22,8 @@ func init() {
 		daemonCmd,
 		runCmd,
 		checkCmd,
+		verifyCmd,
+		receiptCmd,
 		statusCmd,
 		initCmd,
 		smokeCmd,

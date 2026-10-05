@@ -252,7 +252,7 @@ func processSoakTask(task openCodeSoakTask, taskDir string, adapterCmd string) s
 	taskCfg.Forge.Runner.Mode = "real"
 	taskCfg.Forge.Runner.Command = adapterCmd
 	taskCfg.Forge.Runner.Args = []string{"--task-file", "{{task_file}}", "--workdir", "{{worktree}}", "--max-minutes", "{{max_minutes}}"}
-	taskCfg.Forge.ForbiddenClaims = []string{"PROFITABLE", "LIVE_READY"}
+	taskCfg.Forge.ForbiddenClaims = append([]string(nil), defaultForbiddenClaims...)
 	taskCfg.Forge.Notify = "stdout"
 
 	start := time.Now()

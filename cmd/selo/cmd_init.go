@@ -31,15 +31,17 @@ func runInitCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// These are the directories the queue manager and receipt writer actually
+	// use at runtime; a parallel tree under .selo/ would never be touched.
 	dirs := []string{
-		".selo",
-		".selo/queue/pending",
-		".selo/queue/running",
-		".selo/queue/done",
-		".selo/queue/failed",
-		".selo/runs",
-		".selo/receipts",
-		".selo/worktrees",
+		"queue/pending",
+		"queue/running",
+		"queue/review",
+		"queue/done",
+		"queue/failed",
+		"runs",
+		"receipts",
+		"worktrees",
 		"config",
 	}
 
@@ -64,16 +66,27 @@ forge:
   stop_file: ".selo-stop"
   lock_file: ".selo.lock"
   notify: "stdout"
+
+  # Claims your project must never make. Substring-matched against the diff; any
+  # hit fails the safety scan. These are generic examples — replace them with
+  # claims specific to your domain.
   forbidden_claims:
-    - "PROFITABLE"
-    - "LIVE_READY"
-    - "MONEY_ENGINE"
-    - "CAPITAL_APPROVED"
-    - "LIVE_CAPITAL_APPROVED"
-    - "MONEY_MACHINE"
+    - "PRODUCTION_READY"
+    - "BATTLE_TESTED"
+    - "FULLY_TESTED"
+    - "ENTERPRISE_GRADE"
+    - "SOC2_COMPLIANT"
+    - "SECURE_BY_DESIGN"
+
+  # runner.mode: "mock" (placeholder echo), "real" (configured command), or
+  # "opencode" (discover and run the OpenCode binary). Anything else is refused.
   runner:
-    mode: "real"
-    command: "c1-loop"
+    mode: "mock"
+
+  # containment.strategy: only "worktree" is implemented. "docker" and "local"
+  # are refused instead of silently running with different isolation.
+  containment:
+    strategy: "worktree"
 `
 		if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
 			return fmt.Errorf("writing default config: %w", err)
@@ -85,10 +98,10 @@ forge:
 
 	// Write .gitignore entries
 	gitignorePath := filepath.Join(initRepo, ".gitignore")
-	gitignoreEntry := "\n# Selo\n.selo/\nruns/\nreceipts/\nworktrees/\n"
+	gitignoreEntry := "\n# Selo\nqueue/\nruns/\nreceipts/\nworktrees/\n"
 	if data, err := os.ReadFile(gitignorePath); err == nil {
 		content := string(data)
-		if containsStr(content, ".selo/") {
+		if containsStr(content, "queue/") {
 			fmt.Printf("  .gitignore already configured\n")
 			return nil
 		}
