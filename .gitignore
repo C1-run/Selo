@@ -37,3 +37,6 @@ _quarantine/
 
 # Internal-only docs (audit, launch drafts) — never publish
 .internal-docs/
+
+# Agent working memory — never publish
+.workbuddy-ai/
