@@ -34,3 +34,6 @@ _quarantine/
 *.pem
 .env
 .selo-signing.key
+
+# Internal-only docs (audit, launch drafts) — never publish
+.internal-docs/
