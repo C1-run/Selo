@@ -28,6 +28,12 @@ const FixtureRepoPath = "/tmp/selo-fixture"
 
 func setupTestDir(t *testing.T) (string, func()) {
 	t.Helper()
+	// The real-run tests operate on a fixture git repo. It used to be assumed
+	// to already exist at /tmp/selo-fixture, which was true on one machine and
+	// nowhere else: on a clean checkout every TestC1Loop* test failed with
+	// FAILED_INTERNAL_ERROR because the loop could not create a worktree from a
+	// repo that was not there. Create it here so the suite is self-contained.
+	ensureFixtureRepo(t)
 	dir, err := os.MkdirTemp("", "selo-test-*")
 	if err != nil {
 		t.Fatalf("TempDir: %v", err)
