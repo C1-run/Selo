@@ -19,7 +19,11 @@ import (
 type Result struct {
 	ExitCode int
 	TimedOut bool
-	Output   string
+	// Output is the command's stdout only. It used to be stdout and stderr
+	// merged, which meant any tool noise (docker pull progress, warnings)
+	// landed in the result and made output unparseable by callers.
+	Output string
+	Stderr string
 }
 
 // Cell is the interface the executor needs: run the agent command inside an
@@ -66,9 +70,9 @@ func (c *LocalCell) Run(cmdArgs []string, env []string, timeout time.Duration) (
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Dir = c.workdir
 	cmd.Env = append(sanitizedEnv(), env...)
-	var out strings.Builder
+	var out, errb strings.Builder
 	cmd.Stdout = &out
-	cmd.Stderr = &out
+	cmd.Stderr = &errb
 	c.cmd = cmd
 
 	if err := cmd.Start(); err != nil {
@@ -95,6 +99,7 @@ func (c *LocalCell) Run(cmdArgs []string, env []string, timeout time.Duration) (
 		r.ExitCode = -1
 	}
 	r.Output = out.String()
+	r.Stderr = errb.String()
 	return &r, nil
 }
 
@@ -153,9 +158,9 @@ func (c *DockerCell) Run(cmdArgs []string, env []string, timeout time.Duration) 
 	args = append(args, cmdArgs...)
 
 	cmd := exec.Command("docker", args...)
-	var out strings.Builder
+	var out, errb strings.Builder
 	cmd.Stdout = &out
-	cmd.Stderr = &out
+	cmd.Stderr = &errb
 
 	if err := cmd.Start(); err != nil {
 		return &Result{ExitCode: -1}, fmt.Errorf("docker start: %w", err)
@@ -182,6 +187,7 @@ func (c *DockerCell) Run(cmdArgs []string, env []string, timeout time.Duration) 
 		r.ExitCode = -1
 	}
 	r.Output = out.String()
+	r.Stderr = errb.String()
 	for _, vol := range c.volumes {
 		exec.Command("docker", "volume", "rm", "-f", vol).Run()
 	}
