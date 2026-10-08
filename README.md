@@ -2,7 +2,8 @@
 
 # Selo
 
-**Safety-first task runner for AI coding agents with cryptographic audit trails.**
+**Your coding agent will eventually touch a file you told it not to. Selo catches it, rejects the
+task, and hands you a signed receipt.**
 
 [![CI](https://github.com/C1-run/Selo/actions/workflows/ci.yml/badge.svg)](https://github.com/C1-run/Selo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/C1-run/Selo)](https://github.com/C1-run/Selo/releases)
@@ -12,25 +13,16 @@
 
 [Changelog](CHANGELOG.md) · [What works](#what-works-in-v04) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
-Selo wraps any AI coding agent (OpenCode, Claude, GPT, …) in a contained worktree, audits what it
-actually changed, and produces an Ed25519-signed receipt for every outcome. Not *"the agent said
-it's done"* — a record anyone can verify.
+![An agent edits a forbidden file; Selo rejects the task with FAILED_SAFETY and the receipt verifies as VALID](docs/demo-card.svg)
 
-```console
-$ selo run "DOCS_PATCH" --forbidden-files README.md
-Preparing worktree (new branch 'selo/run-ie6iumum')
-!! Selo SAFETY: task run-ie6iumum → FAILED_SAFETY | receipt: runs/run-run-ie6iumum/receipt.json
+Selo runs any AI coding agent (OpenCode, Claude, GPT, …) in a throwaway worktree, audits **the real
+diff** against your rules after the agent finishes, and emits an Ed25519-signed receipt for every
+outcome — pass or fail. So the question stops being *"did the agent say it's done?"* and becomes
+*"can I check?"*
 
-$ selo verify runs/run-run-ie6iumum/receipt.json
-Receipt:    c1f-1791139331448022000
-Verdict:    FAILED_SAFETY
-Hash:       OK
-Signature:  OK
-Result:     VALID
-```
-
-*(Actual output from a test run: the agent created a file it was forbidden to touch, Selo caught
-it, and the rejection is cryptographically signed.)*
+Three things happened in that screenshot: the change was **contained** (your checkout was never
+touched), it was **caught** (a forbidden-file rule fired on the actual diff), and the rejection is
+**verifiable** — `selo verify` re-checks the content hash and signature, and so can anyone else.
 
 ## Why Selo
 
@@ -49,6 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/Selo/main/install.sh | bash
 
 # one-time: make signatures attributable across runs
 selo keys generate
+export SELO_SIGNING_KEY=$(cat ~/.selo/signing-key)   # add to your shell profile
 
 # initialize a workspace and run a task
 selo init

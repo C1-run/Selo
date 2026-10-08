@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="330" viewBox="0 0 720 330" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5">
+  <rect width="720" height="330" rx="10" fill="#0d1117"/>
+  <rect x="0" y="0" width="720" height="34" rx="10" fill="#161b22"/>
+  <rect x="0" y="24" width="720" height="10" fill="#161b22"/>
+  <circle cx="20" cy="17" r="5.5" fill="#ff5f57"/>
+  <circle cx="40" cy="17" r="5.5" fill="#febc2e"/>
+  <circle cx="60" cy="17" r="5.5" fill="#28c840"/>
+  <text x="86" y="22" fill="#8b949e" font-size="12">selo — agent task with a forbidden file</text>
+
+  <g fill="#e6edf3">
+    <text x="24" y="66"><tspan fill="#7ee787">$</tspan> selo keys generate</text>
+    <text x="24" y="88" fill="#8b949e">Signing key written to ~/.selo/signing-key (mode 0600)</text>
+
+    <text x="24" y="122"><tspan fill="#7ee787">$</tspan> selo run "DOCS_PATCH" --forbidden-files README.md</text>
+    <text x="24" y="144" fill="#8b949e">[selo] Task run-mqiaa2uu queued: DOCS_PATCH</text>
+    <text x="24" y="162" fill="#8b949e">[selo] Claiming task: queue/pending/run-mqiaa2uu.md</text>
+    <text x="24" y="180" fill="#8b949e">Preparing worktree (new branch 'selo/run-mqiaa2uu')</text>
+    <text x="24" y="198" fill="#ff7b72">!! Selo SAFETY: task run-mqiaa2uu → FAILED_SAFETY</text>
+    <text x="24" y="216" fill="#8b949e">[selo] Receipt: runs/run-run-mqiaa2uu/receipt.json</text>
+    <text x="24" y="234" fill="#ff7b72">[selo] Task rejected: FAILED_SAFETY</text>
+
+    <text x="24" y="268"><tspan fill="#7ee787">$</tspan> selo verify runs/run-run-mqiaa2uu/receipt.json</text>
+    <text x="24" y="290">Verdict:    <tspan fill="#ff7b72">FAILED_SAFETY</tspan></text>
+    <text x="24" y="308">Hash: OK   Signature: OK   Result: <tspan fill="#7ee787">VALID</tspan></text>
+  </g>
+</svg>
