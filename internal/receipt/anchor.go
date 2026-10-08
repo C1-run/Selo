@@ -14,12 +14,12 @@ import (
 
 // AnchorResult represents the result of anchoring a receipt.
 type AnchorResult struct {
-	ReceiptHash string `json:"receipt_hash"`
-	AnchorHash  string `json:"anchor_hash"`
-	AnchorType  string `json:"anchor_type"` // "git_commit" | "external"
+	ReceiptHash string    `json:"receipt_hash"`
+	AnchorHash  string    `json:"anchor_hash"`
+	AnchorType  string    `json:"anchor_type"` // "git_commit" | "external"
 	AnchoredAt  time.Time `json:"anchored_at"`
-	GitCommit   string `json:"git_commit,omitempty"`
-	GitBranch   string `json:"git_branch,omitempty"`
+	GitCommit   string    `json:"git_commit,omitempty"`
+	GitBranch   string    `json:"git_branch,omitempty"`
 }
 
 // ensureReceiptAnchorBranch checks out the receipt-anchor branch, creating an orphan if needed.

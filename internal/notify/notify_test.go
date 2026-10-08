@@ -147,8 +147,8 @@ func TestNeedsHumanUsesWarningPriority(t *testing.T) {
 	n := NewNtfyNotifier(server.URL, 0)
 	n.Client = server.Client()
 	err := n.Notify(context.Background(), Notification{
-		TaskID:      "human-test",
-		NeedsHuman:  true,
+		TaskID:     "human-test",
+		NeedsHuman: true,
 	})
 	if err != nil {
 		t.Fatalf("Notify: %v", err)
@@ -182,13 +182,13 @@ func TestNtfyNotifierPostsBody(t *testing.T) {
 	n := NewNtfyNotifier(server.URL, 0)
 	n.Client = server.Client()
 	err := n.Notify(context.Background(), Notification{
-		TaskID:         "body-test",
-		Repo:           "/tmp/repo",
-		FinalVerdict:   "SUCCESS_WITH_RECEIPT",
-		TestsPassed:    true,
-		ScansPassed:    true,
-		FilesChanged:   3,
-		ReceiptPath:    "/tmp/receipt.json",
+		TaskID:       "body-test",
+		Repo:         "/tmp/repo",
+		FinalVerdict: "SUCCESS_WITH_RECEIPT",
+		TestsPassed:  true,
+		ScansPassed:  true,
+		FilesChanged: 3,
+		ReceiptPath:  "/tmp/receipt.json",
 	})
 	if err != nil {
 		t.Fatalf("Notify: %v", err)

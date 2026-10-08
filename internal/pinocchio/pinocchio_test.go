@@ -349,5 +349,3 @@ func TestPinocchioOverridesForcedNoopWhenDiffExists(t *testing.T) {
 
 	t.Logf("FinalVerdict=%s FalseClaims=%v", r.FinalVerdict, r.FalseClaims)
 }
-
-

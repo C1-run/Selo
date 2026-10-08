@@ -107,16 +107,16 @@ func TestP45StopsOnScopeViolation(t *testing.T) {
 
 	var buf bytes.Buffer
 	err = WriteSlip(&buf, &P45Slip{
-		RunID:              "stop-test-001",
-		Goal:               goal.Goal,
-		Scope:              "src/admin/users/* (allowed); .env, secrets/** (forbidden)",
-		PatchBudget:        "3 patches, 2 files max, 80 lines max",
-		ChangedFiles:       scope.ChangedPaths,
-		Violation:          violations[0],
-		Warnings:           []string{"fixture data only; no real .env accessed"},
-		Verdict:            "SCOPE_VIOLATION",
-		Reason:             "changed file matches forbidden path pattern",
-		NextAllowedAction:  "review receipt, inspect changes, decide next step",
+		RunID:               "stop-test-001",
+		Goal:                goal.Goal,
+		Scope:               "src/admin/users/* (allowed); .env, secrets/** (forbidden)",
+		PatchBudget:         "3 patches, 2 files max, 80 lines max",
+		ChangedFiles:        scope.ChangedPaths,
+		Violation:           violations[0],
+		Warnings:            []string{"fixture data only; no real .env accessed"},
+		Verdict:             "SCOPE_VIOLATION",
+		Reason:              "changed file matches forbidden path pattern",
+		NextAllowedAction:   "review receipt, inspect changes, decide next step",
 		ForbiddenNextAction: "do not start a new run without reviewing this receipt",
 	})
 	if err != nil {
@@ -164,7 +164,7 @@ func TestLoadGoal_RejectsEmpty(t *testing.T) {
 
 func TestLoadScope_RejectsForbiddenNaming(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		forbidden []string
 	}{
 		{"c1f- in allowed_paths", []string{"c1f-src"}},
@@ -214,16 +214,16 @@ func TestLoadRun_RejectsBadStopFile(t *testing.T) {
 func TestWriteSlip_AllRequiredFields(t *testing.T) {
 	var buf bytes.Buffer
 	err := WriteSlip(&buf, &P45Slip{
-		RunID:              "stop-abc-123",
-		Goal:               "test goal",
-		Scope:              "src/*",
-		PatchBudget:        "5 patches",
-		ChangedFiles:       []string{"src/main.go", ".env"},
-		Violation:          ".env is forbidden",
-		Warnings:           []string{"fixture only"},
-		Verdict:            "SCOPE_VIOLATION",
-		Reason:             "forbidden path",
-		NextAllowedAction:  "review",
+		RunID:               "stop-abc-123",
+		Goal:                "test goal",
+		Scope:               "src/*",
+		PatchBudget:         "5 patches",
+		ChangedFiles:        []string{"src/main.go", ".env"},
+		Violation:           ".env is forbidden",
+		Warnings:            []string{"fixture only"},
+		Verdict:             "SCOPE_VIOLATION",
+		Reason:              "forbidden path",
+		NextAllowedAction:   "review",
 		ForbiddenNextAction: "no restart",
 	})
 	if err != nil {
