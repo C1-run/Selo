@@ -7,17 +7,17 @@ import (
 )
 
 type P45Slip struct {
-	RunID              string   `json:"run_id"`
-	Goal               string   `json:"goal"`
-	Scope              string   `json:"scope"`
-	PatchBudget        string   `json:"patch_budget"`
-	ChangedFiles       []string `json:"changed_files"`
-	Violation          string   `json:"violation"`
-	Warnings           []string `json:"warnings"`
-	Verdict            string   `json:"verdict"`
-	Reason             string   `json:"reason"`
-	NextAllowedAction  string   `json:"next_allowed_action"`
-	ForbiddenNextAction string `json:"forbidden_next_action"`
+	RunID               string   `json:"run_id"`
+	Goal                string   `json:"goal"`
+	Scope               string   `json:"scope"`
+	PatchBudget         string   `json:"patch_budget"`
+	ChangedFiles        []string `json:"changed_files"`
+	Violation           string   `json:"violation"`
+	Warnings            []string `json:"warnings"`
+	Verdict             string   `json:"verdict"`
+	Reason              string   `json:"reason"`
+	NextAllowedAction   string   `json:"next_allowed_action"`
+	ForbiddenNextAction string   `json:"forbidden_next_action"`
 }
 
 var slipDisclaimers = []string{

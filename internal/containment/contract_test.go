@@ -7,10 +7,10 @@ import (
 
 func TestRunContract_PassesValidContract(t *testing.T) {
 	c := &RunContract{
-		Goal:                "fix-bug-42",
-		DeadlineUTC:         "2026-06-02T00:00:00Z",
-		MaxPatchCount:       5,
-		PatchCount:          3,
+		Goal:                 "fix-bug-42",
+		DeadlineUTC:          "2026-06-02T00:00:00Z",
+		MaxPatchCount:        5,
+		PatchCount:           3,
 		PatchesAfterDeadline: 0,
 	}
 	ok, reason := VerifyRunContract(c)
@@ -21,10 +21,10 @@ func TestRunContract_PassesValidContract(t *testing.T) {
 
 func TestRunContract_FailsPatchAfterDeadline(t *testing.T) {
 	c := &RunContract{
-		Goal:                "fix-bug-42",
-		DeadlineUTC:         "2026-06-01T00:00:00Z",
-		MaxPatchCount:       5,
-		PatchCount:          1,
+		Goal:                 "fix-bug-42",
+		DeadlineUTC:          "2026-06-01T00:00:00Z",
+		MaxPatchCount:        5,
+		PatchCount:           1,
 		PatchesAfterDeadline: 3,
 	}
 	ok, reason := VerifyRunContract(c)
@@ -65,9 +65,9 @@ func TestRunContract_FailsNilContract(t *testing.T) {
 
 func TestRunContract_FailsEmptyDeadline(t *testing.T) {
 	c := &RunContract{
-		Goal:                "fix-bug-42",
-		DeadlineUTC:         "",
-		MaxPatchCount:       5,
+		Goal:                 "fix-bug-42",
+		DeadlineUTC:          "",
+		MaxPatchCount:        5,
 		PatchesAfterDeadline: 0,
 	}
 	ok, reason := VerifyRunContract(c)

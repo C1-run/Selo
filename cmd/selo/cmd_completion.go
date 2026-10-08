@@ -44,7 +44,7 @@ PowerShell:
 	DisableFlagsInUseLine: true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
 	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-	RunE: runCompletionCmd,
+	RunE:                  runCompletionCmd,
 }
 
 func runCompletionCmd(cmd *cobra.Command, args []string) error {

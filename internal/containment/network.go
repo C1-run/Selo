@@ -10,9 +10,9 @@ import (
 type NetworkMode string
 
 const (
-	NetworkModeNone      NetworkMode = "none"       // No network access (default)
-	NetworkModeWhitelist NetworkMode = "whitelist"   // Only allowed domains
-	NetworkModeAll       NetworkMode = "all"         // Full network access (not recommended)
+	NetworkModeNone      NetworkMode = "none"      // No network access (default)
+	NetworkModeWhitelist NetworkMode = "whitelist" // Only allowed domains
+	NetworkModeAll       NetworkMode = "all"       // Full network access (not recommended)
 )
 
 // NetworkConfig configures network access for Docker containment.

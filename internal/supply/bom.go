@@ -15,7 +15,7 @@ import (
 type Component struct {
 	Name      string `json:"name"`
 	Version   string `json:"version,omitempty"`
-	Source    string `json:"source"` // file path where discovered
+	Source    string `json:"source"`    // file path where discovered
 	Ecosystem string `json:"ecosystem"` // npm | pypi | go | github
 }
 
@@ -193,8 +193,8 @@ func QueryOSV(c Component) ([]Vuln, error) {
 	}
 	var out struct {
 		Vulns []struct {
-			ID      string `json:"id"`
-			Summary string `json:"summary"`
+			ID       string `json:"id"`
+			Summary  string `json:"summary"`
 			Severity []struct {
 				Type  string `json:"type"`
 				Score string `json:"score"`

@@ -225,9 +225,9 @@ func TestConsumeDecisionThreeRules(t *testing.T) {
 			want: ActionPass,
 		},
 		{
-			name: "nil summary defaults to stop (fail-closed)",
+			name:    "nil summary defaults to stop (fail-closed)",
 			summary: nil,
-			want: ActionStop,
+			want:    ActionStop,
 		},
 	}
 	for _, tt := range tests {

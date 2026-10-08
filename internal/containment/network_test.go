@@ -94,9 +94,9 @@ func TestIsValidDomain(t *testing.T) {
 
 func TestContainsDomain(t *testing.T) {
 	tests := []struct {
-		hostname      string
+		hostname       string
 		allowedDomains []string
-		expected      bool
+		expected       bool
 	}{
 		{"proxy.golang.org", []string{"proxy.golang.org"}, true},
 		{"sub.proxy.golang.org", []string{"proxy.golang.org"}, true},

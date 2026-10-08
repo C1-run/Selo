@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	statusDir   string
-	statusJSON  bool
+	statusDir  string
+	statusJSON bool
 )
 
 var statusCmd = &cobra.Command{
@@ -40,13 +40,13 @@ func runStatusCmd(cmd *cobra.Command, args []string) error {
 	qm := queue.NewQueueManager(baseDir)
 
 	type statusInfo struct {
-		BaseDir     string   `json:"base_dir"`
-		LockExists  bool     `json:"lock_exists"`
-		PendingCount int     `json:"pending_count"`
-		RunningCount int     `json:"running_count"`
-		DoneCount   int      `json:"done_count"`
-		FailedCount int      `json:"failed_count"`
-		RecentTasks []string `json:"recent_tasks"`
+		BaseDir      string   `json:"base_dir"`
+		LockExists   bool     `json:"lock_exists"`
+		PendingCount int      `json:"pending_count"`
+		RunningCount int      `json:"running_count"`
+		DoneCount    int      `json:"done_count"`
+		FailedCount  int      `json:"failed_count"`
+		RecentTasks  []string `json:"recent_tasks"`
 	}
 
 	info := statusInfo{

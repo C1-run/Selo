@@ -47,9 +47,9 @@ type CompatibilityResult struct {
 // VersionedClient wraps a Client with version detection and compatibility checking.
 type VersionedClient struct {
 	*Client
-	versionInfo     *VersionInfo
-	compatibility   *CompatibilityResult
-	checkedVersion  bool
+	versionInfo    *VersionInfo
+	compatibility  *CompatibilityResult
+	checkedVersion bool
 }
 
 // NewVersionedClient creates a new versioned OpenCode client.

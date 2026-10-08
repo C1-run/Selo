@@ -65,14 +65,14 @@ type RunInfo struct {
 
 // AdapterOpts configures the C1 Forge adapter for OpenCode.
 type AdapterOpts struct {
-	BinaryPath         string
-	WorkDir            string
-	TaskFilePath       string
-	Model              string
-	Agent              string
-	MaxMinutes         int
-	ServeTimeoutSec    int
-	RunTimeoutSec      int
-	Permissions        bool
-	Allowlist          []string // permitted file patterns
+	BinaryPath      string
+	WorkDir         string
+	TaskFilePath    string
+	Model           string
+	Agent           string
+	MaxMinutes      int
+	ServeTimeoutSec int
+	RunTimeoutSec   int
+	Permissions     bool
+	Allowlist       []string // permitted file patterns
 }

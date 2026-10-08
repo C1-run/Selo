@@ -2,11 +2,12 @@ package runner
 
 import (
 	"bytes"
-	"regexp"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -349,31 +350,79 @@ func RunForbiddenClaimsScan(workDir string, forbiddenTerms []string) ([]string, 
 	return hits, nil
 }
 
-// RunSecretScan runs a simple secret pattern scan.
-func RunSecretScan(workDir string) ([]string, error) {
-	patterns := []string{
-		`-----BEGIN\s+(RSA|OPENSSH|EC|DSA|PGP)\s+PRIVATE\s+KEY-----`,
-		`(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`,
-		`\bAKIA[0-9A-Z]{16}\b`,
-		`\bgh[pousr]_[A-Za-z0-9]{36}\b`,
-		`\bxox[bpars]-[A-Za-z0-9-]{10,}\b`,
-		`\bAIza[0-9A-Za-z_-]{35}\b`,
-		`\bsk-[A-Za-z0-9]{20,}\b`,
-	}
+// secretScanPatterns are the secret detectors used by every secret scan.
+//
+// They are Go regexps evaluated in-process. An earlier version shelled out to
+// `grep -E` with GNU-only syntax (\b, \s and (?:...)), none of which is valid
+// POSIX ERE: on BSD/macOS grep those patterns either errored or silently failed
+// to match, so the scan reported zero hits and the control failed open.
+var secretScanPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)-----BEGIN\s+(RSA|OPENSSH|EC|DSA|PGP)\s+PRIVATE\s+KEY-----`),
+	regexp.MustCompile(`(?i)(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`),
+	regexp.MustCompile(`(?i)\bAKIA[0-9A-Z]{16}\b`),
+	regexp.MustCompile(`(?i)\bgh[pousr]_[A-Za-z0-9]{36}\b`),
+	regexp.MustCompile(`(?i)\bxox[bpars]-[A-Za-z0-9-]{10,}\b`),
+	regexp.MustCompile(`(?i)\bAIza[0-9A-Za-z_-]{35}\b`),
+	regexp.MustCompile(`(?i)\bsk-[A-Za-z0-9]{20,}\b`),
+}
+
+// maxSecretScanFileBytes caps per-file secret scanning so a huge generated file
+// cannot stall the audit.
+const maxSecretScanFileBytes = 1 << 20
+
+// scanFilesForSecrets scans relPaths (relative to workDir) line by line and
+// returns one "rel:lineno:text" hit per matching line.
+func scanFilesForSecrets(workDir string, relPaths []string) []string {
 	var hits []string
-	for _, pattern := range patterns {
-		cmd := exec.Command("grep", "-rni", "-E", pattern, workDir)
-		out, err := cmd.Output()
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			for _, line := range lines {
-				if line != "" {
-					hits = append(hits, line)
+	for _, rel := range relPaths {
+		path := filepath.Join(workDir, rel)
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() > maxSecretScanFileBytes {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if line == "" {
+				continue
+			}
+			for _, re := range secretScanPatterns {
+				if re.MatchString(line) {
+					hits = append(hits, fmt.Sprintf("%s:%d: %s", rel, i+1, strings.TrimSpace(line)))
+					break
 				}
 			}
 		}
 	}
-	return hits, nil
+	return hits
+}
+
+// RunSecretScan runs the secret pattern scan over the whole worktree.
+func RunSecretScan(workDir string) ([]string, error) {
+	var relPaths []string
+	err := filepath.WalkDir(workDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		rel, relErr := filepath.Rel(workDir, path)
+		if relErr != nil {
+			return nil
+		}
+		relPaths = append(relPaths, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return scanFilesForSecrets(workDir, relPaths), nil
 }
 
 // maxClaimScanFileBytes caps per-file claim scanning so a huge generated file
@@ -461,33 +510,18 @@ func RunForbiddenClaimsScanDiffScoped(workDir string, forbiddenTerms, changedFil
 	return hits, nil
 }
 
-var secretScanPatterns = []string{
-	`-----BEGIN\s+(RSA|OPENSSH|EC|DSA|PGP)\s+PRIVATE\s+KEY-----`,
-	`(?:api[_-]?key|secret|token|password)\s*[:=]\s*['"][^'"]+['"]`,
-}
-
-// RunSecretScanDiffScoped runs secret patterns over changed files only.
+// RunSecretScanDiffScoped runs the secret patterns over changed files only.
 // Falls back to a full worktree scan when changedFiles is empty.
+//
+// It uses the full pattern set. An earlier version used a reduced two-pattern
+// set, so runs scanned for hardcoded credentials but never for AWS, GitHub,
+// Slack, Google or OpenAI tokens — the detectors existed but were unreachable
+// from the run path.
 func RunSecretScanDiffScoped(workDir string, changedFiles []string) ([]string, error) {
 	if len(changedFiles) == 0 {
 		return RunSecretScan(workDir)
 	}
-	var hits []string
-	for _, pattern := range secretScanPatterns {
-		args := append([]string{"-rni", "-E", pattern}, changedFiles...)
-		cmd := exec.Command("grep", args...)
-		cmd.Dir = workDir
-		out, err := cmd.Output()
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			for _, line := range lines {
-				if line != "" {
-					hits = append(hits, line)
-				}
-			}
-		}
-	}
-	return hits, nil
+	return scanFilesForSecrets(workDir, changedFiles), nil
 }
 
 // CheckForbiddenFileEdit checks if any files outside allowed_files or inside forbidden_files were modified.
