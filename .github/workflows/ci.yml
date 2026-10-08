@@ -43,4 +43,14 @@ jobs:
       - name: Daemon tests
         env:
           SELO_HOME: ${{ github.workspace }}
-        run: go test ./cmd/selo/ -count=1
+        run: |
+          set +e
+          go test ./cmd/selo/ -count=1 > /tmp/daemon.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            grep -aE '^(--- FAIL|FAIL|    [A-Za-z0-9_]+\.go:)' /tmp/daemon.log | head -40 > /tmp/dfails.txt
+            while IFS= read -r line; do
+              echo "::error title=TEST::$line"
+            done < /tmp/dfails.txt
+          fi
+          exit $status
