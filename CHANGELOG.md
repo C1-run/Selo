@@ -4,6 +4,41 @@ All notable changes to Selo are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is semver-ish
 for an early project — breaking config or receipt-schema changes bump the minor.
 
+## [0.5.0] — 2026-10-08
+
+### Security
+- **Receipt forgery closed (ADR-004).** `VerifyReceipt` previously read the
+  public key from the receipt itself, so a tampered receipt could be re-signed
+  with a fresh key and still verify as `VALID`. Signing is now **fail-closed**:
+  without `SELO_SIGNING_KEY` Selo refuses to sign (and `selo run` exits
+  non-zero) unless you opt into a per-process key with `selo run --dev` or
+  `SELO_ALLOW_EPHEMERAL_KEY=1`. Every receipt now records `key_mode`
+  (`persistent` | `ephemeral`), signed into the receipt so it cannot be forged.
+- **`selo verify` now requires a pinned key to prove who signed.** Without
+  `--pubkey`, `selo verify` reports internal self-consistency only and prints
+  `Provenance: UNPINNED_*` with an explicit warning — it no longer prints a bare
+  `VALID` that could be mistaken for provenance. Supply `--pubkey
+  <fingerprint|file>` to confirm the signer; a fingerprint mismatch fails the
+  check. `selo receipt show` accepts the same `--pubkey` flag.
+
+### Added
+- `selo run --dev` — accept an ephemeral per-process signing key when
+  `SELO_SIGNING_KEY` is unset (dev only; receipts are not attributable across
+  runs).
+- `selo verify --pubkey <file|fingerprint>` and `selo receipt show --pubkey
+  <file|fingerprint>` — pin the trusted signer and prove provenance.
+- `receipt.PublicKeyFingerprint` and `LoadSigningKeyWithMode` (report the key
+  mode) in the signing library.
+
+### Changed
+- **BREAKING:** default signing behavior. `SELO_SIGNING_KEY` is now required for
+  production receipts; missing key fails closed instead of silently using an
+  ephemeral key. Migration: run `selo keys generate` once and `export
+  SELO_SIGNING_KEY=$(cat ~/.selo/signing-key)` (or pass `selo run --dev` for
+  throwaway/dev runs).
+- Receipt schema adds `key_mode`. Older receipts without the field verify as
+  `UNPINNED_UNKNOWN` and are still internally consistent.
+
 ## [0.4.1] — 2026-10-08
 
 ### Fixed

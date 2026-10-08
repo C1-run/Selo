@@ -18,7 +18,7 @@ Report vulnerabilities by email to **team@c1.run** (or via a GitHub private
 security advisory). Please do not include
 any vulnerability details in it.
 
-We will acknowledge reports as capacity allows; this is a v0.1 alpha maintained
+We will acknowledge reports as capacity allows; this is an alpha maintained
 by a small team, and we would rather tell you we are slow than promise a
 response time we cannot keep.
 
@@ -58,18 +58,23 @@ These are documented behaviors, not bugs. Please do not report them as
 vulnerabilities. If you think one of them is described incorrectly, that is a
 documentation issue and an ordinary issue is fine.
 
-1. **Ephemeral signing key.** Unless `SELO_SIGNING_KEY` is set, Selo generates
-   an ephemeral per-process Ed25519 key and prints a warning that it is for
-   development only. Receipts signed this way are not attributable across runs:
-   a different process produces a different key. This is a known configuration
-   weakness, not a signing flaw.
-2. **No `selo verify` command.** Receipt verification exists only as a library
-   function. There is no CLI entry point for verifying a receipt yet, so a
-   "missing `selo verify`" report is not a finding.
+1. **Ephemeral signing key (opt-in).** Selo refuses to sign without a
+   configured `SELO_SIGNING_KEY` (fail-closed). An ephemeral per-process Ed25519
+   key is only used when you pass `selo run --dev` or set
+   `SELO_ALLOW_EPHEMERAL_KEY=1`. Such receipts are not attributable across runs
+   and are stamped `key_mode: "ephemeral"`; `selo verify` reports them as
+   `UNPINNED_EPHEMERAL`. This is a known limitation of dev mode, not a signing
+   flaw.
+2. **`selo verify` proves provenance only when you pin a key.** Without
+   `--pubkey`, `selo verify` confirms only internal self-consistency (content
+   hash + signature) and explicitly reports `Provenance: UNPINNED_*`. A receipt
+   re-signed by an attacker with their own key still verifies as internally
+   consistent. Pass `--pubkey <fingerprint|file>` to prove the signer. Treat
+   any unpinned `VALID` as "not proven who signed this," not "trustworthy."
 3. **Only `worktree` containment is implemented.** The `worktree` strategy is
    the only one that runs. `docker` and `local` are rejected at startup by
    configuration validation rather than silently downgraded to a weaker
-   strategy. Docker is not a supported containment path in v0.1.
+   strategy. Docker is not a supported containment path in the current alpha.
 4. **Safety checks are post-execution audit, not real-time interception.** A
    violating change is contained in the worktree and rejected with a receipt;
    nothing blocks a file write as it happens. The verdict is on the diff after
@@ -80,6 +85,6 @@ documentation issue and an ordinary issue is fine.
 
 ## Supported versions
 
-`v0.1.x` is the only supported line. It is an alpha: expect breaking changes,
-incomplete checks, and behavior that moves between patch releases. Reports
+`0.5.x` is the current supported line. It is an alpha: expect breaking changes,
+incomplete checks, and behavior that moves between minor releases. Reports
 against anything older, or against a fork, are out of scope.

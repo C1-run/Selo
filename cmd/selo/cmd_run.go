@@ -19,6 +19,7 @@ var (
 	runCommands       []string
 	runMaxMinutes     int
 	runForbiddenFiles []string
+	runDev            bool
 )
 
 var runCmd = &cobra.Command{
@@ -37,6 +38,7 @@ func init() {
 	runCmd.Flags().StringArrayVar(&runCommands, "commands", nil, "Test commands to run (repeatable)")
 	runCmd.Flags().IntVar(&runMaxMinutes, "max-minutes", 30, "Max minutes for the agent")
 	runCmd.Flags().StringArrayVar(&runForbiddenFiles, "forbidden-files", nil, "Files the agent must not modify")
+	runCmd.Flags().BoolVar(&runDev, "dev", false, "Allow a per-process ephemeral signing key when SELO_SIGNING_KEY is unset (dev only — receipts are not attributable across runs)")
 }
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
@@ -102,6 +104,9 @@ commands:
 	fmt.Printf("[selo] Task %s queued: %s\n", taskID, goal)
 
 	// Process the task (reuses daemon logic)
+	if runDev {
+		os.Setenv("SELO_ALLOW_EPHEMERAL_KEY", "1")
+	}
 	processed := processOneTask(qm, receiptWriter, worktreeMgr, cfg)
 	if !processed {
 		return fmt.Errorf("task %s was not processed", taskID)
@@ -111,6 +116,21 @@ commands:
 	receiptPath := filepath.Join(qm.RunsDir(), "run-"+taskID, "receipt.json")
 	if _, err := os.Stat(receiptPath); err == nil {
 		fmt.Printf("[selo] Receipt: %s\n", receiptPath)
+	}
+
+	// Fail closed: a production run (no --dev) must not silently emit an
+	// unsigned receipt. Signing fails closed when SELO_SIGNING_KEY is unset,
+	// so an unsigned file here means the run is misconfigured and the receipt
+	// cannot serve as evidence of what happened.
+	if !runDev {
+		if receiptData, rerr := os.ReadFile(receiptPath); rerr == nil {
+			var signed struct {
+				Signature string `json:"signature"`
+			}
+			if json.Unmarshal(receiptData, &signed) == nil && signed.Signature == "" {
+				return fmt.Errorf("receipt was not signed: set SELO_SIGNING_KEY (run `selo keys generate`) so receipts are attributable across runs, or pass --dev to accept an ephemeral per-process key")
+			}
+		}
 	}
 
 	// Spec §2.2 exit codes: 0 success/noop, 1 failure, 2 timeout. A rejected
