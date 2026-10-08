@@ -1,7 +1,7 @@
 # ADR-004: 持久签名密钥 fail-closed，验证强制带外固定公钥
 
 ## Status
-Proposed (2026-10-07)
+Accepted (2026-10-08) — implemented in v0.5.0
 
 ## Background
 当前实现有两处击穿核心卖点的问题：

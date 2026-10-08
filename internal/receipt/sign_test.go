@@ -1,6 +1,7 @@
 package receipt
 
 import (
+	"errors"
 	"os"
 	"testing"
 )
@@ -14,6 +15,13 @@ func sampleReceipt() *ForgeReceipt {
 }
 
 func TestSignAndVerifyRoundTrip(t *testing.T) {
+	seedB64, _, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	t.Setenv("SELO_SIGNING_KEY", seedB64)
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
 	r := sampleReceipt()
 	if _, err := SignReceipt(r); err != nil {
 		t.Fatalf("SignReceipt: %v", err)
@@ -31,6 +39,13 @@ func TestSignAndVerifyRoundTrip(t *testing.T) {
 }
 
 func TestVerifyDetectsTamper(t *testing.T) {
+	seedB64, _, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	t.Setenv("SELO_SIGNING_KEY", seedB64)
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
 	r := sampleReceipt()
 	if _, err := SignReceipt(r); err != nil {
 		t.Fatalf("SignReceipt: %v", err)
@@ -77,6 +92,13 @@ func TestLoadSigningKeyFromEnv(t *testing.T) {
 }
 
 func TestVerifyReceiptData(t *testing.T) {
+	seedB64, _, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	t.Setenv("SELO_SIGNING_KEY", seedB64)
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
 	r := sampleReceipt()
 	sig, err := SignReceipt(r)
 	if err != nil {
@@ -89,5 +111,51 @@ func TestVerifyReceiptData(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected VerifyReceiptData to succeed")
+	}
+}
+
+func TestSignRecordsPersistentKeyMode(t *testing.T) {
+	seedB64, _, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	t.Setenv("SELO_SIGNING_KEY", seedB64)
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
+	r := sampleReceipt()
+	if _, err := SignReceipt(r); err != nil {
+		t.Fatalf("SignReceipt: %v", err)
+	}
+	if r.KeyMode != KeyModePersistent {
+		t.Fatalf("expected key_mode %q, got %q", KeyModePersistent, r.KeyMode)
+	}
+	// Key mode must be covered by the signature: tampering with it breaks verify.
+	ok, err := VerifyReceipt(r)
+	if err != nil {
+		t.Fatalf("VerifyReceipt: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected valid signature with persistent key_mode")
+	}
+	r.KeyMode = KeyModeEphemeral
+	if ok, _ := VerifyReceipt(r); ok {
+		t.Fatal("changing key_mode must invalidate the signature")
+	}
+}
+
+func TestSignFailClosedWithoutKey(t *testing.T) {
+	os.Unsetenv("SELO_SIGNING_KEY")
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
+	r := sampleReceipt()
+	_, err := SignReceipt(r)
+	if err == nil {
+		t.Fatal("expected SignReceipt to fail when no key is configured")
+	}
+	if !errors.Is(err, ErrNoSigningKey) {
+		t.Fatalf("expected ErrNoSigningKey, got %v", err)
+	}
+	if r.KeyMode != "" {
+		t.Fatalf("expected key_mode unset on failure, got %q", r.KeyMode)
 	}
 }

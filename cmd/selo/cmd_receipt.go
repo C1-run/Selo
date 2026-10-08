@@ -17,6 +17,7 @@ var (
 	receiptJSONOut    bool
 	receiptFormat     string
 	receiptWantAnchor bool
+	receiptPubKey     string
 )
 
 var receiptCmd = &cobra.Command{
@@ -50,6 +51,7 @@ func init() {
 	receiptShowCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
 	receiptShowCmd.Flags().StringVar(&receiptFormat, "format", "text", "Output format: text, markdown, github, or json")
 	receiptShowCmd.Flags().BoolVar(&receiptWantAnchor, "anchor", false, "Also verify the git anchor")
+	receiptShowCmd.Flags().StringVar(&receiptPubKey, "pubkey", "", "Pin the signer: a path to a key file, a 64-char hex fingerprint, or an inline base64 public key")
 
 	receiptCmd.AddCommand(receiptListCmd, receiptShowCmd)
 }
@@ -156,7 +158,7 @@ func runReceiptShow(cmd *cobra.Command, args []string) error {
 	}
 
 	path := resolveReceiptPath(args[0], baseDir)
-	res := verifyReceiptFile(path, baseDir, receiptWantAnchor)
+	res := verifyReceiptFile(path, baseDir, receiptWantAnchor, receiptPubKey)
 
 	data, err := os.ReadFile(path)
 	var r map[string]any

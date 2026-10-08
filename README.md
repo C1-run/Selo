@@ -29,7 +29,7 @@ touched), it was **caught** (a forbidden-file rule fired on the actual diff), an
 - **Contained.** Every task runs in a throwaway git worktree — the agent never touches your checkout.
 - **Audited.** Forbidden files, scope violations (allowlist globs), secrets, forbidden claims, patch/round limits, test tampering — checked on the real diff after the agent runs.
 - **Signed.** Every outcome gets an Ed25519-signed receipt over canonical JSON, with a content hash.
-- **Verifiable.** `selo verify <receipt.json>` lets anyone — not just you — check that a receipt was not doctored.
+- **Verifiable.** `selo verify --pubkey <fingerprint> <receipt.json>` lets anyone — not just you — prove the receipt was signed by the trusted key and not doctored. Without `--pubkey` it still checks internal consistency, but cannot prove who signed.
 - **Surfaced.** Receipt cards render into GitHub job summaries and PR comments, where merge decisions happen.
 - **Embeddable.** `selo mcp serve` exposes the real checks to any MCP client.
 
@@ -49,18 +49,21 @@ selo run "fix the login bug"
 
 # read the verdict — always from the receipt, never from the agent
 selo receipt show run-<id> --format text
-selo verify runs/run-<id>/receipt.json
+selo verify runs/run-<id>/receipt.json --pubkey <your-fingerprint>   # proves the signer
+
+# your fingerprint (sha256 of the public key) — share it out of band so others can verify:
+selo keys pub   # prints the public key; fingerprint = sha256 of that key
 ```
 
-## What works in v0.4
+## What works in v0.5
 
-| Capability | Status in v0.4 |
+| Capability | Status in v0.5 |
 |---|---|
 | Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task (exit 1) and produce a signed receipt. |
 | `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
-| `selo verify` | Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. |
-| `selo receipt` | `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary. |
-| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600) and prints the export line and public key; without `SELO_SIGNING_KEY` an ephemeral per-process key is used, with a warning. |
+| `selo verify` | Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. With `--pubkey <fingerprint\|file>` it proves the signer (provenance); without it, reports `Provenance: UNPINNED_*` — internally consistent but not proven who signed. |
+| `selo receipt` | `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary; `receipt show` also takes `--pubkey`. |
+| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600) and prints the export line and public key. Signing is fail-closed: without `SELO_SIGNING_KEY`, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`. |
 | `selo mcp serve` | Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |
@@ -81,7 +84,7 @@ Honest counterpoints — read these before adopting:
   checks are right. The [benchmark comparison](docs/BENCHMARK_SELO_VS_CODEX.md) is a positioning
   analysis, not a benchmark.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).
-- **Young project.** v0.4, one maintainer, breaking config changes possible before 1.0 — tracked in
+- **Young project.** v0.5, one maintainer, breaking config changes possible before 1.0 — tracked in
   the [changelog](CHANGELOG.md).
 
 ## Use in CI
@@ -175,7 +178,7 @@ Every task goes through:
 3. **Pinocchio**: Consistency verification, test integrity checks
 4. **GateChain**: Compliance validation, receipt generation
 
-**Non-goals (yet):** generic SAST / CVE scanning is roadmap, not v0.4.
+**Non-goals (yet):** generic SAST / CVE scanning is roadmap, not v0.5.
 Selo focuses on agent behavior governance: scope violations, test
 tampering, secret smuggling, false claims, and auditable receipts.
 Third-party scanners (Semgrep, Snyk Code, Codex Security) are welcome
@@ -214,7 +217,7 @@ selo/
 The engine comes first: receipts everywhere, starting with a data-analysis
 vertical where the verification predicate is objective (same input → same
 output). Security and finance packs follow, in that order. See
-[What works](#what-works-in-v04) for the current capability list.
+[What works](#what-works-in-v05) for the current capability list.
 
 ## Development
 

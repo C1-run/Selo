@@ -55,7 +55,7 @@ func TestVerifyValidReceipt(t *testing.T) {
 	r := signedVerifyTestReceipt(t)
 	path := writeVerifyTestReceipt(t, &r)
 
-	res := verifyReceiptFile(path, t.TempDir(), false)
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
 	if !res.Valid {
 		t.Fatalf("expected VALID, got INVALID: %v", res.Errors)
 	}
@@ -84,7 +84,7 @@ func TestVerifyTamperedReceipt(t *testing.T) {
 	r.Verdict = "FAIL" // tamper after signing
 	path := writeVerifyTestReceipt(t, &r)
 
-	res := verifyReceiptFile(path, t.TempDir(), false)
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
 	if res.Valid {
 		t.Fatal("expected INVALID for tampered receipt")
 	}
@@ -113,7 +113,7 @@ func TestVerifyUnsignedReceipt(t *testing.T) {
 	r := newVerifyTestReceipt() // no SignReceipt call
 	path := writeVerifyTestReceipt(t, &r)
 
-	res := verifyReceiptFile(path, t.TempDir(), false)
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
 	if res.Valid {
 		t.Fatal("expected INVALID for unsigned receipt")
 	}
@@ -140,7 +140,7 @@ func TestVerifyAnchorMissing(t *testing.T) {
 	path := writeVerifyTestReceipt(t, &r)
 
 	// Non-git temp dir: no anchor file and no receipt-anchor branch.
-	res := verifyReceiptFile(path, t.TempDir(), true)
+	res := verifyReceiptFile(path, t.TempDir(), true, "")
 	if res.Valid {
 		t.Fatal("expected INVALID when anchor requested but absent")
 	}
@@ -160,7 +160,7 @@ func TestVerifyAnchorMissing(t *testing.T) {
 }
 
 func TestVerifyUnreadableReceipt(t *testing.T) {
-	res := verifyReceiptFile(filepath.Join(t.TempDir(), "missing.json"), t.TempDir(), false)
+	res := verifyReceiptFile(filepath.Join(t.TempDir(), "missing.json"), t.TempDir(), false, "")
 	if res.Valid {
 		t.Fatal("expected INVALID for unreadable receipt")
 	}
@@ -175,12 +175,106 @@ func TestVerifyMalformedReceipt(t *testing.T) {
 	if err := os.WriteFile(path, []byte("{not json"), 0644); err != nil {
 		t.Fatalf("write receipt: %v", err)
 	}
-	res := verifyReceiptFile(path, t.TempDir(), false)
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
 	if res.Valid {
 		t.Fatal("expected INVALID for malformed receipt")
 	}
 	joined := strings.Join(res.Errors, "; ")
 	if !strings.Contains(joined, "malformed receipt JSON") {
 		t.Errorf("expected malformed receipt JSON error, got %v", res.Errors)
+	}
+}
+
+func TestVerifyPinnedKeyMatch(t *testing.T) {
+	r := signedVerifyTestReceipt(t)
+	path := writeVerifyTestReceipt(t, &r)
+
+	fp, err := receipt.PublicKeyFingerprint(r.PublicKey)
+	if err != nil {
+		t.Fatalf("fingerprint: %v", err)
+	}
+	res := verifyReceiptFile(path, t.TempDir(), false, fp)
+	if !res.Valid {
+		t.Fatalf("expected VALID with matching pinned key, got errors: %v", res.Errors)
+	}
+	if !res.PubKeyPinned {
+		t.Error("expected pubkey_pinned true")
+	}
+	if res.PubKeyMatch == nil || !*res.PubKeyMatch {
+		t.Error("expected pubkey_match true")
+	}
+	if res.Provenance != "PINNED" {
+		t.Errorf("expected provenance PINNED, got %s", res.Provenance)
+	}
+}
+
+func TestVerifyPinnedKeyMismatch(t *testing.T) {
+	r := signedVerifyTestReceipt(t)
+	path := writeVerifyTestReceipt(t, &r)
+
+	// A different keypair's fingerprint: the receipt cannot have been signed by it.
+	otherSeed, _, _, err := receipt.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	t.Setenv("SELO_SIGNING_KEY", otherSeed)
+	otherR := newVerifyTestReceipt()
+	if _, err := receipt.SignReceipt(&otherR); err != nil {
+		t.Fatalf("sign other: %v", err)
+	}
+	otherFP, err := receipt.PublicKeyFingerprint(otherR.PublicKey)
+	if err != nil {
+		t.Fatalf("fingerprint other: %v", err)
+	}
+
+	res := verifyReceiptFile(path, t.TempDir(), false, otherFP)
+	if res.Valid {
+		t.Fatal("expected INVALID when pinned key does not match the signer")
+	}
+	if res.PubKeyMatch == nil || *res.PubKeyMatch {
+		t.Error("expected pubkey_match false")
+	}
+	joined := strings.Join(res.Errors, "; ")
+	if !strings.Contains(joined, "does not match pinned key") {
+		t.Errorf("expected pin mismatch error, got %v", res.Errors)
+	}
+}
+
+func TestVerifyUnpinnedShowsProvenancePersistent(t *testing.T) {
+	r := signedVerifyTestReceipt(t)
+	path := writeVerifyTestReceipt(t, &r)
+
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("expected internally-valid receipt, got errors: %v", res.Errors)
+	}
+	if res.PubKeyPinned {
+		t.Error("expected pubkey_pinned false when no --pubkey given")
+	}
+	if res.Provenance != "UNPINNED_PERSISTENT" {
+		t.Errorf("expected provenance UNPINNED_PERSISTENT, got %s", res.Provenance)
+	}
+	if r.KeyMode != receipt.KeyModePersistent {
+		t.Errorf("expected receipt key_mode persistent, got %q", r.KeyMode)
+	}
+}
+
+func TestVerifyEphemeralKeyModeUnpinned(t *testing.T) {
+	// No persistent key: ephemeral allowed via env, which stamps key_mode=ephemeral.
+	t.Setenv("SELO_ALLOW_EPHEMERAL_KEY", "1")
+	r := newVerifyTestReceipt()
+	if _, err := receipt.SignReceipt(&r); err != nil {
+		t.Fatalf("SignReceipt: %v", err)
+	}
+	if r.KeyMode != receipt.KeyModeEphemeral {
+		t.Fatalf("expected key_mode ephemeral, got %q", r.KeyMode)
+	}
+	path := writeVerifyTestReceipt(t, &r)
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("expected internally-valid ephemeral receipt, got errors: %v", res.Errors)
+	}
+	if res.Provenance != "UNPINNED_EPHEMERAL" {
+		t.Errorf("expected provenance UNPINNED_EPHEMERAL, got %s", res.Provenance)
 	}
 }
