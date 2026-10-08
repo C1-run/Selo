@@ -4,6 +4,36 @@ All notable changes to Selo are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is semver-ish
 for an early project — breaking config or receipt-schema changes bump the minor.
 
+## [0.4.1] — 2026-10-08
+
+### Fixed
+- **Secret scan detected nothing outside GNU grep.** The scan shelled out to
+  `grep -E` with `\b`, `\s` and `(?:...)`, none of which is POSIX ERE. BSD and
+  macOS grep reject or silently fail to match them, so the scan returned zero
+  hits and the control failed open with no error. It now runs in-process as Go
+  regexps, and no longer depends on a `grep` binary at all. (The v0.4.0 note
+  about AWS/GitHub/Slack/Google/OpenAI coverage was therefore only true of the
+  full-worktree scan; see below.)
+- **The run path never scanned for real tokens.** `RunSecretScanDiffScoped`
+  (used by `selo run` and the MCP server) carried 2 of the 7 patterns, so AWS,
+  GitHub, Slack, Google and OpenAI tokens were undetectable during an actual
+  run. Both paths now share one pattern set.
+- **`Result.Output` contained stderr as well as stdout.** `cell` pointed
+  `cmd.Stdout` and `cmd.Stderr` at the same buffer, so tool noise — a docker
+  image pull, on a cold runner — landed in the result. `Output` is stdout only;
+  stderr is on `Result.Stderr`.
+- **CI never ran.** The gofmt gate wrote `out=$$(go env GOROOT)`, which is not
+  valid shell (`$$` is the PID, leaving a bare `(`), so the step died with a
+  syntax error. Go is now pinned via `go-version-file`.
+- **Tests only passed on one machine.** The real-run tests assumed
+  `/tmp/selo-fixture` already existed; on a clean checkout all four
+  `TestC1Loop*` tests failed with `FAILED_INTERNAL_ERROR`. The fixture is now
+  created by the suite.
+
+### Changed
+- `gofmt` drift across 26 tracked files corrected (whitespace and import
+  ordering only), so the format gate can pass.
+
 ## [0.4.0] — 2026-10-05
 
 ### Added
