@@ -37,4 +37,5 @@ README 与对比表声称 "Non-repudiable audit (signed receipts + hash chain)"�
 - 需要同步更新 README、对比表、白皮书、网站等多处文案。
 
 ## Related ADRs
-ADR-001（in-toto）、ADR-004（持久密钥）、ADR-005（时间戳）、ADR-006（Rekor）
+ADR-001（in-toto）、ADR-004（持久密钥）、ADR-005（时间戳）、ADR-006（Rekor）、
+ADR-008（签名方信任域 —— L3 的另一半前提）

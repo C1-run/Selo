@@ -75,6 +75,10 @@ of the agent being audited**:
   non-repudiable proof of agent behavior. Do not use the words
   "non-repudiable" or "tamper-proof" for such a receipt.
 
+The phased plan for closing this gap (env strip → keychain/KMS → separate
+signer user or CI signing) is tracked in
+[ADR-008](docs/decisions/ADR-008-signer-trust-domain.md).
+
 ## Known limitations (not vulnerabilities)
 
 These are documented behaviors, not bugs. Please do not report them as

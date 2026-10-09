@@ -13,7 +13,8 @@ for an early project — breaking config or receipt-schema changes bump the mino
   and `SELO_ALLOW_EPHEMERAL_KEY` from the agent's environment. A same-user agent
   can still read `~/.selo/signing-key` from disk, so non-repudiation requires a
   separate trust domain — see SECURITY.md "Threat model". Regression test:
-  `TestAgentEnvDropsSigningKey`.
+  `TestAgentEnvDropsSigningKey`. The phased plan to move the key fully out of
+  the agent's trust domain is ADR-008.
 - **Receipts bind the audited change, the policy, and the build.** Added
   `diff_hash` (sha256 of the full diff), `policy_hash` (sha256 of the effective
   forbidden claims/files and limits) and `selo_version`, all covered by the
@@ -21,6 +22,14 @@ for an early project — breaking config or receipt-schema changes bump the mino
   diff or confused with one produced under an empty policy.
 
 ### Added
+- **in-toto / DSSE receipt export (ADR-001).** `selo receipt export <id> --format
+  in-toto` re-signs a receipt as an in-toto Statement v1 wrapped in a DSSE
+  envelope, so third parties can verify it with standard tooling (cosign,
+  slsa-verifier) without installing Selo. The signature covers the DSSE PAE over
+  the exact statement bytes — not a re-serialization — so a verifier in any
+  language can check it. The native `receipt.json` is unchanged. `selo verify`
+  now detects and verifies an envelope, reporting `Format: in-toto/DSSE`, with
+  the same `--pubkey` pinning.
 - `selo selftest` — plants a known secret, a forbidden-file edit, a forbidden
   claim, and a removed test, then asserts every control rejects it; also asserts
   signing fails closed with no key. Runs in CI so a detector that regresses to

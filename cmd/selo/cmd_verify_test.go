@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -49,6 +50,54 @@ func signedVerifyTestReceipt(t *testing.T) receipt.ForgeReceipt {
 		t.Fatalf("sign receipt: %v", err)
 	}
 	return r
+}
+
+// TestVerifyInTotoEnvelope covers the ADR-001 export path end to end: a receipt
+// exported as a DSSE-wrapped in-toto statement must verify, and a tampered
+// envelope must not.
+func TestVerifyInTotoEnvelope(t *testing.T) {
+	r := signedVerifyTestReceipt(t)
+
+	env, err := receipt.ExportInToto(&r)
+	if err != nil {
+		t.Fatalf("ExportInToto: %v", err)
+	}
+	data, err := json.MarshalIndent(env, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "attestation.json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pinned with the signer's own key: valid, with proven provenance.
+	res := verifyReceiptFile(path, t.TempDir(), false, r.PublicKey)
+	if !res.Valid {
+		t.Fatalf("expected VALID envelope, got INVALID: %v", res.Errors)
+	}
+	if res.Format != "in-toto/DSSE" {
+		t.Fatalf("format = %q, want in-toto/DSSE", res.Format)
+	}
+	if res.Provenance != "PINNED" {
+		t.Fatalf("provenance = %q, want PINNED", res.Provenance)
+	}
+
+	// Tamper with the payload: the envelope signature must fail.
+	var tampered receipt.Envelope
+	if err := json.Unmarshal(data, &tampered); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := base64.StdEncoding.DecodeString(tampered.Payload)
+	tampered.Payload = base64.StdEncoding.EncodeToString(append(raw, ' '))
+	td, _ := json.MarshalIndent(&tampered, "", "  ")
+	tpath := filepath.Join(t.TempDir(), "tampered.json")
+	if err := os.WriteFile(tpath, td, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if bad := verifyReceiptFile(tpath, t.TempDir(), false, r.PublicKey); bad.Valid {
+		t.Fatal("tampered envelope verified as VALID")
+	}
 }
 
 func TestVerifyValidReceipt(t *testing.T) {

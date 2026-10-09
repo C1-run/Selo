@@ -72,7 +72,7 @@ func archiveSignedReceipt(t *testing.T, mutate func(*receipt.ForgeReceipt)) (bas
 // call RunE functions directly, which bypasses registration — a lost
 // rootCmd.AddCommand line compiles fine and only fails at the CLI.
 func TestRootRegistersAllCommands(t *testing.T) {
-	want := []string{"daemon", "run", "check", "verify", "receipt", "keys", "mcp", "status", "init", "smoke", "soak", "completion"}
+	want := []string{"daemon", "run", "check", "verify", "receipt", "keys", "mcp", "status", "init", "smoke", "selftest", "soak", "completion"}
 	have := map[string]bool{}
 	for _, c := range rootCmd.Commands() {
 		have[c.Name()] = true

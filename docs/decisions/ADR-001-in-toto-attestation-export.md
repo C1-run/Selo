@@ -1,7 +1,7 @@
 # ADR-001: 采用 in-toto attestation（Statement v1 + DSSE）作为收据导出格式
 
 ## Status
-Proposed (2026-10-07)
+Accepted (2026-10-09)
 
 ## Background
 Selo 的收据目前是私有 JSON（`ForgeReceipt`，`internal/receipt/receipt.go`），只有 `selo verify` 能解释。第三方要验证收据，必须安装 Selo 并理解其私有 schema。这与"任何人可验证"的主张冲突，也无法接入主流供应链验证工具（cosign、slsa-verifier、policy engine）。需要一个标准、可互操作、带明确验证语义的封装格式。
@@ -23,6 +23,22 @@ Selo 的收据目前是私有 JSON（`ForgeReceipt`，`internal/receipt/receipt.
 - 需维护 predicate 的 JSON Schema 与版本演进策略。
 - 需新增 `change_digest`/`diff_digest` 字段以绑定 subject。
 - 引入 `in-toto-golang v0.11.0`（或手写 JSON）。
+
+## Implementation (2026-10-09)
+- `internal/receipt/dsse.go` — hand-written DSSE + in-toto (no new dependency):
+  `PAE`, `Statement`, `Envelope`, `BuildStatement`, `SignStatement`,
+  `VerifyStatement`, `ExportInToto`. PAE is pinned to the DSSE spec's worked
+  example in `dsse_test.go`.
+- `selo receipt export <id-or-path> --format in-toto [--out FILE]` — signs the
+  PAE over the exact statement bytes; the native `receipt.json` is unchanged.
+- `selo verify` now detects a DSSE envelope (`payloadType` present) and checks
+  the envelope signature (over PAE) **and** the inner receipt's hash/signature,
+  with the same `--pubkey` pinning. `Format: in-toto/DSSE` is reported.
+- Subject binding uses `diff_hash` (added alongside this ADR), which covers the
+  `change_digest`/`diff_digest` field the Consequences anticipated; falls back to
+  `receipt_hash` when a run produced no diff.
+- `selo_version` is recorded in the receipt and injected from the git tag at
+  release time.
 
 ## Related ADRs
 ADR-005（时间戳）、ADR-006（Rekor）、ADR-007（措辞分级）

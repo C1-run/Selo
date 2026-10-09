@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -53,6 +54,7 @@ type verifyResult struct {
 	Provenance   string `json:"provenance"`         // PINNED | UNPINNED_PERSISTENT | UNPINNED_EPHEMERAL | UNPINNED_UNKNOWN
 	PubKeyPinned bool   `json:"pubkey_pinned"`
 	PubKeyMatch  *bool  `json:"pubkey_match,omitempty"` // nil when no pin was given
+	Format       string `json:"format,omitempty"`       // receipt | in-toto/DSSE
 }
 
 // ReceiptPathHint returns the path third parties should pass to `selo verify`
@@ -105,24 +107,74 @@ func resolvePinnedFingerprint(arg string) (string, error) {
 	return "", fmt.Errorf("--pubkey must be a path to a key file, a 64-char hex fingerprint, or an inline base64 public key")
 }
 
-// verifyReceiptFile loads and verifies a receipt. It never returns an error:
-// I/O and parse failures are reported as an invalid result with a reason,
-// so the caller can print the output and exit non-zero.
+// pinnedKeyMaterial returns the base64 public key when --pubkey carries actual
+// key material (a key file or an inline base64 key). A bare 64-char hex
+// fingerprint is not key material — it can only pin, not verify.
+func pinnedKeyMaterial(arg string) (string, bool) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return "", false
+	}
+	if info, err := os.Stat(arg); err == nil && !info.IsDir() {
+		data, rerr := os.ReadFile(arg)
+		if rerr != nil {
+			return "", false
+		}
+		content := strings.TrimSpace(string(data))
+		if _, ferr := receipt.PublicKeyFingerprint(content); ferr == nil {
+			return content, true
+		}
+		return "", false
+	}
+	if len(arg) == 64 && isHex(arg) {
+		return "", false
+	}
+	if _, ferr := receipt.PublicKeyFingerprint(arg); ferr == nil {
+		return arg, true
+	}
+	return "", false
+}
+
+// isDSSEEnvelope reports whether the bytes are a DSSE envelope (ADR-001) rather
+// than a native receipt.
+func isDSSEEnvelope(data []byte) bool {
+	var probe struct {
+		PayloadType string `json:"payloadType"`
+		Payload     string `json:"payload"`
+	}
+	if json.Unmarshal(data, &probe) != nil {
+		return false
+	}
+	return probe.PayloadType != "" && probe.Payload != ""
+}
+
+// verifyReceiptFile loads and verifies a receipt or an in-toto/DSSE attestation.
+// It never returns an error: I/O and parse failures are reported as an invalid
+// result with a reason, so the caller can print the output and exit non-zero.
 func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey string) *verifyResult {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return &verifyResult{
+			Errors:         []string{fmt.Sprintf("unreadable receipt: %v", err)},
+			HashState:      "MISSING",
+			SignatureState: "INVALID",
+			AnchorState:    "SKIPPED",
+			Path:           path,
+			Format:         "receipt",
+		}
+	}
+	if isDSSEEnvelope(data) {
+		return verifyEnvelope(data, path, repoPath, wantAnchor, pinnedPubKey)
+	}
+
 	res := &verifyResult{
 		Errors:         []string{},
 		HashState:      "MISSING",
 		SignatureState: "INVALID",
 		AnchorState:    "SKIPPED",
 		Path:           path,
+		Format:         "receipt",
 	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		res.Errors = append(res.Errors, fmt.Sprintf("unreadable receipt: %v", err))
-		return res
-	}
-
 	var r receipt.ForgeReceipt
 	if err := json.Unmarshal(data, &r); err != nil {
 		res.ReceiptID = r.ReceiptID
@@ -130,6 +182,87 @@ func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey stri
 		res.Errors = append(res.Errors, fmt.Sprintf("malformed receipt JSON: %v", err))
 		return res
 	}
+	verifyReceiptStruct(&r, res, repoPath, wantAnchor, pinnedPubKey)
+	finalizeResult(res, true)
+	return res
+}
+
+// verifyEnvelope verifies a DSSE-wrapped in-toto attestation: the envelope
+// signature over the PAE, then the inner receipt's own hash and signature.
+func verifyEnvelope(data []byte, path, repoPath string, wantAnchor bool, pinnedPubKey string) *verifyResult {
+	res := &verifyResult{
+		Errors:         []string{},
+		HashState:      "MISSING",
+		SignatureState: "INVALID",
+		AnchorState:    "SKIPPED",
+		Path:           path,
+		Format:         "in-toto/DSSE",
+	}
+	var env receipt.Envelope
+	if err := json.Unmarshal(data, &env); err != nil {
+		res.Errors = append(res.Errors, fmt.Sprintf("malformed DSSE envelope: %v", err))
+		return res
+	}
+	payload, err := base64.StdEncoding.DecodeString(env.Payload)
+	if err != nil {
+		res.Errors = append(res.Errors, fmt.Sprintf("envelope payload: %v", err))
+		return res
+	}
+	var stmt receipt.Statement
+	if err := json.Unmarshal(payload, &stmt); err != nil {
+		res.Errors = append(res.Errors, fmt.Sprintf("malformed in-toto statement: %v", err))
+		return res
+	}
+	var r receipt.ForgeReceipt
+	if len(stmt.Predicate) > 0 {
+		if err := json.Unmarshal(stmt.Predicate, &r); err != nil {
+			res.Errors = append(res.Errors, fmt.Sprintf("malformed predicate: %v", err))
+			return res
+		}
+	}
+	res.ReceiptID = r.ReceiptID
+	res.Verdict = r.Verdict
+	res.KeyMode = r.KeyMode
+
+	// Envelope signature. Verify against key material from --pubkey when given;
+	// otherwise fall back to the predicate's embedded key, which proves
+	// self-consistency only (the same caveat as an unpinned receipt).
+	dsseOK := false
+	signerKey := ""
+	if k, ok := pinnedKeyMaterial(pinnedPubKey); ok {
+		signerKey = k
+	} else if r.PublicKey != "" {
+		signerKey = r.PublicKey
+	}
+	if signerKey == "" {
+		res.Errors = append(res.Errors, "no public key available to verify the envelope (pass --pubkey <key-file>)")
+	} else {
+		_, ok, verr := receipt.VerifyStatement(&env, signerKey)
+		if verr != nil {
+			res.Errors = append(res.Errors, fmt.Sprintf("envelope: %v", verr))
+		} else if ok {
+			dsseOK = true
+		} else {
+			res.Errors = append(res.Errors, "DSSE signature invalid")
+		}
+		// The envelope's declared keyid must match the key we verified with.
+		if len(env.Signatures) > 0 && env.Signatures[0].KeyID != "" {
+			if fp, ferr := receipt.PublicKeyFingerprint(signerKey); ferr == nil && fp != env.Signatures[0].KeyID {
+				res.Errors = append(res.Errors, "envelope keyid does not match the signing key")
+				dsseOK = false
+			}
+		}
+	}
+
+	// Inner receipt: content hash + signature + pinning + anchor.
+	verifyReceiptStruct(&r, res, repoPath, wantAnchor, pinnedPubKey)
+	finalizeResult(res, dsseOK)
+	return res
+}
+
+// verifyReceiptStruct runs the receipt-level checks (content hash, signature,
+// signer pinning, optional anchor) and fills res. It does not set res.Valid.
+func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath string, wantAnchor bool, pinnedPubKey string) {
 	res.ReceiptID = r.ReceiptID
 	res.Verdict = r.Verdict
 	res.KeyMode = r.KeyMode
@@ -138,7 +271,7 @@ func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey stri
 	hashOK := false
 	if r.ReceiptHash == "" {
 		res.Errors = append(res.Errors, "receipt has no content hash")
-	} else if canonical, cerr := receipt.CanonicalJSON(&r); cerr != nil {
+	} else if canonical, cerr := receipt.CanonicalJSON(r); cerr != nil {
 		res.Errors = append(res.Errors, fmt.Sprintf("canonical json: %v", cerr))
 	} else {
 		sum := sha256.Sum256(canonical)
@@ -154,7 +287,7 @@ func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey stri
 
 	// 2. Signature: ed25519 over the canonical JSON.
 	sigOK := false
-	if ok, verr := receipt.VerifyReceipt(&r); verr == nil && ok {
+	if ok, verr := receipt.VerifyReceipt(r); verr == nil && ok {
 		sigOK = true
 		res.SignatureState = "OK"
 	} else if r.Signature == "" || r.PublicKey == "" {
@@ -169,10 +302,6 @@ func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey stri
 	res.SignatureOK = sigOK
 
 	// 3. Signer pinning (the actual provenance guarantee).
-	//    Without a pinned key, Selo can only confirm that the receipt is
-	//    internally self-consistent — it cannot prove WHO signed it. A
-	//    forged receipt signed by an attacker's own key verifies just as well
-	//    as a genuine one until a trusted fingerprint is supplied.
 	res.Provenance = "UNPINNED_UNKNOWN"
 	if pinnedPubKey != "" {
 		res.PubKeyPinned = true
@@ -227,17 +356,22 @@ func verifyReceiptFile(path, repoPath string, wantAnchor bool, pinnedPubKey stri
 			}
 		}
 	}
+}
 
-	// Overall validity: every check must pass. A pinned-key mismatch forces
-	// INVALID even when hash + signature are internally consistent.
+// finalizeResult computes overall validity: every check must pass. extraOK lets
+// the envelope path require a valid DSSE signature on top of the inner receipt.
+func finalizeResult(res *verifyResult, extraOK bool) {
 	pinOK := res.PubKeyMatch == nil || *res.PubKeyMatch
-	res.Valid = hashOK && sigOK && pinOK && (res.AnchorOK == nil || *res.AnchorOK)
-	return res
+	res.Valid = res.HashOK && res.SignatureOK && pinOK && extraOK &&
+		(res.AnchorOK == nil || *res.AnchorOK)
 }
 
 func printVerifyResult(res *verifyResult) {
 	fmt.Printf("Receipt:    %s\n", res.ReceiptID)
 	fmt.Printf("Verdict:    %s\n", res.Verdict)
+	if res.Format != "" {
+		fmt.Printf("Format:     %s\n", res.Format)
+	}
 	fmt.Printf("Hash:       %s\n", res.HashState)
 	fmt.Printf("Signature:  %s\n", res.SignatureState)
 	fmt.Printf("Anchor:     %s\n", res.AnchorState)

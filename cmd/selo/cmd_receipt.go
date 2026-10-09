@@ -8,16 +8,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/C1-run/selo/internal/receipt"
 	"github.com/spf13/cobra"
 )
 
 var (
-	receiptDir        string
-	receiptLimit      int
-	receiptJSONOut    bool
-	receiptFormat     string
-	receiptWantAnchor bool
-	receiptPubKey     string
+	receiptDir          string
+	receiptLimit        int
+	receiptJSONOut      bool
+	receiptFormat       string
+	receiptWantAnchor   bool
+	receiptPubKey       string
+	receiptExportFormat string
+	receiptExportOut    string
 )
 
 var receiptCmd = &cobra.Command{
@@ -43,6 +46,22 @@ var receiptShowCmd = &cobra.Command{
 	RunE:  runReceiptShow,
 }
 
+var receiptExportCmd = &cobra.Command{
+	Use:   "export <id-or-path>",
+	Short: "Export a receipt as a standard in-toto attestation (DSSE)",
+	Long: `Export re-signs a receipt as an in-toto Statement v1 wrapped in a DSSE
+envelope, so a third party can verify it with standard tooling (cosign,
+slsa-verifier, a policy engine) without installing Selo.
+
+The native receipt.json format is unchanged; this is an additional,
+interoperable representation. The signature covers the DSSE PAE over the exact
+statement bytes — not a re-serialization — so a verifier in any language can
+check it. The signing key is resolved like receipt signing (SELO_SIGNING_KEY,
+then ~/.selo/signing-key; fail-closed with no key).`,
+	Args: cobra.ExactArgs(1),
+	RunE: runReceiptExport,
+}
+
 func init() {
 	receiptListCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
 	receiptListCmd.Flags().IntVar(&receiptLimit, "limit", 20, "Maximum receipts to list")
@@ -53,7 +72,56 @@ func init() {
 	receiptShowCmd.Flags().BoolVar(&receiptWantAnchor, "anchor", false, "Also verify the git anchor")
 	receiptShowCmd.Flags().StringVar(&receiptPubKey, "pubkey", "", "Pin the signer: a path to a key file, a 64-char hex fingerprint, or an inline base64 public key")
 
-	receiptCmd.AddCommand(receiptListCmd, receiptShowCmd)
+	receiptExportCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
+	receiptExportCmd.Flags().StringVar(&receiptExportFormat, "format", "in-toto", "Export format (only \"in-toto\")")
+	receiptExportCmd.Flags().StringVar(&receiptExportOut, "out", "", "Write to this file (default: stdout)")
+
+	receiptCmd.AddCommand(receiptListCmd, receiptShowCmd, receiptExportCmd)
+}
+
+// runReceiptExport writes an in-toto/DSSE attestation for a receipt.
+func runReceiptExport(cmd *cobra.Command, args []string) error {
+	if receiptExportFormat != "in-toto" {
+		return fmt.Errorf("unknown export format %q (only \"in-toto\")", receiptExportFormat)
+	}
+	baseDir := receiptDir
+	if baseDir == "" {
+		var err error
+		baseDir, err = findBaseDir(globalCfgFile)
+		if err != nil {
+			return fmt.Errorf("cannot find base dir: %w", err)
+		}
+	}
+
+	path := resolveReceiptPath(args[0], baseDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read receipt: %w", err)
+	}
+	var r receipt.ForgeReceipt
+	if err := json.Unmarshal(data, &r); err != nil {
+		return fmt.Errorf("parse receipt: %w", err)
+	}
+
+	env, err := receipt.ExportInToto(&r)
+	if err != nil {
+		return fmt.Errorf("export in-toto: %w", err)
+	}
+	out, err := json.MarshalIndent(env, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal envelope: %w", err)
+	}
+	out = append(out, '\n')
+
+	if receiptExportOut != "" {
+		if err := os.WriteFile(receiptExportOut, out, 0644); err != nil {
+			return fmt.Errorf("write %s: %w", receiptExportOut, err)
+		}
+		fmt.Printf("Wrote in-toto attestation: %s\n", receiptExportOut)
+		return nil
+	}
+	_, err = os.Stdout.Write(out)
+	return err
 }
 
 // resolveReceiptPath maps a receipt ID or path to a receipt.json file.
