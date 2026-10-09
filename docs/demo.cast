@@ -1,13 +1,11 @@
-{"version": 2, "width": 80, "height": 24, "timestamp": 1791438204, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}}
+{"version": 2, "width": 100, "height": 22, "timestamp": 1791438204, "idle_time_limit": 2.0, "env": {"SHELL": "/bin/zsh", "TERM": "xterm-256color"}}
 [0.033752, "o", "$ selo keys generate\r\n"]
-[1.203031, "o", "Signing key written to /tmp/selo-demo/.selo/signing-key (mode 0600)\r\n  export SELO_SIGNING_KEY=$(cat /tmp/selo-demo/.selo/signing-key)\r\n"]
-[2.217967, "o", "$ export SELO_SIGNING_KEY=$(cat .selo/signing-key)\r\n"]
+[1.203031, "o", "Signing key written to /tmp/selo-demo/.selo/signing-key (mode 0600)\r\n\r\nSelo loads this key automatically \u2014 no env var needed.\r\n"]
 [4.443056, "o", "$ selo run \"DOCS_PATCH\" --forbidden-files README.md\r\n"]
 [5.464276, "o", "[selo] Task run-mqiaa2uu queued: DOCS_PATCH\r\n"]
-[5.464327, "o", "[selo] Claiming task: queue/pending/run-mqiaa2uu.md\r\n"]
 [5.506842, "o", "Preparing worktree (new branch 'selo/run-mqiaa2uu')\r\n"]
-[6.362967, "o", "!! Selo SAFETY: task run-mqiaa2uu → FAILED_SAFETY | receipt: runs/run-run-mqiaa2uu/receipt.json\r\n"]
+[6.362967, "o", "!! Selo SAFETY: task run-mqiaa2uu \u2192 FAILED_SAFETY | receipt: runs/run-run-mqiaa2uu/receipt.json\r\n"]
 [6.514623, "o", "[selo] Receipt: runs/run-run-mqiaa2uu/receipt.json\r\n"]
 [6.514808, "o", "[selo] Task rejected: FAILED_SAFETY\r\n"]
 [8.872823, "o", "$ selo verify runs/run-run-mqiaa2uu/receipt.json\r\n"]
-[9.898902, "o", "Receipt:    c1f-1791438211105999000\r\nVerdict:    FAILED_SAFETY\r\nHash:       OK\r\nSignature:  OK\r\nAnchor:     SKIPPED\r\nResult:     VALID\r\n"]
+[9.898902, "o", "Receipt:    c1f-1791438211105999000\r\nVerdict:    FAILED_SAFETY\r\nHash:       OK\r\nSignature:  OK\r\nAnchor:     SKIPPED\r\nKey mode:   persistent\r\nProvenance: UNPINNED_PERSISTENT\r\nResult:     VALID\r\n"]
