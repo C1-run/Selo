@@ -13,14 +13,14 @@ task, and hands you a signed receipt.**
 
 [Changelog](CHANGELOG.md) · [What works](#what-works-in-v05) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
-![An agent edits a forbidden file; Selo rejects the task with FAILED_SAFETY and the receipt verifies as VALID](docs/demo-card.svg)
+![Selo catches a forbidden-file edit: the task is rejected with FAILED_SAFETY, and the receipt verifies](docs/demo.gif)
 
 Selo runs any AI coding agent (OpenCode, Claude, GPT, …) in a throwaway worktree, audits **the real
 diff** against your rules after the agent finishes, and emits an Ed25519-signed receipt for every
 outcome — pass or fail. So the question stops being *"did the agent say it's done?"* and becomes
 *"can I check?"*
 
-Three things happened in that screenshot: the change was **contained** (your checkout was never
+Three things happened in that demo: the change was **contained** (your checkout was never
 touched), it was **caught** (a forbidden-file rule fired on the actual diff), and the rejection is
 **verifiable** — `selo verify` re-checks the content hash and signature, and so can anyone else.
 
