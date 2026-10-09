@@ -67,7 +67,7 @@ ADR-004 堵住了"篡改后重签即通过"，ADR-007 把措辞降级为分级�
 
 ## 升级判据
 - L2 "Verifiable attestations"：ADR-001 已实现（DSSE/in-toto 导出）。
-- L3 "Non-repudiable"：需 Phase 2 或 Phase 3 **且** ADR-005（时间戳）/ ADR-006（Rekor）。
+- L3 "Non-repudiable"：需 Phase 2 或 Phase 3 **且** ADR-005（时间戳）/ ADR-006（Rekor）—— 二者已于 2026-10-09 实现（见 ADR-005/006 的 Implementation 节），故 L3 能力已齐备；但 L3 仍需部署时真正把签名方移出 agent 信任域（`command` + 不可导出密钥），默认 `file` 后端不构成 L3。
 
 ## Related ADRs
 ADR-001（in-toto/DSSE 导出）、ADR-004（持久密钥 fail-closed）、ADR-005（时间戳）、

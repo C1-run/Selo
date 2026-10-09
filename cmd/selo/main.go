@@ -667,24 +667,102 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 			t := anchorRes.AnchoredAt
 			forgeReceipt.AnchoredAt = &t
 			// Update receipt with anchor info (anchor excluded from canonical, no re-sign)
-			if data, err := json.MarshalIndent(forgeReceipt, "", "  "); err == nil {
-				os.WriteFile(receiptPathFinal, data, 0644)
-				receiptsDir := filepath.Join(filepath.Dir(qm.RunsDir()), "receipts")
-				if entries, err := os.ReadDir(receiptsDir); err == nil {
-					for _, e := range entries {
-						if strings.HasPrefix(e.Name(), forgeReceipt.ReceiptID) && strings.HasSuffix(e.Name(), ".json") {
-							os.WriteFile(filepath.Join(receiptsDir, e.Name()), data, 0644)
-							break
-						}
-					}
-				}
+			if err := persistReceipt(qm, taskID, forgeReceipt); err != nil {
+				fmt.Fprintf(os.Stderr, "[selo] failed to persist anchored receipt: %v\n", err)
 			}
 		} else {
 			fmt.Fprintf(os.Stderr, "[selo] anchor failed (non-fatal): %v\n", err)
 		}
 	}
 
+	// 15c. RFC3161 trusted timestamp (ADR-005). Obtained after signing, because
+	// it attests to when the signature existed rather than being part of it.
+	// Fail-closed: a requested timestamp that cannot be obtained makes the run
+	// exit non-zero, unless SELO_TSA_SOFT=1 asks for a recorded absence instead.
+	if tsaURL := strings.TrimSpace(os.Getenv("SELO_TSA_URL")); tsaURL != "" {
+		canonical, cerr := receipt.CanonicalJSON(forgeReceipt)
+		if cerr != nil {
+			fmt.Fprintf(os.Stderr, "[selo] timestamp skipped: canonical json: %v\n", cerr)
+			return false
+		}
+		anc, terr := receipt.TimestampCanonical(canonical, receipt.TimestampOptions{
+			TSAURL: tsaURL,
+			Soft:   envTruthy("SELO_TSA_SOFT"),
+		})
+		if terr != nil {
+			fmt.Fprintf(os.Stderr, "[selo] timestamp failed: %v\n", terr)
+			return false
+		}
+		forgeReceipt.Timestamp = anc
+		if err := persistReceipt(qm, taskID, forgeReceipt); err != nil {
+			fmt.Fprintf(os.Stderr, "[selo] failed to persist timestamped receipt: %v\n", err)
+			return false
+		}
+		if anc.Status == receipt.TimestampGranted {
+			fmt.Printf("[selo] Timestamp: %s at %s\n", anc.TSAURL, anc.GenTime.UTC().Format(time.RFC3339))
+		} else {
+			fmt.Fprintf(os.Stderr, "[selo] Timestamp absent (%s): %s\n", anc.TSAURL, anc.Reason)
+		}
+	}
+
+	// 15d. Sigstore Rekor transparency log (ADR-006). Logged after signing,
+	// because the log accepts an already-signed entry. Only the receipt hash is
+	// published — never task names or file paths. Fail-closed unless
+	// SELO_REKOR_SOFT=1 asks for a recorded absence instead.
+	if rekorURL := strings.TrimSpace(os.Getenv("SELO_REKOR_URL")); rekorURL != "" {
+		signer, serr := receipt.ResolveSigner()
+		if serr != nil {
+			fmt.Fprintf(os.Stderr, "[selo] transparency log skipped: %v\n", serr)
+			return false
+		}
+		tr, terr := receipt.UploadToRekor(forgeReceipt.ReceiptHash, signer, receipt.TransparencyOptions{
+			LogURL: rekorURL,
+			Soft:   envTruthy("SELO_REKOR_SOFT"),
+		})
+		if terr != nil {
+			fmt.Fprintf(os.Stderr, "[selo] transparency log failed: %v\n", terr)
+			return false
+		}
+		forgeReceipt.Transparency = tr
+		if err := persistReceipt(qm, taskID, forgeReceipt); err != nil {
+			fmt.Fprintf(os.Stderr, "[selo] failed to persist receipt with transparency record: %v\n", err)
+			return false
+		}
+		if tr.Status == receipt.TransparencyLogged {
+			fmt.Printf("[selo] Transparency: logged at %s (index %d)\n", tr.LogURL, tr.LogIndex)
+		} else {
+			fmt.Fprintf(os.Stderr, "[selo] Transparency absent (%s): %s\n", tr.LogURL, tr.Reason)
+		}
+	}
+
 	return true
+}
+
+// persistReceipt writes a receipt to both its run directory and the receipts
+// archive, so the two copies never diverge after a post-signing step (the git
+// anchor or an RFC3161 timestamp) mutates the receipt in place.
+func persistReceipt(qm *queue.QueueManager, taskID string, r *receipt.ForgeReceipt) error {
+	data, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		return err
+	}
+	runDir := filepath.Join(qm.RunsDir(), fmt.Sprintf("run-%s", taskID))
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "receipt.json"), data, 0644); err != nil {
+		return err
+	}
+	receiptsDir := filepath.Join(filepath.Dir(qm.RunsDir()), "receipts")
+	if entries, err := os.ReadDir(receiptsDir); err == nil {
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), r.ReceiptID) && strings.HasSuffix(e.Name(), ".json") {
+				os.WriteFile(filepath.Join(receiptsDir, e.Name()), data, 0644)
+				break
+			}
+		}
+	}
+	return nil
 }
 
 func writeFailReceipt(rw *receipt.ReceiptWriter, taskMeta *receipt.TaskMeta, taskID, errMsg, verdict string, runnerMode runner.RunnerMode) {

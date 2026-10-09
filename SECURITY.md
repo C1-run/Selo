@@ -86,6 +86,33 @@ The phased plan for closing this gap (env strip → keychain/KMS → separate
 signer user or CI signing) is tracked in
 [ADR-008](docs/decisions/ADR-008-signer-trust-domain.md).
 
+### What the timestamp and transparency log add
+
+Two optional, post-signing steps raise the ceiling from "tamper-evident" toward
+"non-repudiable". Both are **off by default**, and both are recorded *after*
+signing, so neither is covered by the receipt signature (including them would be
+circular — they attest to the signature):
+
+- **RFC3161 timestamp** (`selo run --tsa <url>`, ADR-005). An external TSA
+  imprints the receipt hash, giving a signing time Selo cannot back-date.
+  `selo verify --tsa-ca <pem>` checks the token's message imprint and chains the
+  TSA certificate to a root you trust, at the timestamped instant. Without
+  `--tsa-ca` the token is self-consistent only and is reported `UNVERIFIED`;
+  `--require-tsa` turns anything short of verified into a failure.
+- **Sigstore Rekor** (`selo run --rekor <url>`, ADR-006). The receipt hash is
+  logged in an append-only public log, so a receipt cannot be equivocated or
+  quietly withdrawn. `selo verify --rekor-pubkey <pem>` recomputes the RFC 6962
+  inclusion proof to the checkpoint's root and verifies the checkpoint's
+  signature against the log's key. Only the receipt hash is published — Rekor
+  stores the envelope and payload *hashes*, never the receipt, task name, or file
+  paths. `--require-rekor` gates on it.
+
+Neither step compensates for a signer inside the agent's trust domain: a
+timestamp and a log entry attest to *a signature by some key*, so if the agent
+can read that key, the attribution is still weak. The honest L3 claim requires
+ADR-005 **and** ADR-006 **and** an independent signer (ADR-008). See
+[ADR-007](docs/decisions/ADR-007-tiered-non-repudiation-claim.md) for the tiering.
+
 ## Known limitations (not vulnerabilities)
 
 These are documented behaviors, not bugs. Please do not report them as
@@ -126,6 +153,15 @@ documentation issue and an ordinary issue is fine.
    above. This is a deployment limitation, not a signing flaw. Mitigations:
    `SELO_SIGNER=keychain` (seed off disk) or `SELO_SIGNER=command` (Selo holds
    no key at all).
+7. **Timestamps and transparency entries are opt-in, and absence is explicit.**
+   A receipt with no `timestamp`/`transparency` field proves nothing about
+   *when* it was signed or that it was publicly witnessed — `selo verify`
+   reports `ABSENT` for both rather than implying a guarantee. When the TSA or
+   log is unreachable, Selo fails the run by default; `--tsa-soft`/`--rekor-soft`
+   downgrade to a recorded `status: "absent"` with a reason, so a degraded
+   receipt is visibly degraded rather than silently missing the field. Note that
+   `--rekor-pubkey`/`--tsa-ca` pin the *log's* or *TSA's* key; they say nothing
+   about the receipt's own signer, which still needs `--pubkey`.
 
 ## Supported versions
 

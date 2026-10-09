@@ -52,6 +52,61 @@ func signedVerifyTestReceipt(t *testing.T) receipt.ForgeReceipt {
 	return r
 }
 
+// setVerifyFlags sets the package-level verify flags for one test and restores
+// them afterwards.
+func setVerifyFlags(t *testing.T, tsaCA string, requireTSA bool, rekorKey string, requireRekor bool) {
+	t.Helper()
+	prevCA, prevRTSA, prevKey, prevRRek := verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek
+	verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek = tsaCA, requireTSA, rekorKey, requireRekor
+	t.Cleanup(func() {
+		verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek = prevCA, prevRTSA, prevKey, prevRRek
+	})
+}
+
+// TestVerifyTimestampAndTransparencyStates covers the ADR-005/ADR-006 gates:
+// absence is reported but not fatal unless required, and a recorded absence is
+// surfaced with its reason rather than silently ignored.
+func TestVerifyTimestampAndTransparencyStates(t *testing.T) {
+	r := signedVerifyTestReceipt(t)
+	path := writeVerifyTestReceipt(t, &r)
+
+	// No records: reported absent, not fatal.
+	setVerifyFlags(t, "", false, "", false)
+	res := verifyReceiptFile(path, ".", false, "")
+	if !res.Valid {
+		t.Fatalf("expected a clean signed receipt to be valid, got: %v", res.Errors)
+	}
+	if res.TimestampState != receipt.TimestampStateAbsent || res.TransparencyState != receipt.TransparencyStateAbsent {
+		t.Errorf("states = %s/%s, want ABSENT/ABSENT", res.TimestampState, res.TransparencyState)
+	}
+
+	// Requiring them makes absence fatal.
+	setVerifyFlags(t, "", true, "", false)
+	if res := verifyReceiptFile(path, ".", false, ""); res.Valid {
+		t.Error("--require-tsa should fail a receipt without a timestamp")
+	}
+	setVerifyFlags(t, "", false, "", true)
+	if res := verifyReceiptFile(path, ".", false, ""); res.Valid {
+		t.Error("--require-rekor should fail a receipt without a log entry")
+	}
+
+	// A recorded-but-absent record is surfaced with its reason.
+	r.Timestamp = &receipt.TimestampAnchor{TSAURL: "https://tsa.example", Status: receipt.TimestampAbsent, Reason: "tsa unreachable"}
+	r.Transparency = &receipt.TransparencyAnchor{LogURL: "https://rekor.example", Status: receipt.TransparencyAbsent, Reason: "log unreachable"}
+	path2 := writeVerifyTestReceipt(t, &r)
+	setVerifyFlags(t, "", false, "", false)
+	res = verifyReceiptFile(path2, ".", false, "")
+	if !res.Valid {
+		t.Fatalf("absent records must not invalidate by default: %v", res.Errors)
+	}
+	if res.TimestampState != receipt.TimestampStateAbsent || res.TimestampReason != "tsa unreachable" {
+		t.Errorf("timestamp = %s/%q, want ABSENT/%q", res.TimestampState, res.TimestampReason, "tsa unreachable")
+	}
+	if res.TransparencyState != receipt.TransparencyStateAbsent || res.TransparencyReason != "log unreachable" {
+		t.Errorf("transparency = %s/%q, want ABSENT/%q", res.TransparencyState, res.TransparencyReason, "log unreachable")
+	}
+}
+
 // TestVerifyInTotoEnvelope covers the ADR-001 export path end to end: a receipt
 // exported as a DSSE-wrapped in-toto statement must verify, and a tampered
 // envelope must not.

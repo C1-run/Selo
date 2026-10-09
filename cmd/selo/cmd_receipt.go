@@ -1,12 +1,15 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/C1-run/selo/internal/receipt"
 	"github.com/spf13/cobra"
@@ -21,6 +24,10 @@ var (
 	receiptPubKey       string
 	receiptExportFormat string
 	receiptExportOut    string
+	receiptTSA          string
+	receiptTSASoft      bool
+	receiptRekor        string
+	receiptRekorSoft    bool
 )
 
 var receiptCmd = &cobra.Command{
@@ -62,6 +69,35 @@ then ~/.selo/signing-key; fail-closed with no key).`,
 	RunE: runReceiptExport,
 }
 
+var receiptTimestampCmd = &cobra.Command{
+	Use:   "timestamp <id-or-path>",
+	Short: "Attach an RFC3161 trusted timestamp to an existing receipt (ADR-005)",
+	Long: `Attach an RFC3161 trusted timestamp to a receipt that was signed without one.
+
+The timestamp is obtained over the receipt's canonical bytes (its receipt_hash),
+so it proves the signed receipt existed at an externally verifiable instant and
+cannot be back-dated. Selo refuses to timestamp a receipt whose signature or
+content hash does not verify — timestamping a tampered receipt would launder it.
+Fail-closed unless --soft is given, which records the absence instead.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runReceiptTimestamp,
+}
+
+var receiptLogCmd = &cobra.Command{
+	Use:   "log <id-or-path>",
+	Short: "Log an existing receipt in a Sigstore Rekor transparency log (ADR-006)",
+	Long: `Log a signed receipt in a Sigstore Rekor transparency log, so the run is
+publicly witnessed and cannot be equivocated or quietly withdrawn.
+
+Only the receipt hash is published: Selo submits a DSSE entry whose payload is
+the hash, and Rekor stores just the envelope and payload hashes — never the
+receipt, task name, or file paths. Like 'receipt timestamp', Selo refuses to log
+a receipt whose signature or content hash does not verify. Fail-closed unless
+--soft is given, which records the absence instead.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runReceiptLog,
+}
+
 func init() {
 	receiptListCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
 	receiptListCmd.Flags().IntVar(&receiptLimit, "limit", 20, "Maximum receipts to list")
@@ -76,7 +112,148 @@ func init() {
 	receiptExportCmd.Flags().StringVar(&receiptExportFormat, "format", "in-toto", "Export format (only \"in-toto\")")
 	receiptExportCmd.Flags().StringVar(&receiptExportOut, "out", "", "Write to this file (default: stdout)")
 
-	receiptCmd.AddCommand(receiptListCmd, receiptShowCmd, receiptExportCmd)
+	receiptTimestampCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
+	receiptTimestampCmd.Flags().StringVar(&receiptTSA, "tsa", "", "RFC3161 timestamp authority URL (required)")
+	receiptTimestampCmd.Flags().BoolVar(&receiptTSASoft, "soft", false, "If the TSA is unreachable, record the timestamp as absent instead of failing")
+
+	receiptLogCmd.Flags().StringVar(&receiptDir, "dir", "", "Base directory (default: auto-detect)")
+	receiptLogCmd.Flags().StringVar(&receiptRekor, "rekor", "", "Sigstore Rekor transparency-log URL (required)")
+	receiptLogCmd.Flags().BoolVar(&receiptRekorSoft, "soft", false, "If the log is unreachable, record the entry as absent instead of failing")
+
+	receiptCmd.AddCommand(receiptListCmd, receiptShowCmd, receiptExportCmd, receiptTimestampCmd, receiptLogCmd)
+}
+
+// runReceiptLog logs an existing signed receipt in a Rekor transparency log.
+func runReceiptLog(cmd *cobra.Command, args []string) error {
+	if strings.TrimSpace(receiptRekor) == "" {
+		return fmt.Errorf("--rekor <url> is required")
+	}
+	baseDir := receiptDir
+	if baseDir == "" {
+		var err error
+		baseDir, err = findBaseDir(globalCfgFile)
+		if err != nil {
+			return fmt.Errorf("cannot find base dir: %w", err)
+		}
+	}
+	path := resolveReceiptPath(args[0], baseDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read receipt: %w", err)
+	}
+	var r receipt.ForgeReceipt
+	if err := json.Unmarshal(data, &r); err != nil {
+		return fmt.Errorf("parse receipt: %w", err)
+	}
+
+	// Refuse to log a receipt whose integrity does not hold: a public log entry
+	// for a tampered receipt would launder it into looking witnessed.
+	if ok, verr := receipt.VerifyReceipt(&r); verr != nil || !ok {
+		if verr != nil {
+			return fmt.Errorf("refusing to log a receipt whose signature does not verify: %w", verr)
+		}
+		return fmt.Errorf("refusing to log a receipt whose signature does not verify")
+	}
+	canonical, err := receipt.CanonicalJSON(&r)
+	if err != nil {
+		return fmt.Errorf("canonical json: %w", err)
+	}
+	sum := sha256.Sum256(canonical)
+	if r.ReceiptHash != hex.EncodeToString(sum[:]) {
+		return fmt.Errorf("refusing to log a receipt whose content hash does not match")
+	}
+
+	signer, err := receipt.ResolveSigner()
+	if err != nil {
+		return err
+	}
+	tr, err := receipt.UploadToRekor(r.ReceiptHash, signer, receipt.TransparencyOptions{
+		LogURL: receiptRekor,
+		Soft:   receiptRekorSoft,
+	})
+	if err != nil {
+		return err
+	}
+	r.Transparency = tr
+	out, err := json.MarshalIndent(&r, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal receipt: %w", err)
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if tr.Status == receipt.TransparencyLogged {
+		fmt.Printf("Logged %s at %s (index %d, integrated %s)\n", path, tr.LogURL, tr.LogIndex,
+			time.Unix(tr.IntegratedTime, 0).UTC().Format(time.RFC3339))
+	} else {
+		fmt.Printf("Transparency record absent for %s: %s\n", path, tr.Reason)
+	}
+	return nil
+}
+
+// runReceiptTimestamp attaches an RFC3161 timestamp to an existing receipt.
+func runReceiptTimestamp(cmd *cobra.Command, args []string) error {
+	if strings.TrimSpace(receiptTSA) == "" {
+		return fmt.Errorf("--tsa <url> is required")
+	}
+	baseDir := receiptDir
+	if baseDir == "" {
+		var err error
+		baseDir, err = findBaseDir(globalCfgFile)
+		if err != nil {
+			return fmt.Errorf("cannot find base dir: %w", err)
+		}
+	}
+	path := resolveReceiptPath(args[0], baseDir)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read receipt: %w", err)
+	}
+	var r receipt.ForgeReceipt
+	if err := json.Unmarshal(data, &r); err != nil {
+		return fmt.Errorf("parse receipt: %w", err)
+	}
+
+	// Refuse to timestamp a receipt whose integrity does not hold: a timestamp
+	// on a tampered receipt would launder it into looking externally attested.
+	if ok, verr := receipt.VerifyReceipt(&r); verr != nil || !ok {
+		if verr != nil {
+			return fmt.Errorf("refusing to timestamp a receipt whose signature does not verify: %w", verr)
+		}
+		return fmt.Errorf("refusing to timestamp a receipt whose signature does not verify")
+	}
+	canonical, err := receipt.CanonicalJSON(&r)
+	if err != nil {
+		return fmt.Errorf("canonical json: %w", err)
+	}
+	sum := sha256.Sum256(canonical)
+	if r.ReceiptHash != hex.EncodeToString(sum[:]) {
+		return fmt.Errorf("refusing to timestamp a receipt whose content hash does not match")
+	}
+
+	anc, err := receipt.TimestampCanonical(canonical, receipt.TimestampOptions{
+		TSAURL: receiptTSA,
+		Soft:   receiptTSASoft,
+	})
+	if err != nil {
+		return err
+	}
+	r.Timestamp = anc
+	out, err := json.MarshalIndent(&r, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal receipt: %w", err)
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(path, out, 0644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if anc.Status == receipt.TimestampGranted {
+		fmt.Printf("Timestamped %s at %s (%s)\n", path, anc.GenTime.UTC().Format(time.RFC3339), anc.TSAURL)
+	} else {
+		fmt.Printf("Timestamp absent for %s: %s\n", path, anc.Reason)
+	}
+	return nil
 }
 
 // runReceiptExport writes an in-toto/DSSE attestation for a receipt.

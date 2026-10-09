@@ -71,6 +71,8 @@ selo keys pub   # prints the public key; fingerprint = sha256 of that key
 | `selo receipt export` | Re-signs a receipt as an **in-toto Statement v1** wrapped in a **DSSE** envelope (`--format in-toto`), so third parties can verify with standard tooling (cosign, slsa-verifier) without installing Selo. The signature covers the DSSE PAE over the exact statement bytes. `selo verify` accepts an envelope too. The native `receipt.json` is unchanged. |
 | Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600), which Selo then **loads automatically** (`~/.selo/signing-key`) — no env var needed. Signing is fail-closed: with no key at all, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`, and binds the audited change (`diff_hash`), the effective policy (`policy_hash`), and the build (`selo_version`) into the signed bytes. |
 | Pluggable signer | `SELO_SIGNER` picks where the key lives: `file` (default), `keychain` (seed in the OS keychain — `selo keys store --keychain`), or `command` (an external program signs; Selo holds no key at all — `SELO_SIGNER_COMMAND`). Only `command` with a non-extractable key moves the signer out of the agent's trust domain (ADR-008). Every receipt records the signed `key_source`. |
+| Trusted timestamp | `selo run --tsa <url>` obtains an **RFC3161 timestamp** over the receipt hash from an external authority (ADR-005), so the signing time cannot be back-dated. `selo receipt timestamp <id> --tsa <url>` retrofits one onto an existing receipt. `selo verify --tsa-ca <pem>` anchors the token to a trusted TSA (chain + timestamping EKU); `--require-tsa` gates on it. Fail-closed: an unreachable TSA fails the run unless `--tsa-soft` records the absence explicitly. |
+| Transparency log | `selo run --rekor <url>` logs the receipt hash in a **Sigstore Rekor** log (ADR-006), so a receipt cannot be equivocated or quietly withdrawn. Only the hash is published — Rekor stores the envelope/payload *hashes*, never the receipt, task name, or file paths. `selo verify --rekor-pubkey <pem>` recomputes the RFC 6962 inclusion proof to the checkpoint root and verifies the log's checkpoint signature; `--require-rekor` gates on it. |
 | `selo mcp serve` | Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |
@@ -93,6 +95,12 @@ Honest counterpoints — read these before adopting:
   as tamper-evident evidence of what Selo observed, **not** as non-repudiable proof of agent
   behavior, unless you run the agent in a separate trust domain (different user, container, or a CI
   job that cannot read the key). See [SECURITY.md](SECURITY.md#threat-model-what-a-receipt-does-and-does-not-prove).
+- **"Non-repudiable" is conditional, not a default.** With `--tsa` (ADR-005) and `--rekor` (ADR-006)
+  a receipt carries an externally verifiable signing time and a public, append-only log entry. But
+  both attest to *a signature by some key* — so they only mean something when that key is outside the
+  agent's trust domain (the ADR-008 `command` backend). Under the default `file` backend the honest
+  ceiling is "attributable and tamper-evident", not non-repudiable. See
+  [ADR-007](docs/decisions/ADR-007-tiered-non-repudiation-claim.md).
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the
   checks are right.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).

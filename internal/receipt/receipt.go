@@ -106,14 +106,23 @@ type ForgeReceipt struct {
 	// KeySource records where the signing key came from (env | file | keychain |
 	// command | ephemeral). It is signed like key_mode. See ADR-008: only
 	// "command" places the signer outside the audited agent's trust domain.
-	KeySource        string     `json:"key_source,omitempty"`
-	ReceiptHash      string     `json:"receipt_hash,omitempty"`
-	AnchorCommit     string     `json:"anchor_commit,omitempty"`
-	AnchorBranch     string     `json:"anchor_branch,omitempty"`
-	AnchoredAt       *time.Time `json:"anchored_at,omitempty"`
-	SupplyComponents []string   `json:"supply_components,omitempty"`
-	SupplyHits       []string   `json:"supply_hits,omitempty"`
-	SupplyCheckedAt  *time.Time `json:"supply_checked_at,omitempty"`
+	KeySource    string     `json:"key_source,omitempty"`
+	ReceiptHash  string     `json:"receipt_hash,omitempty"`
+	AnchorCommit string     `json:"anchor_commit,omitempty"`
+	AnchorBranch string     `json:"anchor_branch,omitempty"`
+	AnchoredAt   *time.Time `json:"anchored_at,omitempty"`
+	// Timestamp is an RFC3161 trusted timestamp over the canonical receipt
+	// (ADR-005). Like the anchor fields it is produced after signing — it
+	// attests to when the signature existed — and is therefore excluded from
+	// CanonicalJSON. Its message imprint is the receipt_hash.
+	Timestamp *TimestampAnchor `json:"timestamp,omitempty"`
+	// Transparency is the receipt's Sigstore Rekor log record (ADR-006),
+	// likewise produced after signing and excluded from CanonicalJSON. Only the
+	// receipt hash is logged, so no task name or file path is published.
+	Transparency     *TransparencyAnchor `json:"transparency,omitempty"`
+	SupplyComponents []string            `json:"supply_components,omitempty"`
+	SupplyHits       []string            `json:"supply_hits,omitempty"`
+	SupplyCheckedAt  *time.Time          `json:"supply_checked_at,omitempty"`
 }
 
 // PolicySpec is the effective safety policy a receipt was produced under.

@@ -2,12 +2,14 @@ package main
 
 import (
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/C1-run/selo/internal/receipt"
 	"github.com/spf13/cobra"
@@ -18,6 +20,10 @@ var (
 	verifyWantAnchor bool
 	verifyJSONOut    bool
 	verifyPubKey     string
+	verifyTSACA      string
+	verifyRequireTSA bool
+	verifyRekorKey   string
+	verifyRequireRek bool
 )
 
 var verifyCmd = &cobra.Command{
@@ -32,6 +38,10 @@ func init() {
 	verifyCmd.Flags().BoolVar(&verifyWantAnchor, "anchor", false, "Also verify the git anchor")
 	verifyCmd.Flags().BoolVar(&verifyJSONOut, "json", false, "Output machine-readable JSON")
 	verifyCmd.Flags().StringVar(&verifyPubKey, "pubkey", "", "Pin the signer: a path to a key file, a 64-char hex fingerprint, or an inline base64 public key. Without it, Selo only confirms internal self-consistency and cannot prove who signed.")
+	verifyCmd.Flags().StringVar(&verifyTSACA, "tsa-ca", "", "PEM file of trusted TSA root certificate(s) to anchor an RFC3161 timestamp to a trusted TSA (ADR-005)")
+	verifyCmd.Flags().BoolVar(&verifyRequireTSA, "require-tsa", false, "Fail unless the receipt carries a trusted timestamp verified against --tsa-ca")
+	verifyCmd.Flags().StringVar(&verifyRekorKey, "rekor-pubkey", "", "PEM file of the Rekor log's public key, to verify the transparency-log checkpoint signature (ADR-006)")
+	verifyCmd.Flags().BoolVar(&verifyRequireRek, "require-rekor", false, "Fail unless the receipt carries a transparency-log entry verified against --rekor-pubkey")
 }
 
 // verifyResult is the outcome of verifying a receipt file.
@@ -56,6 +66,23 @@ type verifyResult struct {
 	PubKeyPinned bool   `json:"pubkey_pinned"`
 	PubKeyMatch  *bool  `json:"pubkey_match,omitempty"` // nil when no pin was given
 	Format       string `json:"format,omitempty"`       // receipt | in-toto/DSSE
+
+	// Trusted timestamp (ADR-005). TimestampOK is nil unless the receipt
+	// carries a timestamp we actually evaluated.
+	TimestampOK     *bool  `json:"timestamp_ok,omitempty"`
+	TimestampState  string `json:"timestamp_state,omitempty"` // OK | UNVERIFIED | FAILED | ABSENT | SKIPPED
+	TimestampTSA    string `json:"timestamp_tsa,omitempty"`
+	TimestampTime   string `json:"timestamp_time,omitempty"`
+	TimestampReason string `json:"timestamp_reason,omitempty"`
+
+	// Transparency log (ADR-006). TransparencyOK is nil unless the receipt
+	// carries a log record we actually evaluated.
+	TransparencyOK     *bool  `json:"transparency_ok,omitempty"`
+	TransparencyState  string `json:"transparency_state,omitempty"` // OK | UNVERIFIED | FAILED | ABSENT | SKIPPED
+	TransparencyLog    string `json:"transparency_log,omitempty"`
+	TransparencyIndex  int64  `json:"transparency_index,omitempty"`
+	TransparencyTime   string `json:"transparency_time,omitempty"`
+	TransparencyReason string `json:"transparency_reason,omitempty"`
 }
 
 // ReceiptPathHint returns the path third parties should pass to `selo verify`
@@ -359,13 +386,121 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 			}
 		}
 	}
+
+	// 5. Trusted timestamp (ADR-005). Absence is reported but not fatal unless
+	// the caller required one; a present-but-unverifiable token is an error.
+	res.TimestampState = receipt.TimestampStateSkipped
+	if r.Timestamp == nil {
+		res.TimestampState = receipt.TimestampStateAbsent
+	} else {
+		res.TimestampTSA = r.Timestamp.TSAURL
+		if !r.Timestamp.GenTime.IsZero() {
+			res.TimestampTime = r.Timestamp.GenTime.UTC().Format(time.RFC3339)
+		}
+		switch {
+		case r.Timestamp.Status == receipt.TimestampAbsent:
+			res.TimestampState = receipt.TimestampStateAbsent
+			res.TimestampReason = r.Timestamp.Reason
+		case r.ReceiptHash == "":
+			f := false
+			res.TimestampOK = &f
+			res.TimestampState = receipt.TimestampStateFailed
+			res.Errors = append(res.Errors, "timestamp cannot be checked: receipt has no content hash")
+		default:
+			var roots *x509.CertPool
+			if verifyTSACA != "" {
+				p, perr := receipt.LoadTSARoots(verifyTSACA)
+				if perr != nil {
+					f := false
+					res.TimestampOK = &f
+					res.TimestampState = receipt.TimestampStateFailed
+					res.Errors = append(res.Errors, fmt.Sprintf("load --tsa-ca: %v", perr))
+					break
+				}
+				roots = p
+			}
+			if terr := receipt.VerifyTimestamp(r.Timestamp, r.ReceiptHash, roots); terr != nil {
+				f := false
+				res.TimestampOK = &f
+				res.TimestampState = receipt.TimestampStateFailed
+				res.Errors = append(res.Errors, fmt.Sprintf("timestamp: %v", terr))
+			} else if roots == nil {
+				res.TimestampState = receipt.TimestampStateUnverified
+				res.TimestampReason = "no --tsa-ca given: the token is self-consistent but not anchored to a trusted TSA"
+			} else {
+				ok := true
+				res.TimestampOK = &ok
+				res.TimestampState = receipt.TimestampStateOK
+			}
+		}
+	}
+	// --require-tsa turns any timestamp short of verified-against-a-trusted-TSA
+	// into a failure, so a caller can gate on L3 instead of reading prose.
+	if verifyRequireTSA && res.TimestampState != receipt.TimestampStateOK {
+		f := false
+		res.TimestampOK = &f
+		res.TimestampState = receipt.TimestampStateFailed
+		res.Errors = append(res.Errors, "--require-tsa: receipt has no trusted, verified timestamp")
+	}
+
+	// 6. Transparency log (ADR-006). Same shape as the timestamp: absence is
+	// reported, an unverifiable record is an error.
+	res.TransparencyState = receipt.TransparencyStateSkipped
+	if r.Transparency == nil {
+		res.TransparencyState = receipt.TransparencyStateAbsent
+	} else {
+		res.TransparencyLog = r.Transparency.LogURL
+		res.TransparencyIndex = r.Transparency.LogIndex
+		if r.Transparency.IntegratedTime > 0 {
+			res.TransparencyTime = time.Unix(r.Transparency.IntegratedTime, 0).UTC().Format(time.RFC3339)
+		}
+		switch {
+		case r.Transparency.Status == receipt.TransparencyAbsent:
+			res.TransparencyState = receipt.TransparencyStateAbsent
+			res.TransparencyReason = r.Transparency.Reason
+		default:
+			var logKey string
+			if verifyRekorKey != "" {
+				k, kerr := receipt.LoadRekorPublicKey(verifyRekorKey)
+				if kerr != nil {
+					f := false
+					res.TransparencyOK = &f
+					res.TransparencyState = receipt.TransparencyStateFailed
+					res.Errors = append(res.Errors, fmt.Sprintf("load --rekor-pubkey: %v", kerr))
+					break
+				}
+				logKey = k
+			}
+			if terr := receipt.VerifyTransparency(r.Transparency, r.ReceiptHash, logKey); terr != nil {
+				f := false
+				res.TransparencyOK = &f
+				res.TransparencyState = receipt.TransparencyStateFailed
+				res.Errors = append(res.Errors, fmt.Sprintf("transparency: %v", terr))
+			} else if logKey == "" {
+				res.TransparencyState = receipt.TransparencyStateUnverified
+				res.TransparencyReason = "no --rekor-pubkey given: the inclusion proof is consistent but not anchored to a trusted log key"
+			} else {
+				ok := true
+				res.TransparencyOK = &ok
+				res.TransparencyState = receipt.TransparencyStateOK
+			}
+		}
+	}
+	if verifyRequireRek && res.TransparencyState != receipt.TransparencyStateOK {
+		f := false
+		res.TransparencyOK = &f
+		res.TransparencyState = receipt.TransparencyStateFailed
+		res.Errors = append(res.Errors, "--require-rekor: receipt has no verified transparency-log entry")
+	}
 }
 
 // finalizeResult computes overall validity: every check must pass. extraOK lets
 // the envelope path require a valid DSSE signature on top of the inner receipt.
 func finalizeResult(res *verifyResult, extraOK bool) {
 	pinOK := res.PubKeyMatch == nil || *res.PubKeyMatch
-	res.Valid = res.HashOK && res.SignatureOK && pinOK && extraOK &&
+	tsOK := res.TimestampOK == nil || *res.TimestampOK
+	trOK := res.TransparencyOK == nil || *res.TransparencyOK
+	res.Valid = res.HashOK && res.SignatureOK && pinOK && extraOK && tsOK && trOK &&
 		(res.AnchorOK == nil || *res.AnchorOK)
 }
 
@@ -378,6 +513,29 @@ func printVerifyResult(res *verifyResult) {
 	fmt.Printf("Hash:       %s\n", res.HashState)
 	fmt.Printf("Signature:  %s\n", res.SignatureState)
 	fmt.Printf("Anchor:     %s\n", res.AnchorState)
+	fmt.Printf("Timestamp:  %s\n", res.TimestampState)
+	if res.TimestampTSA != "" {
+		fmt.Printf("TSA:        %s\n", res.TimestampTSA)
+	}
+	if res.TimestampTime != "" {
+		fmt.Printf("Timestamped: %s\n", res.TimestampTime)
+	}
+	if res.TimestampReason != "" {
+		fmt.Printf("            %s\n", res.TimestampReason)
+	}
+	fmt.Printf("Transparency: %s\n", res.TransparencyState)
+	if res.TransparencyLog != "" {
+		fmt.Printf("Log:        %s\n", res.TransparencyLog)
+	}
+	if res.TransparencyIndex > 0 {
+		fmt.Printf("Log index:  %d\n", res.TransparencyIndex)
+	}
+	if res.TransparencyTime != "" {
+		fmt.Printf("Integrated: %s\n", res.TransparencyTime)
+	}
+	if res.TransparencyReason != "" {
+		fmt.Printf("            %s\n", res.TransparencyReason)
+	}
 	fmt.Printf("Key mode:   %s\n", keyModeLabel(res.KeyMode))
 	if res.KeySource != "" {
 		fmt.Printf("Key source: %s\n", res.KeySource)

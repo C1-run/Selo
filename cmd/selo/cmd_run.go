@@ -21,6 +21,10 @@ var (
 	runForbiddenFiles []string
 	runDev            bool
 	runSigner         string
+	runTSA            string
+	runTSASoft        bool
+	runRekor          string
+	runRekorSoft      bool
 )
 
 var runCmd = &cobra.Command{
@@ -41,6 +45,10 @@ func init() {
 	runCmd.Flags().StringArrayVar(&runForbiddenFiles, "forbidden-files", nil, "Files the agent must not modify")
 	runCmd.Flags().BoolVar(&runDev, "dev", false, "Allow a per-process ephemeral signing key when SELO_SIGNING_KEY is unset (dev only — receipts are not attributable across runs)")
 	runCmd.Flags().StringVar(&runSigner, "signer", "", "Signing backend: file (default), keychain, or command (see ADR-008). Overrides SELO_SIGNER.")
+	runCmd.Flags().StringVar(&runTSA, "tsa", "", "RFC3161 timestamp authority URL (see ADR-005). The receipt gains an externally verifiable signing time.")
+	runCmd.Flags().BoolVar(&runTSASoft, "tsa-soft", false, "If the TSA is unreachable, record the timestamp as absent instead of failing the run (ADR-005)")
+	runCmd.Flags().StringVar(&runRekor, "rekor", "", "Sigstore Rekor transparency-log URL (see ADR-006). Publishes the receipt hash so the run is publicly witnessed.")
+	runCmd.Flags().BoolVar(&runRekorSoft, "rekor-soft", false, "If the transparency log is unreachable, record the entry as absent instead of failing the run (ADR-006)")
 }
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
@@ -111,6 +119,18 @@ commands:
 	}
 	if runSigner != "" {
 		os.Setenv("SELO_SIGNER", runSigner)
+	}
+	if runTSA != "" {
+		os.Setenv("SELO_TSA_URL", runTSA)
+	}
+	if runTSASoft {
+		os.Setenv("SELO_TSA_SOFT", "1")
+	}
+	if runRekor != "" {
+		os.Setenv("SELO_REKOR_URL", runRekor)
+	}
+	if runRekorSoft {
+		os.Setenv("SELO_REKOR_SOFT", "1")
 	}
 	processed := processOneTask(qm, receiptWriter, worktreeMgr, cfg)
 	if !processed {
