@@ -56,9 +56,23 @@ background (the “Se” disappears).
 
 ## Usage
 
-- README hero: `<img src="docs/brand/logo.svg" width="110" alt="Selo">`
-- GitHub social preview: `docs/social-banner.svg` / `docs/social-preview.png`
-- Keep the mark clear-space of at least 25% of its width on all sides.
+**README hero** — the wordmark, theme-switched so it stays legible on GitHub light
+*and* dark:
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-word-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/brand/logo-word-light.svg">
+  <img src="docs/brand/logo-word-light.svg" width="300" alt="Selo">
+</picture>
+```
+
+**Mark alone** (favicon, avatar, tight spaces):
+`<img src="docs/brand/logo.svg" width="110" alt="Selo">`
+
+**GitHub social preview:** `docs/social-banner.svg` / `docs/social-preview.png`
+
+Keep the mark clear-space of at least 25% of its width on all sides.
 
 ## Concepts
 

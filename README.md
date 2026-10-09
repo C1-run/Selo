@@ -1,6 +1,10 @@
-<p align="center"><img src="docs/brand/logo.svg" width="110" alt="Selo"></p>
-
-# Selo
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-word-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/brand/logo-word-light.svg">
+    <img src="docs/brand/logo-word-light.svg" width="300" alt="Selo — Don't trust the agent. Verify the receipt.">
+  </picture>
+</p>
 
 **Don't trust the agent. Verify the receipt.**
 
