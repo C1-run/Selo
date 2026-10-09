@@ -50,8 +50,9 @@ type verifyResult struct {
 	AnchorState    string `json:"-"` // OK | FAILED | SKIPPED
 	Path           string `json:"-"` // file the result was computed from
 
-	KeyMode      string `json:"key_mode,omitempty"` // persistent | ephemeral (from receipt)
-	Provenance   string `json:"provenance"`         // PINNED | UNPINNED_PERSISTENT | UNPINNED_EPHEMERAL | UNPINNED_UNKNOWN
+	KeyMode      string `json:"key_mode,omitempty"`   // persistent | ephemeral (from receipt)
+	KeySource    string `json:"key_source,omitempty"` // env | file | keychain | command | ephemeral
+	Provenance   string `json:"provenance"`           // PINNED | UNPINNED_PERSISTENT | UNPINNED_EPHEMERAL | UNPINNED_UNKNOWN
 	PubKeyPinned bool   `json:"pubkey_pinned"`
 	PubKeyMatch  *bool  `json:"pubkey_match,omitempty"` // nil when no pin was given
 	Format       string `json:"format,omitempty"`       // receipt | in-toto/DSSE
@@ -223,6 +224,7 @@ func verifyEnvelope(data []byte, path, repoPath string, wantAnchor bool, pinnedP
 	res.ReceiptID = r.ReceiptID
 	res.Verdict = r.Verdict
 	res.KeyMode = r.KeyMode
+	res.KeySource = r.KeySource
 
 	// Envelope signature. Verify against key material from --pubkey when given;
 	// otherwise fall back to the predicate's embedded key, which proves
@@ -266,6 +268,7 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 	res.ReceiptID = r.ReceiptID
 	res.Verdict = r.Verdict
 	res.KeyMode = r.KeyMode
+	res.KeySource = r.KeySource
 
 	// 1. Content hash: sha256 of canonical JSON must equal ReceiptHash.
 	hashOK := false
@@ -376,6 +379,9 @@ func printVerifyResult(res *verifyResult) {
 	fmt.Printf("Signature:  %s\n", res.SignatureState)
 	fmt.Printf("Anchor:     %s\n", res.AnchorState)
 	fmt.Printf("Key mode:   %s\n", keyModeLabel(res.KeyMode))
+	if res.KeySource != "" {
+		fmt.Printf("Key source: %s\n", res.KeySource)
+	}
 	fmt.Printf("Provenance: %s\n", res.Provenance)
 	if !res.PubKeyPinned {
 		fmt.Printf("⚠️  Provenance NOT pinned: this receipt is internally consistent but Selo cannot prove who signed it. Re-run with --pubkey <fingerprint|file> to confirm the signer.\n")

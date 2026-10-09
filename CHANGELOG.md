@@ -22,6 +22,16 @@ for an early project — breaking config or receipt-schema changes bump the mino
   diff or confused with one produced under an empty policy.
 
 ### Added
+- **Pluggable signer (ADR-008 Phase 2).** `SELO_SIGNER` selects where the signing
+  key lives and who signs: `file` (default, unchanged), `keychain` (the seed is
+  stored in the OS keychain — macOS Keychain / Linux Secret Service via
+  `secret-tool`, no CGO — with `selo keys generate --keychain`, `selo keys store
+  --keychain [--delete-file]`, `selo keys pub --keychain`), or `command` (an
+  external program signs; Selo never holds the key, via `SELO_SIGNER_COMMAND` +
+  `SELO_SIGNER_PUBKEY`). `selo run` gains `--signer`. Only `command` with a
+  non-extractable key moves the signer out of the audited agent's trust domain.
+- Receipts record a signed `key_source` (`env | file | keychain | command |
+  ephemeral`); `selo verify` reports it.
 - **in-toto / DSSE receipt export (ADR-001).** `selo receipt export <id> --format
   in-toto` re-signs a receipt as an in-toto Statement v1 wrapped in a DSSE
   envelope, so third parties can verify it with standard tooling (cosign,

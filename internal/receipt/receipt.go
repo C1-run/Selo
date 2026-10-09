@@ -102,7 +102,11 @@ type ForgeReceipt struct {
 	// ("persistent") or generated for this process only ("ephemeral"). It is
 	// set by SignReceipt and cleared by CanonicalJSON like the other signature
 	// fields. Downstream policy can refuse to accept ephemeral receipts.
-	KeyMode          string     `json:"key_mode,omitempty"`
+	KeyMode string `json:"key_mode,omitempty"`
+	// KeySource records where the signing key came from (env | file | keychain |
+	// command | ephemeral). It is signed like key_mode. See ADR-008: only
+	// "command" places the signer outside the audited agent's trust domain.
+	KeySource        string     `json:"key_source,omitempty"`
 	ReceiptHash      string     `json:"receipt_hash,omitempty"`
 	AnchorCommit     string     `json:"anchor_commit,omitempty"`
 	AnchorBranch     string     `json:"anchor_branch,omitempty"`

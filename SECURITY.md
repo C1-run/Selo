@@ -70,6 +70,13 @@ of the agent being audited**:
   need a receipt an audited agent cannot forge, run the agent under a different
   user, in a container, or in a CI job that cannot read the key, or sign from a
   keychain/KMS the agent has no access to.
+- `SELO_SIGNER` selects the backend: `file` (default), `keychain` (the seed lives
+  in the OS keychain, not on disk — `selo keys store --keychain`), or `command`
+  (an external program signs and Selo never holds the key — `SELO_SIGNER_COMMAND`
+  + `SELO_SIGNER_PUBKEY`). `keychain` raises the bar but the item is still
+  readable by the same user; only `command` with a non-extractable key (HSM, KMS,
+  ssh-agent) actually moves the signer out of the agent's trust domain. Every
+  receipt records which backend signed it, in the signed `key_source` field.
 - When the agent runs in the same trust domain as the signer, treat the receipt
   as an integrity and audit record of *what Selo observed*, not as
   non-repudiable proof of agent behavior. Do not use the words
@@ -116,7 +123,9 @@ documentation issue and an ordinary issue is fine.
    `selo verify --pubkey`. Selo strips the key from the agent's environment
    (`internal/runner`) but cannot stop a same-user disk read. Non-repudiation
    requires running the agent in a separate trust domain — see "Threat model"
-   above. This is a deployment limitation, not a signing flaw.
+   above. This is a deployment limitation, not a signing flaw. Mitigations:
+   `SELO_SIGNER=keychain` (seed off disk) or `SELO_SIGNER=command` (Selo holds
+   no key at all).
 
 ## Supported versions
 

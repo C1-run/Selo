@@ -156,6 +156,7 @@ func selftestSigningFailClosed(dir string) selftestCase {
 	restore := swapEnv(map[string]*string{
 		"SELO_SIGNING_KEY":         nil,
 		"SELO_ALLOW_EPHEMERAL_KEY": nil,
+		"SELO_SIGNER":              nil,
 		"HOME":                     &emptyHome,
 	})
 	defer restore()

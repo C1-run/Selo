@@ -137,20 +137,29 @@ func VerifyStatement(env *Envelope, pubB64 string) ([]byte, bool, error) {
 }
 
 // ExportInToto builds and signs an in-toto attestation for a receipt, returning
-// the DSSE envelope. The signing key is resolved exactly like receipt signing
-// (SELO_SIGNING_KEY, then ~/.selo/signing-key; fail-closed with no key).
+// the DSSE envelope. The signing backend is chosen by ResolveSigner (file,
+// keychain, or an external command), so the key need not live on the agent's
+// filesystem.
 func ExportInToto(r *ForgeReceipt) (*Envelope, error) {
 	stmt, err := BuildStatement(r)
 	if err != nil {
 		return nil, err
 	}
-	priv, pubB64, _, err := LoadSigningKeyWithMode()
+	signer, err := ResolveSigner()
 	if err != nil {
 		return nil, err
 	}
-	keyID, err := PublicKeyFingerprint(pubB64)
+	keyID, err := PublicKeyFingerprint(signer.PublicKeyB64())
 	if err != nil {
 		return nil, err
 	}
-	return SignStatement(stmt, DSSEPayloadType, priv, keyID)
+	sig, err := signer.Sign(PAE(DSSEPayloadType, stmt))
+	if err != nil {
+		return nil, fmt.Errorf("sign attestation: %w", err)
+	}
+	return &Envelope{
+		PayloadType: DSSEPayloadType,
+		Payload:     base64.StdEncoding.EncodeToString(stmt),
+		Signatures:  []Signature{{KeyID: keyID, Sig: base64.StdEncoding.EncodeToString(sig)}},
+	}, nil
 }
