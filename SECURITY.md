@@ -113,6 +113,51 @@ can read that key, the attribution is still weak. The honest L3 claim requires
 ADR-005 **and** ADR-006 **and** an independent signer (ADR-008). See
 [ADR-007](docs/decisions/ADR-007-tiered-non-repudiation-claim.md) for the tiering.
 
+## Verifying a release
+
+Selo's own distribution is verified, because a tool that sells verifiability
+should not ask you to `curl | bash` on faith (ADR-002, ADR-003).
+
+Every release publishes, alongside the four binaries:
+
+| Artifact | What it proves |
+|---|---|
+| `checksums.txt` | Deterministic (sorted) SHA-256 of each binary. |
+| `checksums.txt.sigstore.json` | A Sigstore bundle: cosign keyless signature over `checksums.txt`, with the Fulcio certificate and transparency-log proof. |
+| `multiple.intoto.jsonl` | SLSA Build L3 provenance — the binary was built by this repository's release workflow from a specific commit, in an isolated job. |
+
+`install.sh` verifies before it installs:
+
+1. The binary's SHA-256 must match its line in `checksums.txt`.
+2. `checksums.txt` must verify with `cosign verify-blob`, pinning **both** the
+   workflow identity (`--certificate-identity-regexp`) and the OIDC issuer
+   (`--certificate-oidc-issuer`). Both pins are mandatory for keyless
+   verification — pinning only one would accept a signature from any other
+   repository or workflow.
+
+If either check fails, or if `cosign` is not installed, nothing is installed.
+`SELO_SKIP_VERIFY=1` bypasses verification with a loud warning; it is off by
+default and should only be used where you have another means of checking the
+binary.
+
+To verify by hand:
+
+```
+cosign verify-blob --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp \
+    '^https://github\.com/C1-run/selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+sha256sum -c checksums.txt
+
+slsa-verifier verify-artifact selo-linux-amd64 \
+  --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/selo
+```
+
+Keyless signing means there is no long-lived release key to steal or leak: the
+signature's certificate is bound to the workflow's OIDC identity and is only
+valid for that run.
+
 ## Known limitations (not vulnerabilities)
 
 These are documented behaviors, not bugs. Please do not report them as
@@ -162,6 +207,14 @@ documentation issue and an ordinary issue is fine.
    receipt is visibly degraded rather than silently missing the field. Note that
    `--rekor-pubkey`/`--tsa-ca` pin the *log's* or *TSA's* key; they say nothing
    about the receipt's own signer, which still needs `--pubkey`.
+8. **Third-party release actions are pinned by version tag, not commit SHA.**
+   `actions/*`, `softprops/action-gh-release` and `sigstore/cosign-installer`
+   are referenced by major-version tag in `.github/workflows/release.yml`. A
+   moved tag would therefore be followed. SHA-pinning requires resolving and
+   maintaining commit hashes; it is a tracked hardening item, not a present
+   guarantee. Note `slsa-github-generator` is deliberately pinned to the full
+   tag `@v2.1.0` (not a floating major) because pinning it by SHA would force
+   `compile-generator: true` — see ADR-003.
 
 ## Supported versions
 

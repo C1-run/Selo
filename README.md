@@ -42,7 +42,9 @@ touched), it was **caught** (a forbidden-file rule fired on the actual diff), an
 ## Quick Start
 
 ```bash
-# install (or: go install github.com/C1-run/selo/cmd/selo@latest)
+# install — the script verifies the binary's checksum and cosign signature
+# before installing, and fails closed if either check fails
+# (or: go install github.com/C1-run/selo/cmd/selo@latest)
 curl -fsSL https://raw.githubusercontent.com/C1-run/Selo/main/install.sh | bash
 
 # one-time: make signatures attributable across runs
@@ -73,6 +75,7 @@ selo keys pub   # prints the public key; fingerprint = sha256 of that key
 | Pluggable signer | `SELO_SIGNER` picks where the key lives: `file` (default), `keychain` (seed in the OS keychain — `selo keys store --keychain`), or `command` (an external program signs; Selo holds no key at all — `SELO_SIGNER_COMMAND`). Only `command` with a non-extractable key moves the signer out of the agent's trust domain (ADR-008). Every receipt records the signed `key_source`. |
 | Trusted timestamp | `selo run --tsa <url>` obtains an **RFC3161 timestamp** over the receipt hash from an external authority (ADR-005), so the signing time cannot be back-dated. `selo receipt timestamp <id> --tsa <url>` retrofits one onto an existing receipt. `selo verify --tsa-ca <pem>` anchors the token to a trusted TSA (chain + timestamping EKU); `--require-tsa` gates on it. Fail-closed: an unreachable TSA fails the run unless `--tsa-soft` records the absence explicitly. |
 | Transparency log | `selo run --rekor <url>` logs the receipt hash in a **Sigstore Rekor** log (ADR-006), so a receipt cannot be equivocated or quietly withdrawn. Only the hash is published — Rekor stores the envelope/payload *hashes*, never the receipt, task name, or file paths. `selo verify --rekor-pubkey <pem>` recomputes the RFC 6962 inclusion proof to the checkpoint root and verifies the log's checkpoint signature; `--require-rekor` gates on it. |
+| Verified releases | Selo's own releases are signed and independently verifiable (ADR-002, ADR-003). Each ships `checksums.txt` (sorted SHA-256), `checksums.txt.sigstore.json` (cosign **keyless** signature over it — no long-lived key), and `multiple.intoto.jsonl` (**SLSA Build L3** provenance). `install.sh` verifies the checksum and the signature, pinning **both** the workflow identity and the OIDC issuer, and fails closed if either check fails or `cosign` is absent. Verify by hand with `cosign verify-blob` and `slsa-verifier` — see SECURITY.md "Verifying a release". |
 | `selo mcp serve` | Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |

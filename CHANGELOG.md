@@ -7,6 +7,16 @@ for an early project — breaking config or receipt-schema changes bump the mino
 ## [Unreleased]
 
 ### Security
+- **Releases are signed, and the installer now verifies them (ADR-002,
+  ADR-003).** `install.sh` previously downloaded a binary and executed it with
+  zero verification — a tool that sells verifiability distributed itself
+  unverifiably. Releases now publish a deterministic `checksums.txt`, sign it
+  with cosign keyless (Fulcio + GitHub OIDC, so no long-lived signing key), and
+  attach SLSA Build L3 provenance. `install.sh` checks the binary's SHA-256
+  against `checksums.txt`, then verifies `checksums.txt` with `cosign
+  verify-blob`, pinning **both** the workflow identity and the OIDC issuer. Any
+  failure — including `cosign` being absent — aborts the install rather than
+  degrading to an unverified one. See SECURITY.md "Verifying a release".
 - **The L3 wording is now backed by capability, but stays conditional.** With
   ADR-005 (trusted timestamp) and ADR-006 (transparency log) implemented, Selo
   can support a "non-repudiable" claim — but only when the signer sits outside
@@ -74,8 +84,38 @@ for an early project — breaking config or receipt-schema changes bump the mino
   claim, and a removed test, then asserts every control rejects it; also asserts
   signing fails closed with no key. Runs in CI so a detector that regresses to
   "always clean" cannot ship silently.
+- **Signed releases and build provenance (ADR-002, ADR-003).** Every release now
+  ships three verification artifacts alongside the binaries: `checksums.txt`
+  (sorted, deterministic SHA-256 of each binary), `checksums.txt.sigstore.json`
+  (cosign keyless signature over it), and `multiple.intoto.jsonl` (SLSA Build L3
+  provenance). The same `checksums.txt` serves both purposes — it is the blob
+  cosign signs and, base64-encoded, the `base64-subjects` input the SLSA
+  generator consumes. Verify a download independently with:
+  ```
+  cosign verify-blob --bundle checksums.txt.sigstore.json \
+    --certificate-identity-regexp \
+      '^https://github\.com/C1-run/selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+    checksums.txt
+  slsa-verifier verify-artifact <binary> \
+    --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/selo
+  ```
+- **`scripts/test-install.sh`** — hermetic tests for the installer's
+  verification control flow. Serves fake artifacts over `file://` URLs and
+  substitutes a `cosign` shim, so it needs no network and no credentials; covers
+  the happy path, a tampered checksum, a tampered binary, missing `cosign`,
+  a rejected signature, the `SELO_SKIP_VERIFY` opt-out, and missing
+  `checksums.txt`/bundle. Wired into CI. It pins the control flow only — real
+  Fulcio/Rekor verification needs a genuine release.
 
 ### Fixed
+- **`install.sh` no longer invokes `sudo` unnecessarily.** It only escalates
+  when the target directory is not writable, and creates the directory if it is
+  missing.
+- **`install.sh` version lookup no longer fails on a successful fetch.** It used
+  `grep '"tag_name"' | head -1`; `head` closing the pipe early can raise SIGPIPE
+  in `grep`, which `set -o pipefail` then turned into a spurious install
+  failure. Now uses `grep -m1`.
 - **The README CI example no longer disables the gate.** It showed
   `selo run "NOOP" || true`, teaching users to swallow the exit code the check
   exists to raise.

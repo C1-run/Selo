@@ -41,3 +41,6 @@ jobs:
 
       - name: Safety-control selftest
         run: go run ./cmd/selo/ selftest
+
+      - name: Installer verification tests
+        run: bash scripts/test-install.sh
