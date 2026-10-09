@@ -27,6 +27,18 @@ const (
 	KeyModeEphemeral  = "ephemeral"
 )
 
+// Key sources recorded on every receipt (KeySource). See ADR-008: only
+// "command" (with a non-extractable key) places the signer outside the audited
+// agent's trust domain; "env", "file" and "keychain" keep the key readable by
+// the same user.
+const (
+	KeySourceEnv       = "env"
+	KeySourceFile      = "file"
+	KeySourceKeychain  = "keychain"
+	KeySourceCommand   = "command"
+	KeySourceEphemeral = "ephemeral"
+)
+
 // ErrNoSigningKey is returned when no persistent key is configured and
 // ephemeral keys are not explicitly allowed. Signing fails closed: a receipt
 // signed by a key nobody can attribute is worth nothing as evidence, so Selo
@@ -62,36 +74,45 @@ func missingKeyError() error {
 		"verify you signed", ErrNoSigningKey, DefaultSigningKeyPath())
 }
 
-// LoadSigningKey loads Ed25519 private key from SELO_SIGNING_KEY env var and
-// reports the key mode. See LoadSigningKeyWithMode for the full contract.
-func LoadSigningKey() (ed25519.PrivateKey, string, error) {
-	priv, pub, _, err := LoadSigningKeyWithMode()
-	return priv, pub, err
+// parseKeyMaterial decodes a base64 32-byte seed or 64-byte Ed25519 private key
+// and returns it with the base64 public key.
+func parseKeyMaterial(b64, source string) (ed25519.PrivateKey, string, error) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64))
+	if err != nil {
+		return nil, "", fmt.Errorf("%s base64 decode: %w", source, err)
+	}
+	var priv ed25519.PrivateKey
+	switch len(raw) {
+	case 32:
+		priv = ed25519.NewKeyFromSeed(raw)
+	case 64:
+		priv = ed25519.PrivateKey(raw)
+	default:
+		return nil, "", fmt.Errorf("%s must hold a 32- or 64-byte key (got %d bytes)", source, len(raw))
+	}
+	pubB64 := base64.StdEncoding.EncodeToString(priv.Public().(ed25519.PublicKey))
+	return priv, pubB64, nil
 }
 
-// LoadSigningKeyWithMode loads the Ed25519 private key and reports how
-// attributable it is.
-//
-// Resolution order: SELO_SIGNING_KEY (base64 32-byte seed or 64-byte private
-// key), then the conventional key file at DefaultSigningKeyPath(). If neither
-// yields a key, signing fails closed with ErrNoSigningKey unless
-// SELO_ALLOW_EPHEMERAL_KEY is set, in which case a per-process key is
-// generated, cached, and reported as KeyModeEphemeral.
-func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
+// loadLocalKey resolves a local signing key: SELO_SIGNING_KEY, then the
+// conventional key file. It returns the key, its public key, the key mode and
+// the key source. With neither present it fails closed (ErrNoSigningKey) unless
+// an ephemeral per-process key is explicitly allowed.
+func loadLocalKey() (ed25519.PrivateKey, string, string, string, error) {
 	b64 := strings.TrimSpace(os.Getenv("SELO_SIGNING_KEY"))
-	source := "SELO_SIGNING_KEY"
+	source := KeySourceEnv
 	if b64 == "" {
 		// No env var: fall back to the key file `selo keys generate` writes, so
 		// users don't have to export the seed on every invocation.
 		path := DefaultSigningKeyPath()
 		if data, readErr := os.ReadFile(path); readErr == nil {
 			b64 = strings.TrimSpace(string(data))
-			source = path
+			source = KeySourceFile
 		}
 	}
 	if b64 == "" {
 		if !EphemeralKeyAllowed() {
-			return nil, "", "", missingKeyError()
+			return nil, "", "", "", missingKeyError()
 		}
 		// Dev mode: ephemeral key (cached)
 		var loadErr error
@@ -105,26 +126,31 @@ func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
 			}
 		})
 		if loadErr != nil {
-			return nil, "", "", fmt.Errorf("generate ephemeral key: %w", loadErr)
+			return nil, "", "", "", fmt.Errorf("generate ephemeral key: %w", loadErr)
 		}
-		return ephemeralPriv, ephemeralPub, KeyModeEphemeral, nil
+		return ephemeralPriv, ephemeralPub, KeyModeEphemeral, KeySourceEphemeral, nil
 	}
-	mode := KeyModePersistent
-	raw, err := base64.StdEncoding.DecodeString(b64)
+	priv, pubB64, err := parseKeyMaterial(b64, source)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("%s base64 decode: %w", source, err)
+		return nil, "", "", "", err
 	}
-	var priv ed25519.PrivateKey
-	switch len(raw) {
-	case 32:
-		priv = ed25519.NewKeyFromSeed(raw)
-	case 64:
-		priv = ed25519.PrivateKey(raw)
-	default:
-		return nil, "", "", fmt.Errorf("%s must hold a 32- or 64-byte key (got %d bytes)", source, len(raw))
-	}
-	pubB64 := base64.StdEncoding.EncodeToString(priv.Public().(ed25519.PublicKey))
-	return priv, pubB64, mode, nil
+	return priv, pubB64, KeyModePersistent, source, nil
+}
+
+// LoadSigningKey loads an Ed25519 private key from SELO_SIGNING_KEY or the
+// conventional key file and reports the key mode. See ResolveSigner for the
+// full backend contract (file / keychain / command).
+func LoadSigningKey() (ed25519.PrivateKey, string, error) {
+	priv, pub, _, err := LoadSigningKeyWithMode()
+	return priv, pub, err
+}
+
+// LoadSigningKeyWithMode loads the local Ed25519 private key and reports how
+// attributable it is. It resolves only the local backends (env, file,
+// ephemeral); use ResolveSigner to also cover keychain and external commands.
+func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
+	priv, pub, mode, _, err := loadLocalKey()
+	return priv, pub, mode, err
 }
 
 // PublicKeyFingerprint returns a stable hex fingerprint of a base64-encoded
@@ -155,6 +181,10 @@ func GenerateKeyPair() (seedB64, pubB64 string, priv ed25519.PrivateKey, err err
 
 // CanonicalJSON returns the canonical JSON of receipt excluding signature/anchor fields.
 // Used for signing and verification. Must be deterministic.
+//
+// key_mode and key_source are deliberately NOT cleared: they are set before
+// signing, so they are covered by the signature — a receipt that lies about how
+// it was signed fails verification because the canonical bytes differ.
 func CanonicalJSON(r *ForgeReceipt) ([]byte, error) {
 	// Copy without signature/anchor fields to avoid circular signing
 	cp := *r
@@ -168,27 +198,29 @@ func CanonicalJSON(r *ForgeReceipt) ([]byte, error) {
 }
 
 // SignReceipt signs the receipt's canonical JSON and sets Signature/PublicKey/ReceiptHash.
-// Returns signature base64.
+// Returns signature base64. The signing backend is chosen by ResolveSigner.
 func SignReceipt(r *ForgeReceipt) (string, error) {
-	priv, pubB64, mode, err := LoadSigningKeyWithMode()
+	signer, err := ResolveSigner()
 	if err != nil {
 		return "", err
 	}
-	// Record the key mode on the receipt *before* canonicalizing so it is
-	// covered by the signature. A forged receipt that lies about its mode
-	// (e.g. claims "persistent" while signed by an ephemeral key) will fail
-	// signature verification because the canonical bytes differ.
-	r.KeyMode = mode
+	// Record the key mode and source on the receipt *before* canonicalizing so
+	// they are covered by the signature.
+	r.KeyMode = signer.KeyMode()
+	r.KeySource = signer.KeySource()
 	canonical, err := CanonicalJSON(r)
 	if err != nil {
 		return "", fmt.Errorf("canonical json: %w", err)
 	}
 	hash := sha256.Sum256(canonical)
 	r.ReceiptHash = hex.EncodeToString(hash[:])
-	sig := ed25519.Sign(priv, canonical)
+	sig, err := signer.Sign(canonical)
+	if err != nil {
+		return "", fmt.Errorf("sign receipt: %w", err)
+	}
 	sigB64 := base64.StdEncoding.EncodeToString(sig)
 	r.Signature = sigB64
-	r.PublicKey = pubB64
+	r.PublicKey = signer.PublicKeyB64()
 	return sigB64, nil
 }
 

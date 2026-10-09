@@ -1,7 +1,7 @@
 # ADR-008: 把签名密钥移出被审计 agent 的信任域
 
 ## Status
-Proposed (2026-10-09) — Phase 1 已实现
+Proposed (2026-10-09) — Phase 1 & 2 implemented
 
 ## Background
 ADR-004 堵住了"篡改后重签即通过"，ADR-007 把措辞降级为分级表述。但两份 ADR 都没有解决
@@ -28,10 +28,26 @@ ADR-004 堵住了"篡改后重签即通过"，ADR-007 把措辞降级为分级�
 - 公开文案一律不得使用 "non-repudiable"/"tamper-proof"，改 "signed, tamper-evident"。
 - **明确不足**：不阻止同用户读盘。仅用于消除最廉价的泄露路径并诚实披露。
 
-### Phase 2（下一步，待实现）
-- 密钥不落 agent 可读的文件系统：优先 **OS keychain**（macOS Keychain / Secret Service）
-  或 **云 KMS**。Selo 请求 keychain/KMS 完成签名，磁盘上无种子。
-- CLI 增加 `--signer keychain|kms|file`；`file` 保留为当前行为并告警。
+### Phase 2（已实现，2026-10-09）
+签名抽象为可插拔 `Signer`（`internal/receipt/signer.go`），`SELO_SIGNER` 选择后端：
+
+- `file`（默认）——行为不变：`SELO_SIGNING_KEY` → `~/.selo/signing-key` → 显式允许时
+  ephemeral → fail-closed。
+- `keychain`——种子存进 **OS keychain**（macOS 用 `security`，Linux 用 `secret-tool`，
+  `internal/receipt/keychain.go`，**不引 CGO**，静态产物不受影响）。CLI：
+  `selo keys generate --keychain`、`selo keys store --keychain [--delete-file]`、
+  `selo keys pub --keychain`。
+- `command`——把签名委托给**外部程序**：Selo 把待签字节写 stdin，从 stdout 读回 base64
+  签名（`SELO_SIGNER_COMMAND` + `SELO_SIGNER_PUBKEY`）。私钥**永不进入 Selo**。这是
+  KMS / HSM / ssh-agent / 独立签名用户 / CI 签名的通用逃生口。
+
+收据新增**签名字段** `key_source`（`env|file|keychain|command|ephemeral`），`selo verify`
+会显示它。
+
+**诚实边界**：`keychain` 只是把明文种子从磁盘挪进钥匙串，**同一用户仍可读**（首次访问
+可能有系统授权提示，但脚本可被授权）——它抬高门槛，不等于隔离。**只有 `command` 后端，
+且其私钥不可导出（HSM/KMS/agent）时，才真正把签名方移出 agent 信任域。** 因此对外措辞
+仍停留在 L2（可验证的 attestation），直到有人以 `command`+不可导出密钥部署。
 
 ### Phase 3（合规选项）
 - **独立签名用户/进程**：agent 以 `selo-agent` 运行，签名方以 `selo-signer` 运行，密钥

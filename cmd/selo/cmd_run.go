@@ -20,6 +20,7 @@ var (
 	runMaxMinutes     int
 	runForbiddenFiles []string
 	runDev            bool
+	runSigner         string
 )
 
 var runCmd = &cobra.Command{
@@ -39,6 +40,7 @@ func init() {
 	runCmd.Flags().IntVar(&runMaxMinutes, "max-minutes", 30, "Max minutes for the agent")
 	runCmd.Flags().StringArrayVar(&runForbiddenFiles, "forbidden-files", nil, "Files the agent must not modify")
 	runCmd.Flags().BoolVar(&runDev, "dev", false, "Allow a per-process ephemeral signing key when SELO_SIGNING_KEY is unset (dev only — receipts are not attributable across runs)")
+	runCmd.Flags().StringVar(&runSigner, "signer", "", "Signing backend: file (default), keychain, or command (see ADR-008). Overrides SELO_SIGNER.")
 }
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
@@ -106,6 +108,9 @@ commands:
 	// Process the task (reuses daemon logic)
 	if runDev {
 		os.Setenv("SELO_ALLOW_EPHEMERAL_KEY", "1")
+	}
+	if runSigner != "" {
+		os.Setenv("SELO_SIGNER", runSigner)
 	}
 	processed := processOneTask(qm, receiptWriter, worktreeMgr, cfg)
 	if !processed {
