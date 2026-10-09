@@ -1,9 +1,11 @@
-<p align="center"><svg width="110" height="110" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><path fill="#00d4ff" d="M156 64h200a20 20 0 0 1 20 20v300l-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34-20 34-20-34V84a20 20 0 0 1 20-20Z"/><rect x="176" y="150" width="160" height="30" rx="15" fill="#020204"/><rect x="176" y="212" width="118" height="30" rx="15" fill="#020204"/><circle cx="300" cy="322" r="56" fill="#ff007b"/><path d="M272 322l22 22 40-46" fill="none" stroke="#020204" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
+<p align="center"><img src="docs/brand/logo.svg" width="110" alt="Selo"></p>
 
 # Selo
 
-**Your coding agent will eventually touch a file you told it not to. Selo catches it, rejects the
-task, and hands you a signed receipt.**
+**Don't trust the agent. Verify the receipt.**
+
+Your coding agent will eventually touch a file you told it not to. Selo catches it, rejects the
+task, and hands you a signed receipt.
 
 [![CI](https://github.com/C1-run/Selo/actions/workflows/ci.yml/badge.svg)](https://github.com/C1-run/Selo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/C1-run/Selo)](https://github.com/C1-run/Selo/releases)
