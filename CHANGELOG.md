@@ -7,6 +7,13 @@ for an early project — breaking config or receipt-schema changes bump the mino
 ## [Unreleased]
 
 ### Security
+- **The L3 wording is now backed by capability, but stays conditional.** With
+  ADR-005 (trusted timestamp) and ADR-006 (transparency log) implemented, Selo
+  can support a "non-repudiable" claim — but only when the signer sits outside
+  the audited agent's trust domain (ADR-008 `command` backend with a
+  non-extractable key). Under the default `file` backend the key is readable by
+  the same user, so the honest ceiling remains L1/L2. See SECURITY.md "Threat
+  model" and ADR-007.
 - **The agent no longer inherits the signing key.** `selo run` passed the full
   host environment to the agent subprocess, so `SELO_SIGNING_KEY` reached the
   very process the receipt attests to. The runner now strips `SELO_SIGNING_KEY`
@@ -40,6 +47,29 @@ for an early project — breaking config or receipt-schema changes bump the mino
   language can check it. The native `receipt.json` is unchanged. `selo verify`
   now detects and verifies an envelope, reporting `Format: in-toto/DSSE`, with
   the same `--pubkey` pinning.
+- **RFC3161 trusted timestamps (ADR-005).** `selo run --tsa <url>` obtains a
+  timestamp over the receipt's canonical bytes (message imprint = `receipt_hash`)
+  and records it as `timestamp`. Because a timestamp attests to when a signature
+  existed, it is produced after signing and excluded from the canonical JSON.
+  `selo receipt timestamp <id> --tsa <url>` retrofits one onto an existing
+  receipt — refusing if its signature or content hash does not verify. `selo
+  verify --tsa-ca <pem>` anchors the token to a trusted TSA (chain + timestamping
+  EKU, evaluated at the timestamped instant); without `--tsa-ca` the token is
+  reported `UNVERIFIED`, and `--require-tsa` makes anything short of OK fatal.
+  Fail-closed: an unreachable TSA fails the run unless `--tsa-soft` records the
+  absence explicitly. Uses `github.com/digitorus/timestamp` (pinned; two pure-Go
+  modules, no CGO) — not `sigstore-go`, so the Go floor stays at 1.21.
+- **Sigstore Rekor transparency log (ADR-006).** `selo run --rekor <url>` logs
+  the receipt hash in a Rekor log as a DSSE entry signed by the receipt's key,
+  and records the log record as `transparency` (`log_index`, `integrated_time`,
+  `body`, inclusion proof, signed entry timestamp). `selo receipt log <id>
+  --rekor <url>` logs an existing receipt. Only the receipt hash is published:
+  Rekor stores the envelope/payload *hashes*, so no task name, file path, or
+  receipt content leaves the machine. `selo verify --rekor-pubkey <pem>`
+  recomputes the RFC 6962 inclusion proof to the checkpoint root and verifies the
+  checkpoint's signature against the log key; `--require-rekor` gates on it.
+  Implemented against Rekor's REST API with the standard library — no
+  `sigstore-go`, so no Go 1.23+ requirement and no heavy dependency.
 - `selo selftest` — plants a known secret, a forbidden-file edit, a forbidden
   claim, and a removed test, then asserts every control rejects it; also asserts
   signing fails closed with no key. Runs in CI so a detector that regresses to

@@ -179,14 +179,18 @@ func GenerateKeyPair() (seedB64, pubB64 string, priv ed25519.PrivateKey, err err
 	return seedB64, pubB64, priv, nil
 }
 
-// CanonicalJSON returns the canonical JSON of receipt excluding signature/anchor fields.
-// Used for signing and verification. Must be deterministic.
+// CanonicalJSON returns the canonical JSON of receipt excluding signature,
+// anchor and timestamp fields. Used for signing and verification. Must be
+// deterministic.
 //
-// key_mode and key_source are deliberately NOT cleared: they are set before
-// signing, so they are covered by the signature — a receipt that lies about how
-// it was signed fails verification because the canonical bytes differ.
+// The anchor (git) and timestamp (RFC3161) fields are cleared because both are
+// produced *after* signing and attest to the signature rather than being part
+// of it — including them would be circular. key_mode and key_source, by
+// contrast, are deliberately NOT cleared: they are set before signing, so they
+// are covered by the signature — a receipt that lies about how it was signed
+// fails verification because the canonical bytes differ.
 func CanonicalJSON(r *ForgeReceipt) ([]byte, error) {
-	// Copy without signature/anchor fields to avoid circular signing
+	// Copy without signature/anchor/timestamp fields to avoid circular signing
 	cp := *r
 	cp.Signature = ""
 	cp.PublicKey = ""
@@ -194,6 +198,8 @@ func CanonicalJSON(r *ForgeReceipt) ([]byte, error) {
 	cp.AnchorCommit = ""
 	cp.AnchorBranch = ""
 	cp.AnchoredAt = nil
+	cp.Timestamp = nil
+	cp.Transparency = nil
 	return json.Marshal(cp)
 }
 

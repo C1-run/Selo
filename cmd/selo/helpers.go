@@ -10,6 +10,17 @@ import (
 
 // --- Receipt helpers ---
 
+// envTruthy reports whether an environment variable is set to a truthy value
+// ("1", "true", "yes", "on"). Used for the opt-in switches Selo reads from the
+// environment (e.g. SELO_TSA_SOFT).
+func envTruthy(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	return false
+}
+
 // readNewestReceiptJSON reads the most recent JSON receipt from a directory.
 func readNewestReceiptJSON(dir string) map[string]interface{} {
 	entries, err := os.ReadDir(dir)
