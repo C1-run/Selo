@@ -52,6 +52,29 @@ one of them is false:
   (forbidden claims, forbidden files, patch or file limits) and still receives a
   passing verdict.
 
+## Threat model: what a receipt does and does not prove
+
+A receipt is evidence about the *run*, signed by whoever holds the signing key.
+It proves that a process holding that key observed a given verdict over a given
+diff. It does **not**, by itself, prove that the agent could not have produced
+the receipt.
+
+For the guarantee to hold, the signing key must live **outside the trust domain
+of the agent being audited**:
+
+- `selo run` removes `SELO_SIGNING_KEY` and `SELO_ALLOW_EPHEMERAL_KEY` from the
+  environment of the agent subprocess (`internal/runner`), so the agent cannot
+  read the key from its own environment.
+- That is necessary but **not sufficient**: an agent running as the *same OS
+  user* on the same host can still read `~/.selo/signing-key` from disk. If you
+  need a receipt an audited agent cannot forge, run the agent under a different
+  user, in a container, or in a CI job that cannot read the key, or sign from a
+  keychain/KMS the agent has no access to.
+- When the agent runs in the same trust domain as the signer, treat the receipt
+  as an integrity and audit record of *what Selo observed*, not as
+  non-repudiable proof of agent behavior. Do not use the words
+  "non-repudiable" or "tamper-proof" for such a receipt.
+
 ## Known limitations (not vulnerabilities)
 
 These are documented behaviors, not bugs. Please do not report them as
@@ -83,6 +106,13 @@ documentation issue and an ordinary issue is fine.
 5. **The secret scan is a small set of regular expressions**, not a
    general-purpose scanner. It is not expected to catch every secret format.
    Generic SAST and CVE scanning are roadmap, not v0.1.
+6. **The signing key shares the agent's trust domain by default.** When the
+   agent runs as the same OS user as Selo on the same host, it can read
+   `~/.selo/signing-key` from disk and could forge a receipt that passes
+   `selo verify --pubkey`. Selo strips the key from the agent's environment
+   (`internal/runner`) but cannot stop a same-user disk read. Non-repudiation
+   requires running the agent in a separate trust domain — see "Threat model"
+   above. This is a deployment limitation, not a signing flaw.
 
 ## Supported versions
 

@@ -1,10 +1,14 @@
 package receipt
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -24,67 +28,76 @@ type TaskMeta struct {
 
 // ForgeReceipt is the structured receipt for a task execution.
 type ForgeReceipt struct {
-	ReceiptID                string    `json:"receipt_id"`
-	TaskID                   string    `json:"task_id"`
-	Verdict                  string    `json:"verdict"`
-	StartedAt                time.Time `json:"started_at"`
-	FinishedAt               time.Time `json:"finished_at"`
-	DurationSec              int64     `json:"duration_sec"`
-	RoundsUsed               int       `json:"rounds_used"`
-	ExitCode                 int       `json:"exit_code"`
-	TimedOut                 bool      `json:"timed_out"`
-	FilesChanged             int       `json:"files_changed"`
-	PatchLines               int       `json:"patch_lines"`
-	HasDiff                  bool      `json:"has_diff"`
-	TestOutput               string    `json:"test_output,omitempty"`
-	DiffSummary              string    `json:"diff_summary,omitempty"`
-	SafetyHits               []string  `json:"safety_hits,omitempty"`
-	Error                    string    `json:"error,omitempty"`
-	RunnerMode               string    `json:"runner_mode,omitempty"`
-	RunnerCommand            string    `json:"runner_command,omitempty"`
-	RunnerExitCode           int       `json:"runner_exit_code,omitempty"`
-	RunnerBinaryKind         string    `json:"runner_binary_kind,omitempty"`
-	RunnerBinaryPath         string    `json:"runner_binary_path,omitempty"`
-	RunnerBinaryVersion      string    `json:"runner_binary_version,omitempty"`
-	RunnerBinaryVerified     bool      `json:"runner_binary_verified"`
-	C1RuntimeRequested       string    `json:"c1_runtime_requested,omitempty"`
-	C1RuntimeUsed            string    `json:"c1_runtime_used,omitempty"`
-	C1RuntimeIsMock          bool      `json:"c1_runtime_is_mock"`
-	OpenCodeModel            string    `json:"opencode_model,omitempty"`
-	OpenCodeAgent            string    `json:"opencode_agent,omitempty"`
-	WorktreePath             string    `json:"worktree_path,omitempty"`
-	BaseCommit               string    `json:"base_commit,omitempty"`
-	TestsPassed              int       `json:"tests_passed,omitempty"`
-	ScansPassed              bool      `json:"scans_passed"`
-	C1LoopReceiptPath        string    `json:"c1_loop_receipt_path,omitempty"`
-	ForgeReceiptPath         string    `json:"forge_receipt_path,omitempty"`
-	PinocchioVerified        bool      `json:"pinocchio_verified"`
-	PinocchioResultPath      string    `json:"pinocchio_result_path,omitempty"`
-	InitialVerdict           string    `json:"initial_verdict,omitempty"`
-	FinalVerdict             string    `json:"final_verdict,omitempty"`
-	VerdictOverridden        bool      `json:"verdict_overridden"`
-	OverrideReason           string    `json:"override_reason,omitempty"`
-	PinocchioFalseClaims     []string  `json:"pinocchio_false_claims,omitempty"`
-	PinocchioInconsistencies []string  `json:"pinocchio_inconsistencies,omitempty"`
-	TestIntegrityPassed      bool      `json:"test_integrity_passed"`
-	TestIntegrityResultPath  string    `json:"test_integrity_result_path,omitempty"`
-	TestsRemoved             []string  `json:"tests_removed,omitempty"`
-	TestsModified            []string  `json:"tests_modified,omitempty"`
-	TestCommandsChanged      []string  `json:"test_commands_changed,omitempty"`
-	TestInventoryBeforeCount int       `json:"test_inventory_before_count"`
-	TestInventoryAfterCount  int       `json:"test_inventory_after_count"`
-	OpenCodeRunInfoPath      string    `json:"opencode_run_info_path,omitempty"`
-	OpenCodeTimedOut         bool      `json:"opencode_timed_out"`
-	NotificationMode         string    `json:"notification_mode,omitempty"`
-	NotificationSuccess      bool      `json:"notification_success"`
-	NotificationError        string    `json:"notification_error,omitempty"`
-	GateChainAction          string    `json:"gatechain_action,omitempty"`
-	GateChainStopRequired    bool      `json:"gatechain_stop_required"`
-	GateChainReviewRequired  bool      `json:"gatechain_review_required"`
-	GateChainFinalStatus     string    `json:"gatechain_final_status,omitempty"`
-	GateChainActionReason    string    `json:"gatechain_action_reason,omitempty"`
-	Signature                string    `json:"signature,omitempty"`
-	PublicKey                string    `json:"public_key,omitempty"`
+	ReceiptID            string    `json:"receipt_id"`
+	TaskID               string    `json:"task_id"`
+	Verdict              string    `json:"verdict"`
+	StartedAt            time.Time `json:"started_at"`
+	FinishedAt           time.Time `json:"finished_at"`
+	DurationSec          int64     `json:"duration_sec"`
+	RoundsUsed           int       `json:"rounds_used"`
+	ExitCode             int       `json:"exit_code"`
+	TimedOut             bool      `json:"timed_out"`
+	FilesChanged         int       `json:"files_changed"`
+	PatchLines           int       `json:"patch_lines"`
+	HasDiff              bool      `json:"has_diff"`
+	TestOutput           string    `json:"test_output,omitempty"`
+	DiffSummary          string    `json:"diff_summary,omitempty"`
+	SafetyHits           []string  `json:"safety_hits,omitempty"`
+	Error                string    `json:"error,omitempty"`
+	RunnerMode           string    `json:"runner_mode,omitempty"`
+	RunnerCommand        string    `json:"runner_command,omitempty"`
+	RunnerExitCode       int       `json:"runner_exit_code,omitempty"`
+	RunnerBinaryKind     string    `json:"runner_binary_kind,omitempty"`
+	RunnerBinaryPath     string    `json:"runner_binary_path,omitempty"`
+	RunnerBinaryVersion  string    `json:"runner_binary_version,omitempty"`
+	RunnerBinaryVerified bool      `json:"runner_binary_verified"`
+	C1RuntimeRequested   string    `json:"c1_runtime_requested,omitempty"`
+	C1RuntimeUsed        string    `json:"c1_runtime_used,omitempty"`
+	C1RuntimeIsMock      bool      `json:"c1_runtime_is_mock"`
+	OpenCodeModel        string    `json:"opencode_model,omitempty"`
+	OpenCodeAgent        string    `json:"opencode_agent,omitempty"`
+	WorktreePath         string    `json:"worktree_path,omitempty"`
+	BaseCommit           string    `json:"base_commit,omitempty"`
+	// DiffHash is the sha256 (hex) of the full diff that was audited. It binds
+	// the receipt to the exact change it judged, so a SUCCESS cannot be
+	// replayed against a different diff. PolicyHash binds the effective rules
+	// (forbidden claims/files, limits) so a SUCCESS under a strict policy is
+	// distinguishable from one under an empty policy. SeloVersion records which
+	// build produced the receipt. All three are covered by the signature.
+	DiffHash                 string   `json:"diff_hash,omitempty"`
+	PolicyHash               string   `json:"policy_hash,omitempty"`
+	SeloVersion              string   `json:"selo_version,omitempty"`
+	TestsPassed              int      `json:"tests_passed,omitempty"`
+	ScansPassed              bool     `json:"scans_passed"`
+	C1LoopReceiptPath        string   `json:"c1_loop_receipt_path,omitempty"`
+	ForgeReceiptPath         string   `json:"forge_receipt_path,omitempty"`
+	PinocchioVerified        bool     `json:"pinocchio_verified"`
+	PinocchioResultPath      string   `json:"pinocchio_result_path,omitempty"`
+	InitialVerdict           string   `json:"initial_verdict,omitempty"`
+	FinalVerdict             string   `json:"final_verdict,omitempty"`
+	VerdictOverridden        bool     `json:"verdict_overridden"`
+	OverrideReason           string   `json:"override_reason,omitempty"`
+	PinocchioFalseClaims     []string `json:"pinocchio_false_claims,omitempty"`
+	PinocchioInconsistencies []string `json:"pinocchio_inconsistencies,omitempty"`
+	TestIntegrityPassed      bool     `json:"test_integrity_passed"`
+	TestIntegrityResultPath  string   `json:"test_integrity_result_path,omitempty"`
+	TestsRemoved             []string `json:"tests_removed,omitempty"`
+	TestsModified            []string `json:"tests_modified,omitempty"`
+	TestCommandsChanged      []string `json:"test_commands_changed,omitempty"`
+	TestInventoryBeforeCount int      `json:"test_inventory_before_count"`
+	TestInventoryAfterCount  int      `json:"test_inventory_after_count"`
+	OpenCodeRunInfoPath      string   `json:"opencode_run_info_path,omitempty"`
+	OpenCodeTimedOut         bool     `json:"opencode_timed_out"`
+	NotificationMode         string   `json:"notification_mode,omitempty"`
+	NotificationSuccess      bool     `json:"notification_success"`
+	NotificationError        string   `json:"notification_error,omitempty"`
+	GateChainAction          string   `json:"gatechain_action,omitempty"`
+	GateChainStopRequired    bool     `json:"gatechain_stop_required"`
+	GateChainReviewRequired  bool     `json:"gatechain_review_required"`
+	GateChainFinalStatus     string   `json:"gatechain_final_status,omitempty"`
+	GateChainActionReason    string   `json:"gatechain_action_reason,omitempty"`
+	Signature                string   `json:"signature,omitempty"`
+	PublicKey                string   `json:"public_key,omitempty"`
 	// KeyMode records whether the signing key was attributable across runs
 	// ("persistent") or generated for this process only ("ephemeral"). It is
 	// set by SignReceipt and cleared by CanonicalJSON like the other signature
@@ -97,6 +110,40 @@ type ForgeReceipt struct {
 	SupplyComponents []string   `json:"supply_components,omitempty"`
 	SupplyHits       []string   `json:"supply_hits,omitempty"`
 	SupplyCheckedAt  *time.Time `json:"supply_checked_at,omitempty"`
+}
+
+// PolicySpec is the effective safety policy a receipt was produced under.
+// Hashing it into the signed receipt means a SUCCESS cannot be confused with a
+// SUCCESS produced under an empty or weaker policy.
+type PolicySpec struct {
+	ForbiddenClaims []string `json:"forbidden_claims,omitempty"`
+	ForbiddenFiles  []string `json:"forbidden_files,omitempty"`
+	AllowedFiles    []string `json:"allowed_files,omitempty"`
+	MaxFiles        int      `json:"max_files,omitempty"`
+	MaxPatchLines   int      `json:"max_patch_lines,omitempty"`
+	MaxRounds       int      `json:"max_rounds,omitempty"`
+}
+
+// PolicyHash returns a stable sha256 (hex) over the effective policy. Slices
+// are sorted on copies so the hash does not depend on declaration order.
+func PolicyHash(p PolicySpec) string {
+	sorted := PolicySpec{
+		ForbiddenClaims: append([]string(nil), p.ForbiddenClaims...),
+		ForbiddenFiles:  append([]string(nil), p.ForbiddenFiles...),
+		AllowedFiles:    append([]string(nil), p.AllowedFiles...),
+		MaxFiles:        p.MaxFiles,
+		MaxPatchLines:   p.MaxPatchLines,
+		MaxRounds:       p.MaxRounds,
+	}
+	sort.Strings(sorted.ForbiddenClaims)
+	sort.Strings(sorted.ForbiddenFiles)
+	sort.Strings(sorted.AllowedFiles)
+	b, err := json.Marshal(sorted)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:])
 }
 
 // Verdict constants
@@ -114,6 +161,22 @@ const (
 
 func GenerateReceiptID() string {
 	return fmt.Sprintf("c1f-%d", time.Now().UnixNano())
+}
+
+// taskKeyRe matches the key of a "key: value" line.
+var taskKeyRe = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*):`)
+
+// recognizedTaskKeys is every task.md key Selo honors (across ParseTaskMeta and
+// governor.ParseTaskConfig). A "key:" line outside this set is almost always a
+// typo, so it is warned about instead of silently ignored: a misspelled
+// `max_minutes` used to leave the default in force with no signal at all.
+var recognizedTaskKeys = map[string]bool{
+	"id": true, "title": true, "repo": true, "goal": true,
+	"acceptance_criteria": true, "commands": true, "commands_to_run": true,
+	"deliverables": true, "max_minutes": true, "max_rounds": true,
+	"max_files": true, "max_patch_lines": true,
+	"allowed_files": true, "forbidden_files": true, "forbidden_claims": true,
+	"allow_test_modifications": true,
 }
 
 func ParseTaskMeta(taskPath string) (*TaskMeta, error) {
@@ -139,6 +202,9 @@ func ParseTaskMeta(taskPath string) (*TaskMeta, error) {
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		if m := taskKeyRe.FindStringSubmatch(trimmed); m != nil && !recognizedTaskKeys[m[1]] {
+			fmt.Fprintf(os.Stderr, "[selo] warning: unknown task key %q in %s (ignored; check for a typo)\n", m[1], taskPath)
+		}
 		if strings.HasPrefix(trimmed, "id:") {
 			meta.ID = stripQuotes(strings.TrimPrefix(trimmed, "id:"))
 		} else if strings.HasPrefix(trimmed, "title:") {
@@ -197,10 +263,16 @@ func NewReceiptWriter(receiptsDir, runsDir string) *ReceiptWriter {
 	return &ReceiptWriter{ReceiptsDir: receiptsDir, RunsDir: runsDir}
 }
 
-// WriteReceipt writes both JSON and Markdown receipts.
+// WriteReceipt writes both JSON and Markdown receipts. Every filesystem and
+// marshal error is returned: a receipt that silently failed to persist is
+// worse than no receipt, because the caller believes the evidence exists.
 func (rw *ReceiptWriter) WriteReceipt(receipt *ForgeReceipt, taskMeta *TaskMeta, diff, testOutput string, safetyHits []string) error {
-	os.MkdirAll(rw.ReceiptsDir, 0755)
-	os.MkdirAll(rw.RunsDir, 0755)
+	if err := os.MkdirAll(rw.ReceiptsDir, 0755); err != nil {
+		return fmt.Errorf("create receipts dir: %w", err)
+	}
+	if err := os.MkdirAll(rw.RunsDir, 0755); err != nil {
+		return fmt.Errorf("create runs dir: %w", err)
+	}
 
 	receipt.HasDiff = diff != ""
 	receipt.TestOutput = testOutput
@@ -227,26 +299,42 @@ func (rw *ReceiptWriter) WriteReceipt(receipt *ForgeReceipt, taskMeta *TaskMeta,
 		}
 	}
 
-	// Write JSON receipt
-	jsonPath := filepath.Join(rw.ReceiptsDir, fmt.Sprintf("%s.json", receipt.ReceiptID))
-	jsonData, _ := json.MarshalIndent(receipt, "", "  ")
-	os.WriteFile(jsonPath, jsonData, 0644)
-
-	// Write Markdown receipt
-	mdPath := filepath.Join(rw.ReceiptsDir, fmt.Sprintf("%s.md", receipt.ReceiptID))
+	jsonData, err := json.MarshalIndent(receipt, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal receipt json: %w", err)
+	}
 	mdContent := rw.formatReceiptMD(receipt, taskMeta, diff, testOutput, safetyHits)
-	os.WriteFile(mdPath, []byte(mdContent), 0644)
+
+	// Write JSON + Markdown receipts
+	jsonPath := filepath.Join(rw.ReceiptsDir, fmt.Sprintf("%s.json", receipt.ReceiptID))
+	if err := os.WriteFile(jsonPath, jsonData, 0644); err != nil {
+		return fmt.Errorf("write receipt json: %w", err)
+	}
+	mdPath := filepath.Join(rw.ReceiptsDir, fmt.Sprintf("%s.md", receipt.ReceiptID))
+	if err := os.WriteFile(mdPath, []byte(mdContent), 0644); err != nil {
+		return fmt.Errorf("write receipt markdown: %w", err)
+	}
 
 	// Also write to runs dir
 	runDir := filepath.Join(rw.RunsDir, fmt.Sprintf("run-%s", receipt.TaskID))
-	os.MkdirAll(runDir, 0755)
-	os.WriteFile(filepath.Join(runDir, "receipt.json"), jsonData, 0644)
-	os.WriteFile(filepath.Join(runDir, "receipt.md"), []byte(mdContent), 0644)
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		return fmt.Errorf("create run dir: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "receipt.json"), jsonData, 0644); err != nil {
+		return fmt.Errorf("write run receipt json: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(runDir, "receipt.md"), []byte(mdContent), 0644); err != nil {
+		return fmt.Errorf("write run receipt markdown: %w", err)
+	}
 	if diff != "" {
-		os.WriteFile(filepath.Join(runDir, "diff.patch"), []byte(diff), 0644)
+		if err := os.WriteFile(filepath.Join(runDir, "diff.patch"), []byte(diff), 0644); err != nil {
+			return fmt.Errorf("write diff patch: %w", err)
+		}
 	}
 	if testOutput != "" {
-		os.WriteFile(filepath.Join(runDir, "test_output.txt"), []byte(testOutput), 0644)
+		if err := os.WriteFile(filepath.Join(runDir, "test_output.txt"), []byte(testOutput), 0644); err != nil {
+			return fmt.Errorf("write test output: %w", err)
+		}
 	}
 
 	return nil

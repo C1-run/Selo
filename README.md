@@ -85,6 +85,12 @@ Honest counterpoints — read these before adopting:
   with a real scanner — see [the pipeline](#the-pipeline) below.
 - **Containment is worktree-only.** Docker isolation is refused, not silently degraded. If you need
   container isolation today, Selo is not it.
+- **The signer and the agent share a trust domain by default.** `selo run` strips the signing key
+  from the agent's environment, but an agent running as the *same OS user* on the same host can still
+  read `~/.selo/signing-key` and forge a receipt that passes `selo verify --pubkey`. Treat a receipt
+  as tamper-evident evidence of what Selo observed, **not** as non-repudiable proof of agent
+  behavior, unless you run the agent in a separate trust domain (different user, container, or a CI
+  job that cannot read the key). See [SECURITY.md](SECURITY.md#threat-model-what-a-receipt-does-and-does-not-prove).
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the
   checks are right.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).
@@ -100,9 +106,12 @@ permissions or tokens needed:
 - name: Run Selo task
   run: |
     go build -o selo ./cmd/selo/
-    ./selo run "NOOP" || true   # the receipt records the outcome either way
+    # `selo run` exits non-zero when the task is rejected — do NOT append
+    # `|| true`. That would disable the gate this job exists to enforce.
+    ./selo run "NOOP"
 
 - name: Post receipt card
+  if: always()   # still surface the receipt when the task was rejected
   run: |
     receipt=$(ls -t receipts/*.json | head -1)
     ./selo receipt show "$receipt" --format github >> "$GITHUB_STEP_SUMMARY"

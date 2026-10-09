@@ -4,6 +4,40 @@ All notable changes to Selo are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is semver-ish
 for an early project — breaking config or receipt-schema changes bump the minor.
 
+## [Unreleased]
+
+### Security
+- **The agent no longer inherits the signing key.** `selo run` passed the full
+  host environment to the agent subprocess, so `SELO_SIGNING_KEY` reached the
+  very process the receipt attests to. The runner now strips `SELO_SIGNING_KEY`
+  and `SELO_ALLOW_EPHEMERAL_KEY` from the agent's environment. A same-user agent
+  can still read `~/.selo/signing-key` from disk, so non-repudiation requires a
+  separate trust domain — see SECURITY.md "Threat model". Regression test:
+  `TestAgentEnvDropsSigningKey`.
+- **Receipts bind the audited change, the policy, and the build.** Added
+  `diff_hash` (sha256 of the full diff), `policy_hash` (sha256 of the effective
+  forbidden claims/files and limits) and `selo_version`, all covered by the
+  signature. A `SUCCESS` receipt can no longer be replayed against a different
+  diff or confused with one produced under an empty policy.
+
+### Added
+- `selo selftest` — plants a known secret, a forbidden-file edit, a forbidden
+  claim, and a removed test, then asserts every control rejects it; also asserts
+  signing fails closed with no key. Runs in CI so a detector that regresses to
+  "always clean" cannot ship silently.
+
+### Fixed
+- **The README CI example no longer disables the gate.** It showed
+  `selo run "NOOP" || true`, teaching users to swallow the exit code the check
+  exists to raise.
+- **`WriteReceipt` no longer swallows filesystem errors.** It discarded every
+  `MkdirAll`/`WriteFile`/`Marshal` error and always returned nil, so a full disk
+  or permission problem left the caller believing the receipt had been written.
+- **Unknown task keys are warned about instead of silently ignored.** A
+  misspelled `max_minutes:` used to leave the default in force with no signal.
+- **CI now runs on macOS as well as Linux.** Release binaries are built for
+  darwin, but only `ubuntu-latest` had ever been tested.
+
 ## [0.5.1] — 2026-10-09
 
 ### Changed

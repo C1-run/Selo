@@ -457,7 +457,7 @@ func processOneTask(...) bool {
 2. **CLI → Daemon**: Local IPC
 3. **Daemon → Agent**: Isolated execution
 4. **Agent → Files**: Contained (worktree/container)
-5. **Pipeline → Verdict**: Tamper-proof receipts)
+5. **Pipeline → Verdict**: Signed, tamper-evident receipts
 
 ### Permission Model
 

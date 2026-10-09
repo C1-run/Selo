@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -535,6 +537,23 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 			strings.Join(tiResult.TestCommandsChanged, ","))
 	}
 
+	// Bind the audited change and the effective policy into the signed receipt,
+	// so a SUCCESS cannot be replayed against a different diff or confused with
+	// one produced under an empty policy.
+	diffHash := ""
+	if diff != "" {
+		sum := sha256.Sum256([]byte(diff))
+		diffHash = hex.EncodeToString(sum[:])
+	}
+	policyHash := receipt.PolicyHash(receipt.PolicySpec{
+		ForbiddenClaims: forbiddenClaims,
+		ForbiddenFiles:  forbiddenFiles,
+		AllowedFiles:    allowedFiles,
+		MaxFiles:        maxFiles,
+		MaxPatchLines:   maxPatchLines,
+		MaxRounds:       maxRounds,
+	})
+
 	// 13. Write receipt with all new fields
 	forgeReceipt := &receipt.ForgeReceipt{
 		ReceiptID:                receipt.GenerateReceiptID(),
@@ -560,6 +579,9 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		OpenCodeAgent:            opencodeAgent,
 		WorktreePath:             worktreePath,
 		BaseCommit:               baseCommit,
+		DiffHash:                 diffHash,
+		PolicyHash:               policyHash,
+		SeloVersion:              Version,
 		TestsPassed:              testsPassed,
 		ScansPassed:              scansPassed,
 		C1LoopReceiptPath:        c1LoopReceiptPath,
@@ -604,7 +626,9 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		}
 	}
 
-	rw.WriteReceipt(forgeReceipt, taskMeta, diff, testOutput, safetyHits)
+	if err := rw.WriteReceipt(forgeReceipt, taskMeta, diff, testOutput, safetyHits); err != nil {
+		fmt.Fprintf(os.Stderr, "[selo] failed to write receipt: %v\n", err)
+	}
 
 	// 14. Move task to appropriate directory
 	targetDir := qm.DoneDir()
@@ -677,7 +701,9 @@ func writeFailReceipt(rw *receipt.ReceiptWriter, taskMeta *receipt.TaskMeta, tas
 		ScansPassed:    false,
 		RunnerExitCode: -1,
 	}
-	rw.WriteReceipt(failRec, taskMeta, "", "", nil)
+	if err := rw.WriteReceipt(failRec, taskMeta, "", "", nil); err != nil {
+		fmt.Fprintf(os.Stderr, "[selo] failed to write failure receipt: %v\n", err)
+	}
 }
 
 // runOpenCodeSoak runs a bounded soak with real OpenCode against disposable fixture repos.
