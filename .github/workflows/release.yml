@@ -5,19 +5,25 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+# Least privilege by default; each job grants only what it needs.
 permissions:
-  contents: write
+  contents: read
+
+env:
+  # Cross-compiled targets. Keep in sync with install.sh's OS/ARCH mapping.
+  TARGETS: linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
 jobs:
-  binaries:
+  # Build every binary in one job so that all subjects exist together. This is
+  # what lets a single checksums.txt serve both purposes at once: it is the blob
+  # cosign signs (ADR-002) and, base64-encoded, the base64-subjects input the
+  # SLSA provenance generator consumes (ADR-003).
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - { goos: linux, goarch: amd64 }
-          - { goos: linux, goarch: arm64 }
-          - { goos: darwin, goarch: amd64 }
-          - { goos: darwin, goarch: arm64 }
+    permissions:
+      contents: read
+    outputs:
+      hashes: ${{ steps.checksums.outputs.hashes }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,11 +32,90 @@ jobs:
           go-version-file: go.mod
 
       - name: Build
-        run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -trimpath -ldflags "-s -w -X main.Version=${{ github.ref_name }}" -o selo-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/selo/
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for target in $TARGETS; do
+            os="${target%%/*}"
+            arch="${target##*/}"
+            echo "building selo-$os-$arch ($VERSION)"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags "-s -w -X main.Version=$VERSION" \
+              -o "selo-$os-$arch" ./cmd/selo/
+          done
 
-      - name: Attach binaries to the release
+      - name: Generate checksums
+        id: checksums
+        run: |
+          set -euo pipefail
+          # Sorted for determinism: the same inputs must always produce a
+          # byte-identical checksums.txt, or the signature is not reproducible.
+          sha256sum selo-* | LC_ALL=C sort -k2 > checksums.txt
+          cat checksums.txt
+          echo "hashes=$(base64 -w0 < checksums.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: selo-dist
+          path: |
+            selo-*
+            checksums.txt
+          if-no-files-found: error
+
+  # Sign checksums.txt with cosign keyless (ADR-002) and publish the release.
+  # Keyless means no long-lived signing key: the signature's Fulcio certificate
+  # binds to this workflow's OIDC identity, which install.sh pins.
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write # OIDC token for Fulcio keyless signing.
+    steps:
+      - name: Download dist
+        uses: actions/download-artifact@v4
+        with:
+          name: selo-dist
+
+      - name: Verify checksums
+        run: sha256sum -c checksums.txt
+
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v3.1.2"
+
+      - name: Sign checksums
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes \
+            --bundle checksums.txt.sigstore.json \
+            checksums.txt
+
+      - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: selo-*
+          files: |
+            selo-*
+            checksums.txt
+            checksums.txt.sigstore.json
           generate_release_notes: true
+
+  # Unforgeable build provenance (ADR-003). The reusable workflow runs the
+  # signing in an isolated job, which is what makes this Build Level 3 rather
+  # than L2. Pinned to a full version tag, not a floating major.
+  provenance:
+    needs: [build]
+    permissions:
+      actions: read
+      id-token: write # Keyless signing of the provenance.
+      contents: write # Attach the provenance to the release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: ${{ needs.build.outputs.hashes }}
+      upload-assets: true
