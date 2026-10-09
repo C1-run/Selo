@@ -7,6 +7,35 @@ import (
 	"testing"
 )
 
+// TestAgentEnvDropsSigningKey is the regression guard for the trust-domain
+// leak: the agent subprocess must never inherit the key that signs its receipt.
+func TestAgentEnvDropsSigningKey(t *testing.T) {
+	t.Setenv("SELO_SIGNING_KEY", "super-secret-seed")
+	t.Setenv("SELO_ALLOW_EPHEMERAL_KEY", "1")
+	t.Setenv("PATH", "/usr/bin")
+
+	env := agentEnv()
+	for _, kv := range env {
+		if strings.HasPrefix(kv, "SELO_SIGNING_KEY=") {
+			t.Fatalf("agent environment leaked SELO_SIGNING_KEY: %s", kv)
+		}
+		if strings.HasPrefix(kv, "SELO_ALLOW_EPHEMERAL_KEY=") {
+			t.Fatalf("agent environment leaked SELO_ALLOW_EPHEMERAL_KEY: %s", kv)
+		}
+	}
+
+	// A harmless variable must still survive, or we've broken the agent's env.
+	found := false
+	for _, kv := range env {
+		if kv == "PATH=/usr/bin" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("agentEnv dropped PATH — the agent would not be able to run")
+	}
+}
+
 func TestCheckForbiddenFileEditAllowed(t *testing.T) {
 	diff := `diff --git a/src/main.go b/src/main.go
 index abc..def 100644

@@ -30,6 +30,31 @@ const (
 	BinaryKindUnknown  BinaryKind = "unknown"
 )
 
+// signingEnvDenylist lists environment variables that must never reach the
+// agent subprocess. SELO_SIGNING_KEY is the Ed25519 seed that attests to the
+// receipt; a process that can read it can forge a receipt that still passes
+// `selo verify --pubkey <owner>`. The audited agent must not hold the key that
+// vouches for its own behavior — see SECURITY.md, "Threat model".
+var signingEnvDenylist = map[string]bool{
+	"SELO_SIGNING_KEY":         true,
+	"SELO_ALLOW_EPHEMERAL_KEY": true,
+}
+
+// agentEnv returns the host environment with signing material removed, so the
+// agent inherits PATH/HOME/etc. and its own credentials but never the key that
+// signs its receipt. Callers append their own C1_* variables after this.
+func agentEnv() []string {
+	src := os.Environ()
+	out := make([]string, 0, len(src))
+	for _, kv := range src {
+		if k, _, ok := strings.Cut(kv, "="); ok && signingEnvDenylist[k] {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
 // RunnerConfig holds the command template for the real runner mode.
 type RunnerConfig struct {
 	Command string   // e.g. "c1" or "opencode"
@@ -120,7 +145,7 @@ func (r *C1LoopRunner) runReal() *C1Result {
 
 	cmd := exec.Command(cmdPath, fullArgs...)
 	cmd.Dir = r.WorkDir
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(agentEnv(),
 		fmt.Sprintf("C1_TASK=%s", r.TaskPath),
 		fmt.Sprintf("C1_WORKDIR=%s", r.WorkDir),
 		fmt.Sprintf("C1_MAX_MINUTES=%d", r.MaxMinutes),
@@ -185,7 +210,7 @@ func (r *C1LoopRunner) runMock() *C1Result {
 
 	cmd := exec.Command("sh", "-c", mockCmd)
 	cmd.Dir = r.WorkDir
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(agentEnv(),
 		fmt.Sprintf("C1_TASK=%s", r.TaskPath),
 		fmt.Sprintf("C1_WORKDIR=%s", r.WorkDir),
 		fmt.Sprintf("C1_MAX_MINUTES=%d", r.MaxMinutes),

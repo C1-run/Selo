@@ -22,7 +22,7 @@ C1 Forge is a safety-first task runner that wraps any coding agent and produces 
    - GateChain: Compliance validation
 
 2. **Cryptographic Receipts**
-   - Tamper-proof audit trail
+   - Signed, tamper-evident audit trail
    - Task metadata, diffs, test results
    - Verdict (pass/review/stop) with reasoning
 

@@ -10,12 +10,12 @@
 
 ## 1. Overview
 
-Selo is a safety-first task runner for AI coding agents. It wraps any coding agent (OpenCode, Claude, GPT, etc.) with a multi-layer verification pipeline and produces tamper-proof cryptographic receipts for every task.
+Selo is a safety-first task runner for AI coding agents. It wraps any coding agent (OpenCode, Claude, GPT, etc.) with a multi-layer verification pipeline and produces signed, tamper-evident cryptographic receipts for every task.
 
 ### 1.1 Design Principles
 
 1. **Fail-Closed**: Unknown capabilities deny. Nil summaries produce stop. Empty lists pass.
-2. **Immutable Audit Trail**: Every action produces a hash-chained event. Receipts are tamper-proof.
+2. **Immutable Audit Trail**: Every action produces a signed receipt, git-anchored for tamper-evidence.
 3. **Capability-Based Security**: Agents receive only explicitly granted permissions via frozen manifests.
 4. **Composable Safety**: Six independent safety checks run in sequence. Any check can override the verdict.
 5. **Deterministic Verification**: Pinocchio consistency checks are pure functions of the receipt data.

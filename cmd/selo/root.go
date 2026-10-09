@@ -16,7 +16,14 @@ var rootCmd = &cobra.Command{
 
 var globalCfgFile string
 
+// Version is the Selo build version. Override at build time with
+// -ldflags "-X main.Version=x.y.z" (the release workflow passes the git tag).
+// It is recorded in every receipt as selo_version so a verifier knows which
+// rule set produced the receipt.
+var Version = "dev"
+
 func init() {
+	rootCmd.Version = Version
 	rootCmd.PersistentFlags().StringVar(&globalCfgFile, "config", "config/selo.yaml", "Path to config file")
 	rootCmd.AddCommand(
 		daemonCmd,
@@ -29,6 +36,7 @@ func init() {
 		statusCmd,
 		initCmd,
 		smokeCmd,
+		selftestCmd,
 		soakCmd,
 		completionCmd,
 	)
