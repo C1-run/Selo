@@ -11,7 +11,7 @@ task, and hands you a signed receipt.**
 [![Go Reference](https://pkg.go.dev/badge/github.com/C1-run/selo.svg)](https://pkg.go.dev/github.com/C1-run/selo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/C1-run/selo)](https://goreportcard.com/report/github.com/C1-run/selo)
 
-[Changelog](CHANGELOG.md) · [What works](#what-works-in-v04) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
+[Changelog](CHANGELOG.md) · [What works](#what-works-in-v05) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
 ![An agent edits a forbidden file; Selo rejects the task with FAILED_SAFETY and the receipt verifies as VALID](docs/demo-card.svg)
 
@@ -80,8 +80,7 @@ Honest counterpoints — read these before adopting:
 - **Containment is worktree-only.** Docker isolation is refused, not silently degraded. If you need
   container isolation today, Selo is not it.
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the
-  checks are right. The [benchmark comparison](docs/BENCHMARK_SELO_VS_CODEX.md) is a positioning
-  analysis, not a benchmark.
+  checks are right.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).
 - **Young project.** v0.5, one maintainer, breaking config changes possible before 1.0 — tracked in
   the [changelog](CHANGELOG.md).
@@ -177,23 +176,14 @@ Every task goes through:
 3. **Pinocchio**: Consistency verification, test integrity checks
 4. **GateChain**: Compliance validation, receipt generation
 
-**Non-goals (yet):** generic SAST / CVE scanning is roadmap, not v0.5.
-Selo focuses on agent behavior governance: scope violations, test
-tampering, secret smuggling, false claims, and auditable receipts.
-Third-party scanners (Semgrep, Snyk Code, Codex Security) are welcome
-as an optional Check plugin — see `docs/BENCHMARK_SELO_VS_CODEX.md`.
+**Non-goals (yet).** Selo is not a vulnerability scanner. It governs agent
+*behavior* — scope violations, test tampering, secret smuggling, false claims —
+and produces auditable receipts. It does not find SQLi or CVEs; pair it with a
+real SAST tool.
 
-| Capability | Selo | Codex Security |
-|---|---|---|
-| Finding code vulns (SQLi/auth/OOB) | Weak (limited rules, no PoC validation) | Strong (frontier model + 14 CVE track record) |
-| Agent behavior governance | Unique to Selo | Does not exist |
-| Non-repudiable audit (signed receipts + hash chain) | Unique to Selo | Does not exist |
-| Execution isolation | Standard (worktree) | Standard (Seatbelt / cloud containers) |
-
-> Scope note: Selo's checks are **post-execution audit** (verdict on the
-> diff after the agent runs), not real-time inline interception. A violating
-> change is contained in the worktree/container, rejected with a signed
-> receipt, and never merged — see `docs/BENCHMARK_SELO_VS_CODEX.md`.
+**Scope.** The verdict is a **post-execution audit** of the real diff, not
+real-time inline interception. A violating change is contained in the worktree,
+rejected with a signed receipt, and never merged — but it did happen.
 
 ## Architecture
 
@@ -213,9 +203,10 @@ selo/
 
 ## Roadmap
 
-The engine comes first: receipts everywhere, starting with a data-analysis
-vertical where the verification predicate is objective (same input → same
-output). Security and finance packs follow, in that order. See
+Selo is v0.5 — one maintainer, moving deliberately. The near-term focus is the
+engine: tighter checks, and the pieces needed for anyone to verify a receipt
+independently. No accuracy claims until there is a dataset. See
+[CHANGELOG.md](CHANGELOG.md) for what shipped, and
 [What works](#what-works-in-v05) for the current capability list.
 
 ## Development
