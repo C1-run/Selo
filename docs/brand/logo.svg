@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="512" height="512" role="img" aria-label="Selo">
+  <!-- Selo mark — receipt with a torn bottom edge and a verification stamp -->
+  <path fill="#00d4ff" d="M45 18h38a9 9 0 0 1 9 9v69l-7 11-7-11-7 11-7-11-7 11-7-11-7 11-7-11V27a9 9 0 0 1 9-9Z"/>
+  <rect x="47" y="40" width="34" height="9" rx="4.5" fill="#020204"/>
+  <rect x="47" y="58" width="24" height="9" rx="4.5" fill="#020204"/>
+  <circle cx="80" cy="84" r="16" fill="#ff007b"/>
+  <path d="M72 84l6 6 11-13" fill="none" stroke="#020204" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

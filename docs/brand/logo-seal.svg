@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="512" height="512" role="img" aria-label="Selo">
+  <!-- Selo mark (alternate) — notary ring seal with a check -->
+  <circle cx="64" cy="64" r="45" fill="none" stroke="#00d4ff" stroke-width="12"/>
+  <circle cx="64" cy="64" r="33" fill="none" stroke="#ff007b" stroke-width="4" stroke-dasharray="4 7" stroke-linecap="round"/>
+  <path d="M48 66l12 12 22-26" fill="none" stroke="#00d4ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="512" height="512" role="img" aria-label="Selo">
+  <!-- Selo mark (alternate) — stamp: a perforated postage-stamp square with a check -->
+  <defs>
+    <mask id="selo-perf">
+      <rect width="128" height="128" fill="#fff"/>
+      <g fill="#000">
+        <circle cx="28" cy="18" r="5.5"/><circle cx="46" cy="18" r="5.5"/><circle cx="64" cy="18" r="5.5"/><circle cx="82" cy="18" r="5.5"/><circle cx="100" cy="18" r="5.5"/>
+        <circle cx="28" cy="110" r="5.5"/><circle cx="46" cy="110" r="5.5"/><circle cx="64" cy="110" r="5.5"/><circle cx="82" cy="110" r="5.5"/><circle cx="100" cy="110" r="5.5"/>
+        <circle cx="18" cy="28" r="5.5"/><circle cx="18" cy="46" r="5.5"/><circle cx="18" cy="64" r="5.5"/><circle cx="18" cy="82" r="5.5"/><circle cx="18" cy="100" r="5.5"/>
+        <circle cx="110" cy="28" r="5.5"/><circle cx="110" cy="46" r="5.5"/><circle cx="110" cy="64" r="5.5"/><circle cx="110" cy="82" r="5.5"/><circle cx="110" cy="100" r="5.5"/>
+      </g>
+    </mask>
+  </defs>
+  <rect x="18" y="18" width="92" height="92" rx="8" fill="#00d4ff" mask="url(#selo-perf)"/>
+  <path d="M44 65l13 13 27-31" fill="none" stroke="#020204" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
