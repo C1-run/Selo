@@ -58,11 +58,12 @@ These are documented behaviors, not bugs. Please do not report them as
 vulnerabilities. If you think one of them is described incorrectly, that is a
 documentation issue and an ordinary issue is fine.
 
-1. **Ephemeral signing key (opt-in).** Selo refuses to sign without a
-   configured `SELO_SIGNING_KEY` (fail-closed). An ephemeral per-process Ed25519
-   key is only used when you pass `selo run --dev` or set
-   `SELO_ALLOW_EPHEMERAL_KEY=1`. Such receipts are not attributable across runs
-   and are stamped `key_mode: "ephemeral"`; `selo verify` reports them as
+1. **Ephemeral signing key (opt-in).** Selo resolves a persistent key from
+   `SELO_SIGNING_KEY`, or automatically from `~/.selo/signing-key` (written by
+   `selo keys generate`). If neither exists it refuses to sign (fail-closed). An
+   ephemeral per-process Ed25519 key is only used when you pass `selo run --dev`
+   or set `SELO_ALLOW_EPHEMERAL_KEY=1`. Such receipts are not attributable across
+   runs and are stamped `key_mode: "ephemeral"`; `selo verify` reports them as
    `UNPINNED_EPHEMERAL`. This is a known limitation of dev mode, not a signing
    flaw.
 2. **`selo verify` proves provenance only when you pin a key.** Without

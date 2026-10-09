@@ -40,8 +40,7 @@ touched), it was **caught** (a forbidden-file rule fired on the actual diff), an
 curl -fsSL https://raw.githubusercontent.com/C1-run/Selo/main/install.sh | bash
 
 # one-time: make signatures attributable across runs
-selo keys generate
-export SELO_SIGNING_KEY=$(cat ~/.selo/signing-key)   # add to your shell profile
+selo keys generate   # writes ~/.selo/signing-key, which Selo then loads automatically — no env var needed
 
 # initialize a workspace and run a task
 selo init
@@ -63,7 +62,7 @@ selo keys pub   # prints the public key; fingerprint = sha256 of that key
 | `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
 | `selo verify` | Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. With `--pubkey <fingerprint\|file>` it proves the signer (provenance); without it, reports `Provenance: UNPINNED_*` — internally consistent but not proven who signed. |
 | `selo receipt` | `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary; `receipt show` also takes `--pubkey`. |
-| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600) and prints the export line and public key. Signing is fail-closed: without `SELO_SIGNING_KEY`, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`. |
+| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600), which Selo then **loads automatically** (`~/.selo/signing-key`) — no env var needed. Signing is fail-closed: with no key at all, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`. |
 | `selo mcp serve` | Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |

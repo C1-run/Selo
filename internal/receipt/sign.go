@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -43,10 +44,22 @@ func EphemeralKeyAllowed() bool {
 	return false
 }
 
+// DefaultSigningKeyPath returns the conventional location of the persistent
+// signing key: $HOME/.selo/signing-key. `selo keys generate` writes it there,
+// and signing auto-loads it when SELO_SIGNING_KEY is unset.
+func DefaultSigningKeyPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(".selo", "signing-key")
+	}
+	return filepath.Join(home, ".selo", "signing-key")
+}
+
 func missingKeyError() error {
-	return fmt.Errorf("%w: set SELO_SIGNING_KEY (run `selo keys generate`) so receipts are "+
-		"attributable across runs, or set SELO_ALLOW_EPHEMERAL_KEY=1 / pass --dev to accept a "+
-		"per-process key that nobody can verify you signed", ErrNoSigningKey)
+	return fmt.Errorf("%w: set SELO_SIGNING_KEY, or generate one with `selo keys generate` "+
+		"(Selo loads %s automatically), so receipts are attributable across runs; or set "+
+		"SELO_ALLOW_EPHEMERAL_KEY=1 / pass --dev to accept a per-process key that nobody can "+
+		"verify you signed", ErrNoSigningKey, DefaultSigningKeyPath())
 }
 
 // LoadSigningKey loads Ed25519 private key from SELO_SIGNING_KEY env var and
@@ -59,12 +72,23 @@ func LoadSigningKey() (ed25519.PrivateKey, string, error) {
 // LoadSigningKeyWithMode loads the Ed25519 private key and reports how
 // attributable it is.
 //
-// Expects SELO_SIGNING_KEY to hold a base64 32-byte seed or 64-byte private
-// key. If it is unset, signing fails closed with ErrNoSigningKey unless
+// Resolution order: SELO_SIGNING_KEY (base64 32-byte seed or 64-byte private
+// key), then the conventional key file at DefaultSigningKeyPath(). If neither
+// yields a key, signing fails closed with ErrNoSigningKey unless
 // SELO_ALLOW_EPHEMERAL_KEY is set, in which case a per-process key is
 // generated, cached, and reported as KeyModeEphemeral.
 func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
-	b64 := os.Getenv("SELO_SIGNING_KEY")
+	b64 := strings.TrimSpace(os.Getenv("SELO_SIGNING_KEY"))
+	source := "SELO_SIGNING_KEY"
+	if b64 == "" {
+		// No env var: fall back to the key file `selo keys generate` writes, so
+		// users don't have to export the seed on every invocation.
+		path := DefaultSigningKeyPath()
+		if data, readErr := os.ReadFile(path); readErr == nil {
+			b64 = strings.TrimSpace(string(data))
+			source = path
+		}
+	}
 	if b64 == "" {
 		if !EphemeralKeyAllowed() {
 			return nil, "", "", missingKeyError()
@@ -88,7 +112,7 @@ func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
 	mode := KeyModePersistent
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("SELO_SIGNING_KEY base64 decode: %w", err)
+		return nil, "", "", fmt.Errorf("%s base64 decode: %w", source, err)
 	}
 	var priv ed25519.PrivateKey
 	switch len(raw) {
@@ -97,7 +121,7 @@ func LoadSigningKeyWithMode() (ed25519.PrivateKey, string, string, error) {
 	case 64:
 		priv = ed25519.PrivateKey(raw)
 	default:
-		return nil, "", "", fmt.Errorf("SELO_SIGNING_KEY must be 32 or 64 bytes (got %d)", len(raw))
+		return nil, "", "", fmt.Errorf("%s must hold a 32- or 64-byte key (got %d bytes)", source, len(raw))
 	}
 	pubB64 := base64.StdEncoding.EncodeToString(priv.Public().(ed25519.PublicKey))
 	return priv, pubB64, mode, nil

@@ -260,7 +260,11 @@ func TestVerifyUnpinnedShowsProvenancePersistent(t *testing.T) {
 }
 
 func TestVerifyEphemeralKeyModeUnpinned(t *testing.T) {
-	// No persistent key: ephemeral allowed via env, which stamps key_mode=ephemeral.
+	// No persistent key: isolate HOME so a developer's real ~/.selo/signing-key
+	// can't be auto-loaded, and allow ephemeral via env, which stamps
+	// key_mode=ephemeral.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("SELO_SIGNING_KEY", "")
 	t.Setenv("SELO_ALLOW_EPHEMERAL_KEY", "1")
 	r := newVerifyTestReceipt()
 	if _, err := receipt.SignReceipt(&r); err != nil {
