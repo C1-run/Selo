@@ -3,6 +3,7 @@ package receipt
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -144,6 +145,8 @@ func TestSignRecordsPersistentKeyMode(t *testing.T) {
 }
 
 func TestSignFailClosedWithoutKey(t *testing.T) {
+	// Isolate HOME so a developer's real ~/.selo/signing-key can't leak in.
+	t.Setenv("HOME", t.TempDir())
 	os.Unsetenv("SELO_SIGNING_KEY")
 	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
 
@@ -157,5 +160,81 @@ func TestSignFailClosedWithoutKey(t *testing.T) {
 	}
 	if r.KeyMode != "" {
 		t.Fatalf("expected key_mode unset on failure, got %q", r.KeyMode)
+	}
+}
+
+// writeSigningKey writes a valid seed to $HOME/.selo/signing-key under a fresh
+// HOME and returns the matching public key. Used to exercise auto-loading.
+func writeSigningKey(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.Unsetenv("SELO_SIGNING_KEY")
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
+	seedB64, pubB64, _, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	dir := filepath.Join(home, ".selo")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "signing-key"), []byte(seedB64+"\n"), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	return pubB64
+}
+
+func TestLoadSigningKeyFromFileFallback(t *testing.T) {
+	wantPub := writeSigningKey(t)
+
+	priv, gotPub, mode, err := LoadSigningKeyWithMode()
+	if err != nil {
+		t.Fatalf("LoadSigningKeyWithMode: %v", err)
+	}
+	if priv == nil {
+		t.Fatal("expected a non-nil private key from the fallback file")
+	}
+	if gotPub != wantPub {
+		t.Fatalf("public key mismatch: got %s want %s", gotPub, wantPub)
+	}
+	if mode != KeyModePersistent {
+		t.Fatalf("expected key_mode %q, got %q", KeyModePersistent, mode)
+	}
+}
+
+func TestSignUsesKeyFileWithoutEnv(t *testing.T) {
+	writeSigningKey(t)
+
+	r := sampleReceipt()
+	if _, err := SignReceipt(r); err != nil {
+		t.Fatalf("SignReceipt should auto-load the key file, got: %v", err)
+	}
+	if r.KeyMode != KeyModePersistent {
+		t.Fatalf("expected key_mode %q, got %q", KeyModePersistent, r.KeyMode)
+	}
+	if ok, err := VerifyReceipt(r); err != nil || !ok {
+		t.Fatalf("auto-loaded receipt must verify: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestMalformedKeyFileFailsLoud(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	os.Unsetenv("SELO_SIGNING_KEY")
+	os.Unsetenv("SELO_ALLOW_EPHEMERAL_KEY")
+
+	dir := filepath.Join(home, ".selo")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "signing-key"), []byte("not-valid-base64!!!"), 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// A present-but-broken key must error, not silently fall back to ephemeral.
+	if _, _, _, err := LoadSigningKeyWithMode(); err == nil {
+		t.Fatal("expected an error for a malformed key file")
 	}
 }

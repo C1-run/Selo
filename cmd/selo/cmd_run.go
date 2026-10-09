@@ -128,7 +128,7 @@ commands:
 				Signature string `json:"signature"`
 			}
 			if json.Unmarshal(receiptData, &signed) == nil && signed.Signature == "" {
-				return fmt.Errorf("receipt was not signed: set SELO_SIGNING_KEY (run `selo keys generate`) so receipts are attributable across runs, or pass --dev to accept an ephemeral per-process key")
+				return fmt.Errorf("receipt was not signed: run `selo keys generate` (Selo loads %s automatically) or set SELO_SIGNING_KEY, so receipts are attributable across runs; or pass --dev to accept an ephemeral per-process key", receipt.DefaultSigningKeyPath())
 			}
 		}
 	}

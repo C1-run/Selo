@@ -19,9 +19,10 @@ var (
 var keysCmd = &cobra.Command{
 	Use:   "keys",
 	Short: "Manage the receipt signing key",
-	Long: `Selo signs every receipt with Ed25519. Without SELO_SIGNING_KEY an
-ephemeral per-process key is used, and signatures cannot be attributed across
-runs. Generate a key once and export it to make every receipt verifiable.`,
+	Long: `Selo signs every receipt with Ed25519. "selo keys generate" writes a key to
+~/.selo/signing-key, which Selo then loads automatically — no env var needed.
+Without any key, Selo refuses to sign (fail-closed) unless you opt into an
+ephemeral per-process key with --dev or SELO_ALLOW_EPHEMERAL_KEY=1.`,
 }
 
 var keysGenerateCmd = &cobra.Command{
@@ -44,11 +45,7 @@ func init() {
 }
 
 func defaultSigningKeyPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".selo/signing-key"
-	}
-	return filepath.Join(home, ".selo", "signing-key")
+	return receipt.DefaultSigningKeyPath()
 }
 
 func runKeysGenerate(cmd *cobra.Command, args []string) error {
@@ -66,7 +63,11 @@ func runKeysGenerate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("write key: %w", err)
 	}
 	fmt.Printf("Signing key written to %s (mode 0600)\n\n", keysOut)
-	fmt.Printf("Make every receipt attributable across runs:\n\n  export SELO_SIGNING_KEY=$(cat %s)\n\n", keysOut)
+	if keysOut == receipt.DefaultSigningKeyPath() {
+		fmt.Printf("Selo loads this key automatically — no env var needed.\n\n")
+	} else {
+		fmt.Printf("Make every receipt attributable across runs:\n\n  export SELO_SIGNING_KEY=$(cat %s)\n\n", keysOut)
+	}
 	fmt.Printf("Public key (share this; verifiers never need the seed):\n  %s\n\n", pubB64)
 	fmt.Printf("Receipts carry the matching public key, so anyone holding a receipt\n")
 	fmt.Printf("can check it against this key with: selo verify <receipt.json>\n")

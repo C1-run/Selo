@@ -4,6 +4,21 @@ All notable changes to Selo are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is semver-ish
 for an early project — breaking config or receipt-schema changes bump the minor.
 
+## [0.5.1] — 2026-10-09
+
+### Changed
+- **Signing keys auto-load.** `selo run` and the receipt signer now fall back to
+  `~/.selo/signing-key` (the file `selo keys generate` writes) when
+  `SELO_SIGNING_KEY` is unset, so you no longer have to export the seed in your
+  shell profile. Still **fail-closed**: with neither the env var nor the key file
+  present, signing is refused. A present-but-malformed key file is a hard error,
+  not a silent fallback to an ephemeral key. `selo keys generate` now reports
+  that the key loads automatically instead of telling you to export it.
+
+### Fixed
+- `selo run`'s unsigned-receipt error message now names the auto-loaded key path
+  instead of only `SELO_SIGNING_KEY`.
+
 ## [0.5.0] — 2026-10-08
 
 ### Security
