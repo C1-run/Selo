@@ -44,7 +44,8 @@ jobs:
           # start. Build one and check it here so a regression in the Go version
           # fails on the same commit that introduces it.
           go build -o "$RUNNER_TEMP/selo-darwin-check" ./cmd/selo/
-          python3 scripts/check-macho-uuid.py "$RUNNER_TEMP/selo-darwin-check"
+          go build -o "$RUNNER_TEMP/check-macho-uuid" ./scripts/check-macho-uuid
+          "$RUNNER_TEMP/check-macho-uuid" "$RUNNER_TEMP/selo-darwin-check"
 
       - name: Internal package tests
         run: |
