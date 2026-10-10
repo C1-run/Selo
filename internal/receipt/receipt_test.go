@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -98,6 +99,26 @@ func TestGenerateReceiptID(t *testing.T) {
 	}
 	if id1 == id2 {
 		t.Error("expected unique receipt IDs")
+	}
+	if !strings.HasPrefix(id1, "c1f-") {
+		t.Errorf("receipt ID %q lost its c1f- prefix", id1)
+	}
+}
+
+// TestGenerateReceiptIDUnderACoarseClock is the regression guard for a
+// collision the two-call test above only caught by luck. On macOS time.Now()
+// has microsecond resolution, so an id built from the timestamp alone repeats
+// for calls in the same tick. The id is the receipt's file name, so a duplicate
+// overwrites an earlier receipt rather than adding a new one.
+func TestGenerateReceiptIDUnderACoarseClock(t *testing.T) {
+	const calls = 5000
+	seen := make(map[string]bool, calls)
+	for i := 0; i < calls; i++ {
+		id := GenerateReceiptID()
+		if seen[id] {
+			t.Fatalf("duplicate receipt ID on call %d of %d: %s", i, calls, id)
+		}
+		seen[id] = true
 	}
 }
 

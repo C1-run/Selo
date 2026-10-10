@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -172,8 +173,33 @@ const (
 	VerdictInternalError = "FAILED_INTERNAL_ERROR"
 )
 
+// receiptIDMu guards lastReceiptID.
+var (
+	receiptIDMu   sync.Mutex
+	lastReceiptID int64
+)
+
+// GenerateReceiptID returns a receipt id that is unique within the process.
+//
+// A bare timestamp is not enough. time.Now() is reported at microsecond
+// granularity on macOS (measured: 1000 ns), so two calls in the same
+// microsecond produced the same id -- 683 duplicates out of 1000 back-to-back
+// calls. That is not cosmetic: the id is the receipt's file name
+// (receipts/c1f-<id>.json), so a collision silently overwrites an earlier
+// receipt instead of writing a new one.
+//
+// The format is unchanged; a call that lands in the same tick as the previous
+// id steps past it, which also keeps ids strictly increasing.
 func GenerateReceiptID() string {
-	return fmt.Sprintf("c1f-%d", time.Now().UnixNano())
+	receiptIDMu.Lock()
+	defer receiptIDMu.Unlock()
+
+	now := time.Now().UnixNano()
+	if now <= lastReceiptID {
+		now = lastReceiptID + 1
+	}
+	lastReceiptID = now
+	return fmt.Sprintf("c1f-%d", now)
 }
 
 // taskKeyRe matches the key of a "key: value" line.
