@@ -299,6 +299,31 @@ else
     ok "SECURITY.md does not reference the removed Python guard"
 fi
 
+# --- 13. README version label tracks the changelog -------------------------
+# The README's capability table and roadmap both name a version, and the roadmap
+# links to the table by an anchor that encodes it. Bumping the changelog and not
+# the README is silent drift; a stale heading also breaks the anchor silently.
+echo "13. README version tracks the changelog"
+README_MD="$REPO_ROOT/README.md"
+CHANGELOG_MD="$REPO_ROOT/CHANGELOG.md"
+latest=$(grep -m1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$CHANGELOG_MD" \
+    | sed -E 's/^## \[([0-9]+\.[0-9]+)\..*/\1/')
+if [ -z "$latest" ]; then
+    bad "could not find a released version header in CHANGELOG.md"
+else
+    if grep -q "What works in v$latest" "$README_MD"; then
+        ok "README capability table names v$latest, matching the changelog"
+    else
+        bad "README does not say 'What works in v$latest' (the changelog's latest release)"
+    fi
+    anchor=$(echo "$latest" | tr -d '.')
+    if grep -q "#what-works-in-v$anchor" "$README_MD"; then
+        ok "README roadmap anchor resolves to the current heading"
+    else
+        bad "README roadmap anchor is stale: expected #what-works-in-v$anchor"
+    fi
+fi
+
 echo ""
 echo "passed: $PASS   failed: $FAIL"
 [ "$FAIL" -eq 0 ]

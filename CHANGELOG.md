@@ -6,7 +6,61 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-10
+
 ### Security
+- **The macOS binaries we had been shipping could not start.** Every darwin
+  binary published in v0.4.1, v0.5.0 and v0.5.1 was missing the Mach-O `LC_UUID`
+  load command, which newer macOS dyld refuses to load (`dyld: missing LC_UUID
+  load command` → `signal: abort trap`). The release workflow pinned
+  `go-version-file: go.mod`, and `go.mod` says `go 1.21`; Go toolchains before
+  1.24 omit that load command on darwin, and the toolchain alone decides it —
+  `CGO_ENABLED` and `-ldflags "-s -w"` make no difference. `install.sh` could not
+  notice, because it verifies the bytes (checksum, cosign signature, SLSA
+  provenance) and every one of those checks is satisfied perfectly by a binary the
+  loader rejects. Fixed by pinning `go-version: '1.24.x'` in both workflows and
+  adding a fail-closed release gate, `scripts/check-macho-uuid`, which parses the
+  Mach-O load commands and fails the release *before* anything is signed or
+  published if `LC_UUID` is absent. CI runs the same check on the macOS leg, so a
+  toolchain regression fails on the commit that introduces it. Full post-mortem:
+  `docs/releases/v0.6.0.md`. **Requires Go >= 1.24 to build a working darwin
+  binary.**
+- **A malformed glob in a scope contract silently disabled that boundary.**
+  `VerifyScopeContract` evaluated each `allowed_paths` / `forbidden_paths` entry
+  with `filepath.Match` and dropped the error (`if err == nil && matched`), so a
+  pattern that does not compile matched nothing and the run still reported clean —
+  an operator who typed `[a-z` instead of `[a-z]*` turned the control off with no
+  signal. Patterns are now validated at config load and at the top of the contract
+  check; an invalid one refuses the run and names the field and the pattern.
+  Validation probes each pattern against its own bytes, because `filepath.Match`
+  returns `ErrBadPattern` only for the chunks it walks and stops at the first
+  chunk that fails to match, so probing with a short string misses a malformed
+  chunk further along (`Match("abc*[", "x")` returns no error).
+- **The forbidden-claims scan failed open.** `RunForbiddenClaimsScan` shelled out
+  to `grep` and discarded the error, so on a host without `grep` — or with a
+  `grep` that rejected the arguments — every term was silently skipped and the
+  control reported no forbidden claims. It was also weaker than its own
+  diff-scoped sibling: plain substring matching (missing `pr0duct1on_ready`) over
+  7 file extensions (missing `.yml` and `.py`), so whether a claim was a
+  violation depended only on whether a diff happened to be available. Both paths
+  now share one in-process matcher.
+- **Receipt IDs collided on a coarse clock.** `GenerateReceiptID` returned
+  `c1f-<UnixNano>`, but macOS reports `time.Now()` at microsecond granularity —
+  measured 1000 ns on darwin/amd64 — so calls in the same tick produced the same
+  id: 3217 duplicates out of 5000 back-to-back calls. The id *is* the receipt's
+  file name (`receipts/c1f-<id>.json`), so a duplicate overwrote an earlier
+  receipt. `GenerateReceiptID` now holds a mutex and steps past the previous id.
+  This had been hidden behind the dyld abort: `internal/receipt`'s test binary
+  never ran on macOS at all.
+- **`SECURITY.md` now states the install-time boundary explicitly.** New section
+  *What `install.sh` verifies — and what it does not*: it proves supply-chain
+  integrity and provenance, while loadability is enforced fail-closed at build
+  time by the release job. Together they are the delivery trust chain; neither
+  alone is sufficient.
+- **The documented cosign identity used the wrong case.** SECURITY.md told users
+  to pin `C1-run/selo`. cosign's identity regexp is case-sensitive, so anyone
+  following the docs would have rejected our own signature — the same bug
+  `install.sh` itself carried. Now `C1-run/Selo`.
 - **Releases are signed, and the installer now verifies them (ADR-002,
   ADR-003).** `install.sh` previously downloaded a binary and executed it with
   zero verification — a tool that sells verifiability distributed itself
@@ -39,6 +93,15 @@ for an early project — breaking config or receipt-schema changes bump the mino
   diff or confused with one produced under an empty policy.
 
 ### Added
+- **`scripts/check-macho-uuid`** — a small Go command that fails closed if a
+  Mach-O binary lacks the `LC_UUID` load command, used as the release gate
+  described under Security. It parses the container with `debug/macho` (thin or
+  fat, 32- or 64-bit, either byte order) and needs no macOS tooling, so it runs
+  on the Linux release runner. It exits `0` only when every Mach-O input carries
+  the load command, `1` if any does not or any input cannot be read, and `2` if no
+  Mach-O was checked at all — so a glob that matches nothing fails instead of
+  passing vacuously. Non-Mach-O inputs (the Linux ELF binaries) are reported and
+  skipped.
 - **Pluggable signer (ADR-008 Phase 2).** `SELO_SIGNER` selects where the signing
   key lives and who signs: `file` (default, unchanged), `keychain` (the seed is
   stored in the OS keychain — macOS Keychain / Linux Secret Service via
