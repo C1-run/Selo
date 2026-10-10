@@ -526,3 +526,128 @@ func TestVerifyRequireKeySourceEndToEndCommand(t *testing.T) {
 		t.Errorf("key_source_state = %s, want OK", res.KeySourceState)
 	}
 }
+
+// signedWithKeySource produces a receipt with a cryptographically valid
+// signature that records the given key_source -- including the empty one.
+// SignReceipt always stamps the source it resolved, so the only way to build
+// the bypass shape (a valid signature over a receipt that omits the source) is
+// to sign the canonical bytes directly. That is exactly what an attacker who
+// holds the signing key would do, and it is the shape --require-keysource has
+// to refuse.
+func signedWithKeySource(t *testing.T, priv ed25519.PrivateKey, keySource string) receipt.ForgeReceipt {
+	t.Helper()
+	r := newVerifyTestReceipt()
+	r.KeySource = keySource
+	canonical, err := receipt.CanonicalJSON(&r)
+	if err != nil {
+		t.Fatalf("canonical json: %v", err)
+	}
+	sum := sha256.Sum256(canonical)
+	r.ReceiptHash = hex.EncodeToString(sum[:])
+	r.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, canonical))
+	r.PublicKey = base64.StdEncoding.EncodeToString(priv.Public().(ed25519.PublicKey))
+	if ok, verr := receipt.VerifyReceipt(&r); verr != nil || !ok {
+		t.Fatalf("fixture does not verify on its own: ok=%v err=%v", ok, verr)
+	}
+	return r
+}
+
+// TestVerifyRequireKeySourceFailClosed is the negative-path suite for the
+// ADR-008 gate. A missing or emptied key_source must never count as
+// compliance: the gate previously left KeySourceOK nil, and nil was read as
+// "not evaluated, therefore pass", so clearing one field bypassed it.
+func TestVerifyRequireKeySourceFailClosed(t *testing.T) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	// (a) Valid signature, empty key_source, gate set: must fail.
+	r := signedWithKeySource(t, priv, "")
+	path := writeVerifyTestReceipt(t, &r)
+	setVerifyFlags(t, "", false, "", false, "command")
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if res.Valid {
+		t.Fatalf("expected INVALID: a missing key_source must not satisfy --require-keysource=command (state %s)", res.KeySourceState)
+	}
+	if res.KeySourceState != receipt.KeySourceStateAbsent {
+		t.Errorf("key_source_state = %s, want ABSENT", res.KeySourceState)
+	}
+	if res.KeySourceOK == nil || *res.KeySourceOK {
+		t.Errorf("key_source_ok = %v, want explicit false", res.KeySourceOK)
+	}
+
+	// (b) The same receipt without the gate is still valid: the fix must fail
+	// closed on the gate without breaking ungated verification.
+	setVerifyFlags(t, "", false, "", false, "")
+	resUngated := verifyReceiptFile(path, t.TempDir(), false, "")
+	if !resUngated.Valid {
+		t.Fatalf("expected VALID without the gate, got: %v", resUngated.Errors)
+	}
+
+	// (c) key_source absent from the JSON entirely, not merely empty.
+	raw, err := json.Marshal(&r)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	delete(obj, "key_source")
+	stripped, err := json.Marshal(obj)
+	if err != nil {
+		t.Fatalf("remarshal: %v", err)
+	}
+	strippedPath := filepath.Join(t.TempDir(), "no-field.json")
+	if err := os.WriteFile(strippedPath, stripped, 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	setVerifyFlags(t, "", false, "", false, "command")
+	resStripped := verifyReceiptFile(strippedPath, t.TempDir(), false, "")
+	if resStripped.Valid {
+		t.Fatal("expected INVALID when key_source is absent from the JSON")
+	}
+	if resStripped.KeySourceState != receipt.KeySourceStateAbsent {
+		t.Errorf("key_source_state = %s, want ABSENT", resStripped.KeySourceState)
+	}
+}
+
+// TestVerifyRequireKeySourceNeedsPinning pins the gate's honest boundary.
+// key_source is self-asserted: anyone holding a signing key can sign a receipt
+// that claims "command" while having signed it in-process. The gate therefore
+// only means something together with --pubkey.
+func TestVerifyRequireKeySourceNeedsPinning(t *testing.T) {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	// Signed in-process, but labelled as the external source.
+	forged := signedWithKeySource(t, priv, receipt.KeySourceCommand)
+	forgedPath := writeVerifyTestReceipt(t, &forged)
+
+	// With the gate alone the forgery passes -- this is the caveat, not a bug.
+	setVerifyFlags(t, "", false, "", false, "command")
+	res := verifyReceiptFile(forgedPath, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("gate alone cannot detect a falsely labelled source; expected VALID, got %v", res.Errors)
+	}
+	if res.KeySourceState != receipt.KeySourceStateOK {
+		t.Errorf("key_source_state = %s, want OK (the label is accepted as claimed)", res.KeySourceState)
+	}
+
+	// Pinned to the genuinely external signer's key, the forgery fails.
+	_, otherPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate other key: %v", err)
+	}
+	otherFP, err := receipt.PublicKeyFingerprint(base64.StdEncoding.EncodeToString(otherPriv.Public().(ed25519.PublicKey)))
+	if err != nil {
+		t.Fatalf("fingerprint: %v", err)
+	}
+	setVerifyFlags(t, "", false, "", false, "command")
+	resPinned := verifyReceiptFile(forgedPath, t.TempDir(), false, otherFP)
+	if resPinned.Valid {
+		t.Fatal("expected INVALID when a falsely labelled receipt is pinned to the real external signer")
+	}
+}
