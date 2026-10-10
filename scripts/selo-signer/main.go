@@ -8,8 +8,13 @@
 // private key must live where the agent process cannot read it — a different
 // Unix user, a container, an HSM/TPM, or a CI signing job. Selo itself never
 // sees the private key: it only knows the matching public key, which you pass
-// to Selo via SELO_SIGNER_PUBKEY. That separation is what makes a receipt
-// non-repudiable rather than merely tamper-evident.
+// to Selo via SELO_SIGNER_PUBKEY. That separation is what lets a verifier
+// attribute a receipt to the operator rather than merely call it tamper-evident.
+//
+// WARNING: this program is a signing oracle for whatever can invoke it. Run it
+// where the audited agent cannot reach it. If the agent can run it, it can
+// obtain a signature and the attribution property is void — the payload guard
+// below only narrows what it will sign, it is not a substitute for isolation.
 //
 // The key file (<key>) holds, in order of preference: a base64-encoded 32-byte
 // Ed25519 seed, a base64-encoded 64-byte private key, or a PEM PKCS#8 private
@@ -17,9 +22,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -30,14 +37,16 @@ import (
 func main() {
 	keyPath := ""
 	for i := 1; i < len(os.Args); i++ {
-		switch os.Args[i] {
-		case "--key":
+		arg := os.Args[i]
+		if arg == "--key" {
 			if i+1 < len(os.Args) {
 				keyPath = os.Args[i+1]
 				i++
 			}
-		case "--key=" + os.Args[i][len("--key="):]:
-			keyPath = os.Args[i][len("--key="):]
+			continue
+		}
+		if v, ok := strings.CutPrefix(arg, "--key="); ok {
+			keyPath = v
 		}
 	}
 	if keyPath == "" {
@@ -63,6 +72,10 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "selo-signer: read stdin: %v\n", err)
 		os.Exit(2)
+	}
+	if !looksLikeSeloPayload(msg) {
+		fmt.Fprintln(os.Stderr, "selo-signer: refusing to sign: stdin is not a Selo receipt or a DSSE PAE")
+		os.Exit(3)
 	}
 
 	sig := ed25519.Sign(priv, msg)
@@ -90,4 +103,26 @@ func parseEd25519Private(b []byte) (ed25519.PrivateKey, error) {
 		}
 	}
 	return nil, fmt.Errorf("unsupported private key format (want base64 ed25519 seed/key or PEM PKCS#8)")
+}
+
+// looksLikeSeloPayload reports whether b is something Selo is expected to sign:
+// a receipt's canonical JSON (an object carrying receipt_id and task_id) or a
+// DSSE PAE ("DSSEv1 ..."). Anything else is refused, so a caller that reaches
+// the signer cannot use it as a general-purpose signing oracle for arbitrary
+// bytes. It does not make the signer safe to expose: it remains an oracle for
+// these two shapes, so keeping it unreachable by the agent is still what
+// matters.
+func looksLikeSeloPayload(b []byte) bool {
+	trimmed := bytes.TrimSpace(b)
+	if bytes.HasPrefix(trimmed, []byte("DSSEv1 ")) {
+		return true
+	}
+	var probe struct {
+		ReceiptID string `json:"receipt_id"`
+		TaskID    string `json:"task_id"`
+	}
+	if err := json.Unmarshal(trimmed, &probe); err != nil {
+		return false
+	}
+	return probe.ReceiptID != "" && probe.TaskID != ""
 }

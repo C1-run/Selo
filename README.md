@@ -99,14 +99,18 @@ Honest counterpoints — read these before adopting:
   behavior, unless you run the agent in a separate trust domain (different user, container, or a CI
   job that cannot read the key). See [SECURITY.md](SECURITY.md#threat-model-what-a-receipt-does-and-does-not-prove).
   The separation is **enforceable**, not just advisory: `selo verify --require-keysource=command`
-  rejects any receipt whose key was not delegated to an external signer (ADR-008).
-- **"Non-repudiable" is conditional, not a default.** With `--tsa` (ADR-005) and `--rekor` (ADR-006)
+  rejects any receipt whose key was not delegated to an external signer (ADR-008). Pair it with
+  `--pubkey`: `key_source` is self-asserted, so the gate alone cannot tell a genuinely external
+  signer from a receipt signed locally and merely labelled `command`.
+- **Attribution is conditional, not a default.** With `--tsa` (ADR-005) and `--rekor` (ADR-006)
   a receipt carries an externally verifiable signing time and a public, append-only log entry. But
   both attest to *a signature by some key* — so they only mean something when that key is outside the
   agent's trust domain (the ADR-008 `command` backend). Under the default `file` backend the honest
-  ceiling is "attributable and tamper-evident", not non-repudiable. When you *do* deploy
-  `command` with a non-extractable key, `selo verify --require-keysource=command` lets a third party
-  **require** that the key was external — turning the claim from marketing into a checkable gate. See
+  ceiling is **operator-signed and tamper-evident**; Selo does not claim non-repudiation there. When
+  you *do* deploy `command` with a non-extractable key, `selo verify --require-keysource=command
+  --pubkey <signer>` lets a third party **require** that the key was external. The gate is enforced
+  only together with `--pubkey`, because `key_source` is self-asserted: without a pinned key a receipt
+  that merely claims "command" would pass. See
   [ADR-007](docs/decisions/ADR-007-tiered-non-repudiation-claim.md) and
   [ADR-008](docs/decisions/ADR-008-signer-trust-domain.md).
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the

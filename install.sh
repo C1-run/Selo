@@ -2,7 +2,7 @@
 # Selo installer — downloads the latest release binary and verifies it before
 # installing.
 #
-#   curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/C1-run/Selo/main/install.sh | bash
 #
 # Verification is on by default and fails closed. The binary's SHA-256 is
 # checked against checksums.txt, and checksums.txt is checked against a Sigstore
@@ -17,12 +17,12 @@
 #   SELO_BASE_URL               fetch artifacts from here instead of GitHub
 #                               (used by scripts/test-install.sh)
 #   SELO_SKIP_VERIFY            1 = skip verification (dangerous)
-#   SELO_REPO                   owner/name (default C1-run/selo)
+#   SELO_REPO                   owner/name (default C1-run/Selo)
 #   SELO_CERT_IDENTITY_REGEXP   override the pinned workflow identity
 #   SELO_CERT_OIDC_ISSUER       override the pinned OIDC issuer
 set -euo pipefail
 
-REPO="${SELO_REPO:-C1-run/selo}"
+REPO="${SELO_REPO:-C1-run/Selo}"
 BINARY="selo"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
@@ -34,7 +34,12 @@ SKIP_VERIFY="${SELO_SKIP_VERIFY:-0}"
 # the workflow identity and the OIDC issuer. Pinning both is what stops a
 # signature from some other repository, workflow, or OIDC provider from being
 # accepted in place of ours.
-DEFAULT_CERT_IDENTITY_REGEXP="^https://github\.com/${REPO}/\.github/workflows/release\.yml@refs/tags/v.*\$"
+#
+# cosign's --certificate-identity-regexp is CASE-SENSITIVE, while a repository's
+# canonical name (C1-run/Selo) need not match the case used in its URLs, so the
+# pattern is pinned case-insensitively. It still binds the repository, the
+# workflow path and the tag ref shape.
+DEFAULT_CERT_IDENTITY_REGEXP="(?i)^https://github\.com/${REPO}/\.github/workflows/release\.yml@refs/tags/v.*\$"
 CERT_IDENTITY_REGEXP="${SELO_CERT_IDENTITY_REGEXP:-$DEFAULT_CERT_IDENTITY_REGEXP}"
 CERT_OIDC_ISSUER="${SELO_CERT_OIDC_ISSUER:-https://token.actions.githubusercontent.com}"
 

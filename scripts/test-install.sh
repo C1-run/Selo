@@ -206,6 +206,38 @@ else
     ok "rejected"
 fi
 
+# --- 10. pinned identity regexp matches the canonical repo ------------------
+echo "10. pinned identity regexp"
+make_dist
+: > "$WORK/cosign.log"
+dest="$(new_dest dest10)"
+run_install "$dest" PATH="$SHIM:$PATH" >/dev/null 2>&1 || true
+REGEX="$(sed -n 's/.*--certificate-identity-regexp \([^ ]*\).*/\1/p' "$WORK/cosign.log" | head -1)"
+if [ -z "$REGEX" ]; then
+    bad "no identity regexp was passed to cosign"
+elif printf '%s' "$REGEX" | grep -q 'C1-run/Selo'; then
+    # The canonical repo case must survive: cosign's regexp is case-sensitive,
+    # so a lowercase default would reject a legitimate release signature.
+    ok "identity regexp carries the canonical repo case (C1-run/Selo)"
+else
+    bad "identity regexp does not carry the canonical case: $REGEX"
+fi
+if command -v python3 >/dev/null 2>&1 && [ -n "$REGEX" ]; then
+    if python3 - "$REGEX" <<'PY'
+import re, sys
+rx = re.compile(sys.argv[1])
+good = "https://github.com/C1-run/Selo/.github/workflows/release.yml@refs/tags/v0.6.0"
+foreign = "https://github.com/evil/Selo/.github/workflows/release.yml@refs/tags/v0.6.0"
+branch = "https://github.com/C1-run/Selo/.github/workflows/release.yml@refs/heads/main"
+sys.exit(0 if (rx.search(good) and not rx.search(foreign) and not rx.search(branch)) else 1)
+PY
+    then
+        ok "identity regexp matches our tag identity and rejects a foreign repo / branch ref"
+    else
+        bad "identity regexp does not pin correctly: $REGEX"
+    fi
+fi
+
 echo ""
 echo "passed: $PASS   failed: $FAIL"
 [ "$FAIL" -eq 0 ]

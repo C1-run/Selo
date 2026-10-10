@@ -58,6 +58,17 @@ func signedVerifyTestReceipt(t *testing.T) receipt.ForgeReceipt {
 	return r
 }
 
+// fingerprintOf returns the hex fingerprint of a base64 ed25519 public key, the
+// form --pubkey accepts.
+func fingerprintOf(t *testing.T, pubB64 string) string {
+	t.Helper()
+	fp, err := receipt.PublicKeyFingerprint(pubB64)
+	if err != nil {
+		t.Fatalf("fingerprint %q: %v", pubB64, err)
+	}
+	return fp
+}
+
 // commandSourcedReceiptSimulated builds a receipt a real external signer would
 // have produced: it is signed by a key Selo never loaded, and records
 // KeySource=command. This exercises the verify gate without spawning a signer
@@ -439,8 +450,9 @@ func TestVerifyRequireKeySourceCommand(t *testing.T) {
 	// Default backend (KeySource=env/file): must fail the gate.
 	envR := signedVerifyTestReceipt(t)
 	envPath := writeVerifyTestReceipt(t, &envR)
+	envFP := fingerprintOf(t, envR.PublicKey)
 	setVerifyFlags(t, "", false, "", false, "command")
-	res := verifyReceiptFile(envPath, t.TempDir(), false, "")
+	res := verifyReceiptFile(envPath, t.TempDir(), false, envFP)
 	if res.Valid {
 		t.Fatalf("expected INVALID for env-sourced receipt under --require-keysource=command, got: %v", res.Errors)
 	}
@@ -448,11 +460,13 @@ func TestVerifyRequireKeySourceCommand(t *testing.T) {
 		t.Errorf("key_source_state = %s, want FAILED", res.KeySourceState)
 	}
 
-	// Command backend (KeySource=command): must pass the gate.
+	// Command backend (KeySource=command): must pass the gate. The gate is
+	// enforced only with a pin, so the signer's key is pinned here.
 	cmdR := commandSourcedReceiptSimulated(t)
 	cmdPath := writeVerifyTestReceipt(t, &cmdR)
+	cmdFP := fingerprintOf(t, cmdR.PublicKey)
 	setVerifyFlags(t, "", false, "", false, "command")
-	res = verifyReceiptFile(cmdPath, t.TempDir(), false, "")
+	res = verifyReceiptFile(cmdPath, t.TempDir(), false, cmdFP)
 	if !res.Valid {
 		t.Fatalf("expected VALID for command-sourced receipt under --require-keysource=command, got: %v", res.Errors)
 	}
@@ -518,7 +532,7 @@ func TestVerifyRequireKeySourceEndToEndCommand(t *testing.T) {
 	path := writeVerifyTestReceipt(t, &r)
 
 	setVerifyFlags(t, "", false, "", false, "command")
-	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	res := verifyReceiptFile(path, t.TempDir(), false, fingerprintOf(t, r.PublicKey))
 	if !res.Valid {
 		t.Fatalf("expected VALID command-sourced receipt, got: %v", res.Errors)
 	}
@@ -562,11 +576,13 @@ func TestVerifyRequireKeySourceFailClosed(t *testing.T) {
 		t.Fatalf("generate key: %v", err)
 	}
 
-	// (a) Valid signature, empty key_source, gate set: must fail.
+	// (a) Valid signature, empty key_source, gate set: must fail. The signer's
+	// key is pinned so the only failure under test is the missing key_source.
 	r := signedWithKeySource(t, priv, "")
 	path := writeVerifyTestReceipt(t, &r)
+	fp := fingerprintOf(t, r.PublicKey)
 	setVerifyFlags(t, "", false, "", false, "command")
-	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	res := verifyReceiptFile(path, t.TempDir(), false, fp)
 	if res.Valid {
 		t.Fatalf("expected INVALID: a missing key_source must not satisfy --require-keysource=command (state %s)", res.KeySourceState)
 	}
@@ -604,7 +620,7 @@ func TestVerifyRequireKeySourceFailClosed(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	setVerifyFlags(t, "", false, "", false, "command")
-	resStripped := verifyReceiptFile(strippedPath, t.TempDir(), false, "")
+	resStripped := verifyReceiptFile(strippedPath, t.TempDir(), false, fp)
 	if resStripped.Valid {
 		t.Fatal("expected INVALID when key_source is absent from the JSON")
 	}
@@ -616,7 +632,7 @@ func TestVerifyRequireKeySourceFailClosed(t *testing.T) {
 // TestVerifyRequireKeySourceNeedsPinning pins the gate's honest boundary.
 // key_source is self-asserted: anyone holding a signing key can sign a receipt
 // that claims "command" while having signed it in-process. The gate therefore
-// only means something together with --pubkey.
+// only means something together with --pubkey, and is refused without one.
 func TestVerifyRequireKeySourceNeedsPinning(t *testing.T) {
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -626,28 +642,74 @@ func TestVerifyRequireKeySourceNeedsPinning(t *testing.T) {
 	forged := signedWithKeySource(t, priv, receipt.KeySourceCommand)
 	forgedPath := writeVerifyTestReceipt(t, &forged)
 
-	// With the gate alone the forgery passes -- this is the caveat, not a bug.
+	// The gate alone cannot detect a falsely labelled source, so it is refused:
+	// without a pinned key the result would look gated but prove nothing.
 	setVerifyFlags(t, "", false, "", false, "command")
-	res := verifyReceiptFile(forgedPath, t.TempDir(), false, "")
-	if !res.Valid {
-		t.Fatalf("gate alone cannot detect a falsely labelled source; expected VALID, got %v", res.Errors)
+	resNoPin := verifyReceiptFile(forgedPath, t.TempDir(), false, "")
+	if resNoPin.Valid {
+		t.Fatalf("expected INVALID: --require-keysource without --pubkey must not pass, got %v", resNoPin.Errors)
 	}
-	if res.KeySourceState != receipt.KeySourceStateOK {
-		t.Errorf("key_source_state = %s, want OK (the label is accepted as claimed)", res.KeySourceState)
+	if resNoPin.KeySourceState != receipt.KeySourceStateFailed {
+		t.Errorf("key_source_state = %s, want FAILED", resNoPin.KeySourceState)
 	}
 
-	// Pinned to the genuinely external signer's key, the forgery fails.
+	// Pinned to a different key, the forgery fails the pin: this is the check
+	// that actually binds the signer.
 	_, otherPriv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatalf("generate other key: %v", err)
 	}
-	otherFP, err := receipt.PublicKeyFingerprint(base64.StdEncoding.EncodeToString(otherPriv.Public().(ed25519.PublicKey)))
-	if err != nil {
-		t.Fatalf("fingerprint: %v", err)
-	}
+	otherFP := fingerprintOf(t, base64.StdEncoding.EncodeToString(otherPriv.Public().(ed25519.PublicKey)))
 	setVerifyFlags(t, "", false, "", false, "command")
 	resPinned := verifyReceiptFile(forgedPath, t.TempDir(), false, otherFP)
 	if resPinned.Valid {
 		t.Fatal("expected INVALID when a falsely labelled receipt is pinned to the real external signer")
+	}
+}
+
+// TestVerifyRequireKeySourceNeedsPubkey covers the pair rule directly: the gate
+// is a no-op without a pin, so the combination must be refused with a reason
+// that names the missing flag.
+func TestVerifyRequireKeySourceNeedsPubkey(t *testing.T) {
+	cmdR := commandSourcedReceiptSimulated(t)
+	path := writeVerifyTestReceipt(t, &cmdR)
+
+	setVerifyFlags(t, "", false, "", false, "command")
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if res.Valid {
+		t.Fatal("expected INVALID: --require-keysource with no --pubkey proves nothing")
+	}
+	if res.KeySourceState != receipt.KeySourceStateFailed {
+		t.Errorf("key_source_state = %s, want FAILED", res.KeySourceState)
+	}
+	found := false
+	for _, e := range res.Errors {
+		if strings.Contains(e, "--pubkey") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected an error mentioning --pubkey, got %v", res.Errors)
+	}
+}
+
+// TestVerifyCmdRequireKeySourceWithoutPubkeyIsUsageError checks the CLI refuses
+// the pair before doing any verification, so a user cannot get a result that
+// looks gated but is not.
+func TestVerifyCmdRequireKeySourceWithoutPubkeyIsUsageError(t *testing.T) {
+	cmdR := commandSourcedReceiptSimulated(t)
+	path := writeVerifyTestReceipt(t, &cmdR)
+
+	setVerifyFlags(t, "", false, "", false, "command")
+	prevPub, prevJSON := verifyPubKey, verifyJSONOut
+	verifyPubKey, verifyJSONOut = "", false
+	t.Cleanup(func() { verifyPubKey, verifyJSONOut = prevPub, prevJSON })
+
+	err := runVerifyCmd(nil, []string{path})
+	if err == nil {
+		t.Fatal("expected a usage error when --require-keysource is set without --pubkey")
+	}
+	if !strings.Contains(err.Error(), "--pubkey") {
+		t.Errorf("error should mention --pubkey, got: %v", err)
 	}
 }

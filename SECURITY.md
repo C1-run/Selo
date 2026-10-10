@@ -193,8 +193,9 @@ documentation issue and an ordinary issue is fine.
    agent runs as the same OS user as Selo on the same host, it can read
    `~/.selo/signing-key` from disk and could forge a receipt that passes
    `selo verify --pubkey`. Selo strips the key from the agent's environment
-   (`internal/runner`) but cannot stop a same-user disk read. Non-repudiation
-   requires running the agent in a separate trust domain — see "Threat model"
+   (`internal/runner`) but cannot stop a same-user disk read. Attributing a
+   receipt to the operator — rather than to anyone who can read the key —
+   requires running the agent in a separate trust domain; see "Threat model"
    above. This is a deployment limitation, not a signing flaw. Mitigations:
    `SELO_SIGNER=keychain` (seed off disk) or `SELO_SIGNER=command` (Selo holds
    no key at all).
