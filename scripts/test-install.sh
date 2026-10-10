@@ -324,6 +324,30 @@ else
     fi
 fi
 
+# --- 14. cosign is fetched with a pinned digest, not via the broken action ---
+# sigstore/cosign-installer@v3 cannot install cosign v3.x: after downloading the
+# binary it fetches the legacy detached signature (cosign-linux-amd64.sig), which
+# cosign v3.x stopped publishing, so `curl -f` exits 22 and the release job dies
+# before anything is signed. That is exactly what happened to v0.6.0. Guard the
+# replacement so it does not get "simplified" back into the action.
+echo "14. cosign acquisition"
+RELEASE_YML="$REPO_ROOT/.github/workflows/release.yml"
+if grep -qE 'uses:[[:space:]]*sigstore/cosign-installer' "$RELEASE_YML"; then
+    bad "release.yml uses sigstore/cosign-installer, which cannot install cosign v3.x (its legacy .sig asset 404s)"
+else
+    ok "release.yml does not use the cosign installer action"
+fi
+if grep -qE 'COSIGN_SHA256:[[:space:]]*[0-9a-f]{64}[[:space:]]*$' "$RELEASE_YML"; then
+    ok "release.yml pins a full 64-hex cosign digest"
+else
+    bad "release.yml does not pin a full cosign SHA-256"
+fi
+if grep -q 'sha256sum -c -' "$RELEASE_YML"; then
+    ok "release.yml verifies the downloaded cosign against that digest"
+else
+    bad "release.yml downloads cosign without verifying it"
+fi
+
 echo ""
 echo "passed: $PASS   failed: $FAIL"
 [ "$FAIL" -eq 0 ]
