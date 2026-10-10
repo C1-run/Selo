@@ -29,7 +29,11 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # >= 1.24 is a hard requirement: Go < 1.24 omits the LC_UUID load
+          # command from darwin binaries and newer macOS dyld aborts on load.
+          # Building with the Go 1.21 that `go-version-file: go.mod` resolved is
+          # what shipped unrunnable darwin binaries in v0.4.1, v0.5.0, v0.5.1.
+          go-version: '1.24.x'
 
       - name: Build
         env:
@@ -44,6 +48,13 @@ jobs:
               go build -trimpath -ldflags "-s -w -X main.Version=$VERSION" \
               -o "selo-$os-$arch" ./cmd/selo/
           done
+
+      # Fail closed before anything is signed or published. install.sh verifies
+      # that the bytes match checksums.txt; it cannot know whether the binary
+      # loads. A darwin binary with no LC_UUID is rejected by newer macOS dyld,
+      # so it must never reach the release.
+      - name: Verify darwin binaries are loadable
+        run: python3 scripts/check-macho-uuid.py selo-darwin-*
 
       - name: Generate checksums
         id: checksums
