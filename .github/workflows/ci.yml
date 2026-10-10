@@ -78,6 +78,21 @@ jobs:
           echo "::error title=daemon tests failed::${detail}"
           exit 1
 
+      - name: Tooling tests
+        run: |
+          # ./scripts/... holds the release gate and the reference signer. They
+          # were covered by vet and build but never by `go test`, which is the
+          # blind spot that let a broken darwin binary ship for three releases.
+          log="${RUNNER_TEMP:-/tmp}/tooling-tests.log"
+          if go test ./scripts/... -count=1 >"$log" 2>&1; then
+            cat "$log"
+            exit 0
+          fi
+          cat "$log"
+          detail=$(tail -c 3000 "$log" | tr '\n' '|' | sed 's/::/:/g')
+          echo "::error title=tooling tests failed::${detail}"
+          exit 1
+
       - name: Safety-control selftest
         run: go run ./cmd/selo/ selftest
 

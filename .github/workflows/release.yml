@@ -113,6 +113,20 @@ jobs:
             --bundle checksums.txt.sigstore.json \
             checksums.txt
 
+      # Every tag must ship hand-written release notes. Auto-generated notes list
+      # commits; they cannot tell a user that the previous release was broken,
+      # which is the part someone upgrading actually needs to read.
+      - name: Check release notes exist
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$notes" ]; then
+            echo "::error title=missing release notes::$notes does not exist; every tag must ship hand-written notes under docs/releases/"
+            exit 1
+          fi
+          echo "release notes: $notes"
+
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -121,6 +135,9 @@ jobs:
             selo-*
             checksums.txt
             checksums.txt.sigstore.json
+          # A supplied body is pre-pended to the auto-generated commit list, so
+          # the post-mortem leads and the commit log still follows.
+          body_path: docs/releases/${{ github.ref_name }}.md
           generate_release_notes: true
 
   # Unforgeable build provenance (ADR-003). The reusable workflow runs the
