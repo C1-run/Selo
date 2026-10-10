@@ -1,7 +1,7 @@
 # ADR-008: 把签名密钥移出被审计 agent 的信任域
 
 ## Status
-Proposed (2026-10-09) — Phase 1 & 2 implemented
+Accepted (2026-10-09) — Phase 1, 2 & 3 implemented
 
 ## Background
 ADR-004 堵住了"篡改后重签即通过"，ADR-007 把措辞降级为分级表述。但两份 ADR 都没有解决
@@ -46,13 +46,29 @@ ADR-004 堵住了"篡改后重签即通过"，ADR-007 把措辞降级为分级�
 
 **诚实边界**：`keychain` 只是把明文种子从磁盘挪进钥匙串，**同一用户仍可读**（首次访问
 可能有系统授权提示，但脚本可被授权）——它抬高门槛，不等于隔离。**只有 `command` 后端，
-且其私钥不可导出（HSM/KMS/agent）时，才真正把签名方移出 agent 信任域。** 因此对外措辞
-仍停留在 L2（可验证的 attestation），直到有人以 `command`+不可导出密钥部署。
+且其私钥不可导出（HSM/KMS/agent）时，才真正把签名方移出 agent 信任域。** 默认 `file` 后端
+仍停留在 L2（可验证的 attestation）。验证侧强制见上方『Phase 3』一节——部署
+`command`+不可导出密钥并以 `selo verify --require-keysource=command` 校验后，L3 即成立，
+且是**可被第三方强制**的，而非依赖部署者自觉。
 
-### Phase 3（合规选项）
+### Phase 3（合规选项 + 验证侧强制）
 - **独立签名用户/进程**：agent 以 `selo-agent` 运行，签名方以 `selo-signer` 运行，密钥
   0600 归签名方所有。
 - 或 **只在 CI 签**：Selo 产出未签名 transcript，由从不运行 agent 的 CI job 签名。
+- **验证侧强制（已实现，2026-10-09）**：Phase 2 让签名方*可以*移出 agent 信任域，但
+  `selo verify` 此前并不*要求*它——任何 `key_source` 的收据同样判 VALID，"non-repudiable"
+  因而无法被强制，只能靠部署者自觉。现补上强制：
+  - `selo verify --require-keysource=command`：收据 `key_source` 必须等于 `command`，否则
+    INVALID。配合 `--pubkey <owner>` 钉住签名者，即构成可执行的 "非同信任域签名" 判据。
+  - 验证结果新增 `key_source_state`（`OK`/`UNVERIFIED`/`FAILED`/`ABSENT`/`SKIPPED`），未设门时
+    仅报告不强制（沿用其它 gate 的"报告但不致命"约定）。
+  - 参考外部签名器 `scripts/selo-signer/main.go`：读 `--key <私钥文件>`（base64 种子 / 64 字节
+    私钥 / PEM），stdin 收消息、stdout 出 base64 签名。它**应运行在独立信任域**（不同 Unix
+    用户 / 容器 / HSM / CI 签名 job）；Selo 只知 `SELO_SIGNER_PUBKEY` 公钥，永不见私钥。
+
+  至此 ADR-008 三段齐备：签名方可隔离（Phase 2 `command`）、部署有据（Phase 3）、验证可强制
+  （本节约）。"non-repudiable" 在 `command`+不可导出密钥+`--require-keysource=command` 部署下
+  成为可验证的硬判据，而非营销措辞。
 
 ## Consequences
 正面：

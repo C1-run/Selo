@@ -26,6 +26,16 @@ type Signer interface {
 	Sign(msg []byte) ([]byte, error)
 }
 
+// KeySourceState values describe how the ADR-008 trust-domain gate in
+// `selo verify --require-keysource` evaluated a receipt.
+const (
+	KeySourceStateSkipped    = "SKIPPED"    // gate not applicable (no --require-keysource)
+	KeySourceStateAbsent     = "ABSENT"     // receipt records no key_source
+	KeySourceStateUnverified = "UNVERIFIED" // source reported but not gated
+	KeySourceStateOK         = "OK"         // source matches the required value
+	KeySourceStateFailed     = "FAILED"     // source present but not the required value
+)
+
 // localSigner signs in-process with a key Selo loaded from env, a file, or the
 // keychain.
 type localSigner struct {

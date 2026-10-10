@@ -24,6 +24,11 @@ var (
 	verifyRequireTSA bool
 	verifyRekorKey   string
 	verifyRequireRek bool
+	// verifyRequireKeySource, when set, fails the receipt unless its signing key
+	// came from the named source. Only "command" (ADR-008) places the signer
+	// outside the audited agent's trust domain; requiring it is what makes the
+	// "non-repudiable" claim enforceable rather than aspirational.
+	verifyRequireKeySource string
 )
 
 var verifyCmd = &cobra.Command{
@@ -42,6 +47,7 @@ func init() {
 	verifyCmd.Flags().BoolVar(&verifyRequireTSA, "require-tsa", false, "Fail unless the receipt carries a trusted timestamp verified against --tsa-ca")
 	verifyCmd.Flags().StringVar(&verifyRekorKey, "rekor-pubkey", "", "PEM file of the Rekor log's public key, to verify the transparency-log checkpoint signature (ADR-006)")
 	verifyCmd.Flags().BoolVar(&verifyRequireRek, "require-rekor", false, "Fail unless the receipt carries a transparency-log entry verified against --rekor-pubkey")
+	verifyCmd.Flags().StringVar(&verifyRequireKeySource, "require-keysource", "", "Fail unless the receipt's signing key came from the named source (e.g. 'command'). Only 'command' places the signer outside the audited agent's trust domain (ADR-008); requiring it is what makes the non-repudiable claim enforceable.")
 }
 
 // verifyResult is the outcome of verifying a receipt file.
@@ -66,6 +72,12 @@ type verifyResult struct {
 	PubKeyPinned bool   `json:"pubkey_pinned"`
 	PubKeyMatch  *bool  `json:"pubkey_match,omitempty"` // nil when no pin was given
 	Format       string `json:"format,omitempty"`       // receipt | in-toto/DSSE
+
+	// Signer trust domain (ADR-008). KeySourceOK is nil unless a
+	// --require-keysource gate was set and we evaluated it.
+	KeySourceOK     *bool  `json:"key_source_ok,omitempty"`
+	KeySourceState  string `json:"key_source_state,omitempty"` // OK | UNVERIFIED | FAILED | ABSENT | SKIPPED
+	KeySourceReason string `json:"key_source_reason,omitempty"`
 
 	// Trusted timestamp (ADR-005). TimestampOK is nil unless the receipt
 	// carries a timestamp we actually evaluated.
@@ -283,14 +295,15 @@ func verifyEnvelope(data []byte, path, repoPath string, wantAnchor bool, pinnedP
 		}
 	}
 
-	// Inner receipt: content hash + signature + pinning + anchor.
+	// Inner receipt: content hash + signature + pinning + anchor + trust domain.
 	verifyReceiptStruct(&r, res, repoPath, wantAnchor, pinnedPubKey)
 	finalizeResult(res, dsseOK)
 	return res
 }
 
 // verifyReceiptStruct runs the receipt-level checks (content hash, signature,
-// signer pinning, optional anchor) and fills res. It does not set res.Valid.
+// signer pinning, optional anchor, optional trust-domain gate) and fills res.
+// It does not set res.Valid.
 func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath string, wantAnchor bool, pinnedPubKey string) {
 	res.ReceiptID = r.ReceiptID
 	res.Verdict = r.Verdict
@@ -359,6 +372,31 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 		default:
 			res.Provenance = "UNPINNED_UNKNOWN"
 		}
+	}
+
+	// 3b. Signer trust domain (ADR-008). The signing side can keep the key out
+	// of the agent's process via the 'command' backend; this gate makes that
+	// choice enforceable. A receipt signed by a key the agent itself could read
+	// (env | file | keychain | ephemeral) cannot satisfy
+	// --require-keysource=command, so a "non-repudiable" verdict is only
+	// acceptable when the signer was actually external. Without the gate the
+	// source is reported but not required.
+	res.KeySourceState = receipt.KeySourceStateSkipped
+	switch {
+	case r.KeySource == "":
+		res.KeySourceState = receipt.KeySourceStateAbsent
+	case verifyRequireKeySource == "":
+		res.KeySourceState = receipt.KeySourceStateUnverified
+		res.KeySourceReason = "no --require-keysource given: the source is reported but not gated"
+	case r.KeySource == verifyRequireKeySource:
+		ok := true
+		res.KeySourceOK = &ok
+		res.KeySourceState = receipt.KeySourceStateOK
+	default:
+		f := false
+		res.KeySourceOK = &f
+		res.KeySourceState = receipt.KeySourceStateFailed
+		res.Errors = append(res.Errors, fmt.Sprintf("--require-keysource=%s: receipt was signed by key source %q, which shares the agent's trust domain", verifyRequireKeySource, r.KeySource))
 	}
 
 	// 4. Anchor: only checked when requested; otherwise skipped and ignored.
@@ -500,7 +538,8 @@ func finalizeResult(res *verifyResult, extraOK bool) {
 	pinOK := res.PubKeyMatch == nil || *res.PubKeyMatch
 	tsOK := res.TimestampOK == nil || *res.TimestampOK
 	trOK := res.TransparencyOK == nil || *res.TransparencyOK
-	res.Valid = res.HashOK && res.SignatureOK && pinOK && extraOK && tsOK && trOK &&
+	ksOK := res.KeySourceOK == nil || *res.KeySourceOK
+	res.Valid = res.HashOK && res.SignatureOK && pinOK && extraOK && tsOK && trOK && ksOK &&
 		(res.AnchorOK == nil || *res.AnchorOK)
 }
 
@@ -539,6 +578,12 @@ func printVerifyResult(res *verifyResult) {
 	fmt.Printf("Key mode:   %s\n", keyModeLabel(res.KeyMode))
 	if res.KeySource != "" {
 		fmt.Printf("Key source: %s\n", res.KeySource)
+	}
+	if verifyRequireKeySource != "" {
+		fmt.Printf("Key-source gate (%s): %s\n", verifyRequireKeySource, res.KeySourceState)
+		if res.KeySourceReason != "" {
+			fmt.Printf("            %s\n", res.KeySourceReason)
+		}
 	}
 	fmt.Printf("Provenance: %s\n", res.Provenance)
 	if !res.PubKeyPinned {
