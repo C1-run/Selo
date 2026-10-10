@@ -62,9 +62,9 @@ selo verify runs/run-<id>/receipt.json --pubkey <your-fingerprint>   # proves th
 selo keys pub   # prints the public key; fingerprint = sha256 of that key
 ```
 
-## What works in v0.5
+## What works in v0.6
 
-| Capability | Status in v0.5 |
+| Capability | Status in v0.6 |
 |---|---|
 | Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task (exit 1) and produce a signed receipt. |
 | `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
@@ -75,7 +75,7 @@ selo keys pub   # prints the public key; fingerprint = sha256 of that key
 | Pluggable signer | `SELO_SIGNER` picks where the key lives: `file` (default), `keychain` (seed in the OS keychain — `selo keys store --keychain`), or `command` (an external program signs; Selo holds no key at all — `SELO_SIGNER_COMMAND`). Only `command` with a non-extractable key moves the signer out of the agent's trust domain (ADR-008). Every receipt records the signed `key_source`, and a third party **enforces** that separation with `selo verify --require-keysource=command` — a receipt signed by the same user's `file` key is then rejected (ADR-008). |
 | Trusted timestamp | `selo run --tsa <url>` obtains an **RFC3161 timestamp** over the receipt hash from an external authority (ADR-005), so the signing time cannot be back-dated. `selo receipt timestamp <id> --tsa <url>` retrofits one onto an existing receipt. `selo verify --tsa-ca <pem>` anchors the token to a trusted TSA (chain + timestamping EKU); `--require-tsa` gates on it. Fail-closed: an unreachable TSA fails the run unless `--tsa-soft` records the absence explicitly. |
 | Transparency log | `selo run --rekor <url>` logs the receipt hash in a **Sigstore Rekor** log (ADR-006), so a receipt cannot be equivocated or quietly withdrawn. Only the hash is published — Rekor stores the envelope/payload *hashes*, never the receipt, task name, or file paths. `selo verify --rekor-pubkey <pem>` recomputes the RFC 6962 inclusion proof to the checkpoint root and verifies the log's checkpoint signature; `--require-rekor` gates on it. |
-| Verified releases | Selo's own releases are signed and independently verifiable (ADR-002, ADR-003). Each ships `checksums.txt` (sorted SHA-256), `checksums.txt.sigstore.json` (cosign **keyless** signature over it — no long-lived key), and `multiple.intoto.jsonl` (**SLSA Build L3** provenance). `install.sh` verifies the checksum and the signature, pinning **both** the workflow identity and the OIDC issuer, and fails closed if either check fails or `cosign` is absent. Verify by hand with `cosign verify-blob` and `slsa-verifier` — see SECURITY.md "Verifying a release". |
+| Verified releases | Selo's own releases are signed and independently verifiable (ADR-002, ADR-003). Each ships `checksums.txt` (sorted SHA-256), `checksums.txt.sigstore.json` (cosign **keyless** signature over it — no long-lived key), and `multiple.intoto.jsonl` (**SLSA Build L3** provenance). `install.sh` verifies the checksum and the signature, pinning **both** the workflow identity and the OIDC issuer, and fails closed if either check fails or `cosign` is absent. Verify by hand with `cosign verify-blob` and `slsa-verifier` — see SECURITY.md "Verifying a release". A release gate also fails the build if a darwin binary lacks the Mach-O `LC_UUID` load command, which newer macOS dyld requires — integrity alone cannot prove a binary starts. |
 | `selo mcp serve` | Exposes the real checks over the Model Context Protocol (stdio), so MCP clients audit with the actual engine instead of a reimplementation. |
 | Containment | Git worktree only. `containment.strategy: docker` or `local` is refused with an error instead of silently running in a worktree. |
 | Real-time interception | Does not exist. The audit is post-execution only. |
@@ -116,7 +116,7 @@ Honest counterpoints — read these before adopting:
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the
   checks are right.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).
-- **Young project.** v0.5, one maintainer, breaking config changes possible before 1.0 — tracked in
+- **Young project.** v0.6, one maintainer, breaking config changes possible before 1.0 — tracked in
   the [changelog](CHANGELOG.md).
 
 ## Use in CI
@@ -240,11 +240,11 @@ selo/
 
 ## Roadmap
 
-Selo is v0.5 — one maintainer, moving deliberately. The near-term focus is the
+Selo is v0.6 — one maintainer, moving deliberately. The near-term focus is the
 engine: tighter checks, and the pieces needed for anyone to verify a receipt
 independently. No accuracy claims until there is a dataset. See
 [CHANGELOG.md](CHANGELOG.md) for what shipped, and
-[What works](#what-works-in-v05) for the current capability list.
+[What works](#what-works-in-v06) for the current capability list.
 
 ## Development
 
