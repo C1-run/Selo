@@ -9,14 +9,16 @@ to report, how to report it, and what is already known and documented.
 **Do not open a public issue for a vulnerability.** A public report exposes
 every user before a fix is available.
 
-Report privately using GitHub's **"Report a vulnerability"** advisory feature
-on this repository (Security tab → Report a vulnerability). That keeps the
-report private to the maintainers and gives us a place to coordinate a fix and
-a disclosure timeline with you.
+**Report through GitHub's private security advisory** — Security tab → "Report
+a vulnerability" on this repository. That is the channel we can actually
+coordinate in: it stays private to the maintainers, and it carries the thread
+for the fix, the disclosure timeline, and credit if you want it.
 
-Report vulnerabilities by email to **team@c1.run** (or via a GitHub private
-security advisory). Please do not include
-any vulnerability details in it.
+If you cannot use GitHub advisories, email **team@c1.run** — but **put no
+vulnerability details in the email**. Ordinary mail is not end-to-end encrypted,
+so use it only to ask for a channel; we will open a private advisory and continue
+there. Sending details by mail is the one path we cannot handle safely, which is
+why this document recommends the advisory first.
 
 We will acknowledge reports as capacity allows; this is an alpha maintained
 by a small team, and we would rather tell you we are slow than promise a
@@ -145,7 +147,7 @@ To verify by hand:
 ```
 cosign verify-blob --bundle checksums.txt.sigstore.json \
   --certificate-identity-regexp \
-    '(?i)^https://github\.com/C1-run/Selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
+    '^https://github\.com/C1-run/Selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 sha256sum -c checksums.txt
@@ -154,29 +156,33 @@ slsa-verifier verify-artifact selo-linux-amd64 \
   --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/Selo
 ```
 
-cosign's `--certificate-identity-regexp` is case-sensitive by default, which
-makes the `(?i)` prefix load-bearing: a repository's canonical name
-(`C1-run/Selo`) need not match the casing used in its URLs, and without the
-prefix a lowercase spelling silently rejects a *good* signature. This documented
-command once had the repository name in lowercase and omitted the prefix; that
-combination rejects our own release — measured against the v0.6.0 bundle, exit 1.
-The regexp therefore keeps the canonical casing as well, so it stays correct even
-if the prefix is ever dropped. The broken form is deliberately not reproduced
-here, so that no line in this file can be copied into a failing verification.
+cosign's `--certificate-identity-regexp` is case-sensitive, and this pin relies
+on it rather than working around it. The identity GitHub puts in the Fulcio
+certificate is the canonical repository name, so the pattern matches that
+spelling exactly. A case-insensitive prefix would loosen the repository name,
+the workflow filename and the ref shape all at once — widening what is accepted
+without making anything work that does not already. `install.sh` pins the same
+pattern, from the same default.
+
+This documented command once had the repository name in lowercase, which rejects
+our own release — measured against the v0.6.0 bundle, exit 1. The broken form is
+deliberately not reproduced here, so that no line in this file can be copied into
+a verification that fails.
 
 What the pin actually enforces, measured against the v0.6.0 bundle:
 
 | Regexp | Result |
 |---|---|
-| `(?i)` + canonical, `release.yml@refs/tags/v.*` | accepts |
-| canonical, no `(?i)` | accepts |
-| lowercase, no `(?i)` | **rejects** |
-| `(?i)` + `selo-trusted.yml@refs/heads/main` | **rejects** |
+| canonical, `release.yml@refs/tags/v.*` | accepts |
+| repository name in lowercase | **rejects** |
+| `selo-trusted.yml@refs/heads/main` | **rejects** |
+| `release.yml@refs/heads/main` (branch, not a tag) | **rejects** |
 | correct workflow, `checksums.txt` edited by one line | **rejects** |
 
-The last two matter most: the pin is not decorative. It binds the signature to
+The last three matter most: the pin is not decorative. It binds the signature to
 this repository's release workflow at a version tag, so a signature from any
-other workflow — or any edit to `checksums.txt` after signing — fails.
+other workflow or branch ref — or any edit to `checksums.txt` after signing —
+fails.
 
 Keyless signing means there is no long-lived release key to steal or leak: the
 signature's certificate is bound to the workflow's OIDC identity and is only
@@ -248,7 +254,7 @@ documentation issue and an ordinary issue is fine.
    the agent runs.
 5. **The secret scan is a small set of regular expressions**, not a
    general-purpose scanner. It is not expected to catch every secret format.
-   Generic SAST and CVE scanning are roadmap, not v0.1.
+   Generic SAST and CVE scanning are roadmap, not part of the current alpha.
 6. **The signing key shares the agent's trust domain by default.** When the
    agent runs as the same OS user as Selo on the same host, it can read
    `~/.selo/signing-key` from disk and could forge a receipt that passes

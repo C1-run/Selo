@@ -222,6 +222,14 @@ elif printf '%s' "$REGEX" | grep -q 'C1-run/Selo'; then
 else
     bad "identity regexp does not carry the canonical case: $REGEX"
 fi
+# The pin is deliberately case-SENSITIVE. A case-insensitive prefix also loosens
+# the workflow filename and the ref shape, so it widens what we accept for no
+# gain -- and it hides the canonical-casing bug above instead of catching it.
+if [ -n "$REGEX" ] && ! printf '%s' "$REGEX" | grep -q '(?i)'; then
+    ok "identity regexp is case-sensitive (no (?i) prefix)"
+else
+    bad "identity regexp has a case-insensitive prefix, which loosens the pin: $REGEX"
+fi
 if command -v python3 >/dev/null 2>&1 && [ -n "$REGEX" ]; then
     if python3 - "$REGEX" <<'PY'
 import re, sys
@@ -246,7 +254,9 @@ SECURITY_MD="$REPO_ROOT/SECURITY.md"
 if [ ! -f "$SECURITY_MD" ]; then
     bad "SECURITY.md not found at $SECURITY_MD"
 elif grep -q 'C1-run/selo' "$SECURITY_MD"; then
-    bad "SECURITY.md contains the lowercase repo spelling; keep the canonical case so the example stays correct if the (?i) prefix is dropped"
+    bad "SECURITY.md contains the lowercase repo spelling; the identity pin is case-sensitive and needs the canonical case"
+elif grep -q '(?i)' "$SECURITY_MD"; then
+    bad "SECURITY.md documents a case-insensitive identity pin; the pin must be case-sensitive"
 elif grep -q 'C1-run/Selo' "$SECURITY_MD"; then
     ok "SECURITY.md documents the canonical repo case (C1-run/Selo)"
 else
@@ -321,6 +331,14 @@ else
         ok "README roadmap anchor resolves to the current heading"
     else
         bad "README roadmap anchor is stale: expected #what-works-in-v$anchor"
+    fi
+    # SECURITY.md hardcodes the supported minor line too. It said "0.6.x" while
+    # the changelog moved on, and the same file once still called something
+    # "roadmap, not v0.1" two releases later. Pin it to the changelog.
+    if grep -q "\`$latest\.x\`" "$SECURITY_MD"; then
+        ok "SECURITY.md supported line names $latest.x, matching the changelog"
+    else
+        bad "SECURITY.md supported line is stale: expected \`$latest.x\`"
     fi
 fi
 
