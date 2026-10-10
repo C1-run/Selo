@@ -26,8 +26,9 @@ var (
 	verifyRequireRek bool
 	// verifyRequireKeySource, when set, fails the receipt unless its signing key
 	// came from the named source. Only "command" (ADR-008) places the signer
-	// outside the audited agent's trust domain; requiring it is what makes the
-	// "non-repudiable" claim enforceable rather than aspirational.
+	// outside the audited agent's trust domain. key_source is self-asserted, so
+	// the gate only means something together with --pubkey; the two are enforced
+	// as a pair (see verifyReceiptStruct).
 	verifyRequireKeySource string
 )
 
@@ -47,7 +48,7 @@ func init() {
 	verifyCmd.Flags().BoolVar(&verifyRequireTSA, "require-tsa", false, "Fail unless the receipt carries a trusted timestamp verified against --tsa-ca")
 	verifyCmd.Flags().StringVar(&verifyRekorKey, "rekor-pubkey", "", "PEM file of the Rekor log's public key, to verify the transparency-log checkpoint signature (ADR-006)")
 	verifyCmd.Flags().BoolVar(&verifyRequireRek, "require-rekor", false, "Fail unless the receipt carries a transparency-log entry verified against --rekor-pubkey")
-	verifyCmd.Flags().StringVar(&verifyRequireKeySource, "require-keysource", "", "Fail unless the receipt's signing key came from the named source (e.g. 'command'). Only 'command' places the signer outside the audited agent's trust domain (ADR-008); requiring it is what makes the non-repudiable claim enforceable.")
+	verifyCmd.Flags().StringVar(&verifyRequireKeySource, "require-keysource", "", "Fail unless the receipt's signing key came from the named source (e.g. 'command'). Only 'command' places the signer outside the audited agent's trust domain (ADR-008). key_source is self-asserted, so this must be paired with --pubkey to mean anything.")
 }
 
 // verifyResult is the outcome of verifying a receipt file.
@@ -376,13 +377,24 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 
 	// 3b. Signer trust domain (ADR-008). The signing side can keep the key out
 	// of the agent's process via the 'command' backend; this gate makes that
-	// choice enforceable. A receipt signed by a key the agent itself could read
+	// choice checkable. A receipt signed by a key the agent itself could read
 	// (env | file | keychain | ephemeral) cannot satisfy
-	// --require-keysource=command, so a "non-repudiable" verdict is only
-	// acceptable when the signer was actually external. Without the gate the
-	// source is reported but not required.
+	// --require-keysource=command. key_source is self-asserted, so the gate is
+	// enforced together with --pubkey: without a pinned key a receipt that
+	// simply labels itself "command" would pass. Without the gate the source is
+	// reported but not required.
 	res.KeySourceState = receipt.KeySourceStateSkipped
 	switch {
+	case verifyRequireKeySource != "" && pinnedPubKey == "":
+		// Fail closed. key_source is self-asserted, so without a pinned key the
+		// gate cannot tell a real external signer from a receipt that merely
+		// claims one: anyone holding a signing key can sign a receipt labelled
+		// "command" and it would pass. Require the pin rather than return a
+		// result that looks gated but is not.
+		f := false
+		res.KeySourceOK = &f
+		res.KeySourceState = receipt.KeySourceStateFailed
+		res.Errors = append(res.Errors, fmt.Sprintf("--require-keysource=%s needs --pubkey: key_source is self-asserted, so the gate alone cannot detect a falsely labelled signer", verifyRequireKeySource))
 	case verifyRequireKeySource == "" && r.KeySource == "":
 		// No gate was requested, so a missing source is reported, not fatal.
 		res.KeySourceState = receipt.KeySourceStateAbsent
@@ -618,6 +630,9 @@ func keyModeLabel(mode string) string {
 }
 
 func runVerifyCmd(cmd *cobra.Command, args []string) error {
+	if verifyRequireKeySource != "" && verifyPubKey == "" {
+		return fmt.Errorf("--require-keysource=%s requires --pubkey <key>: key_source is self-asserted, so the gate alone cannot detect a falsely labelled signer", verifyRequireKeySource)
+	}
 	res := verifyReceiptFile(args[0], verifyRepoPath, verifyWantAnchor, verifyPubKey)
 
 	if verifyJSONOut {

@@ -109,13 +109,15 @@ for an early project — breaking config or receipt-schema changes bump the mino
   Fulcio/Rekor verification needs a genuine release.
 - **`selo verify --require-keysource` enforces signer isolation (ADR-008).** The
   signing side could already delegate to an external program (`command` backend,
-  Phase 2), but `verify` accepted any `key_source` — so "non-repudiable" could not
-  be enforced, only deployed. Now `selo verify --require-keysource=command` fails
-  the receipt unless its signing key was delegated to an external signer (the only
-  source outside the agent's trust domain); paired with `--pubkey <owner>` it is a
-  checkable non-repudiable gate a third party can require. The result reports
-  `key_source_state` (`OK`/`UNVERIFIED`/`FAILED`/`ABSENT`/`SKIPPED`); without the
-  flag the source is shown but not required. A reference external signer ships at
+  Phase 2), but `verify` accepted any `key_source` — so isolation could not be
+  enforced, only deployed. Now `selo verify --require-keysource=command` fails the
+  receipt unless its signing key was delegated to an external signer (the only
+  source outside the agent's trust domain). The gate is enforced only together
+  with `--pubkey`: `key_source` is self-asserted, so a gate without a pinned key
+  would accept a receipt that merely claims "command" — that combination is now
+  refused rather than reported as passing. The result reports `key_source_state`
+  (`OK`/`UNVERIFIED`/`FAILED`/`ABSENT`/`SKIPPED`); without the flag the source is
+  shown but not required. A reference external signer ships at
   `scripts/selo-signer/main.go`, meant to run as a separate user / container / HSM /
   CI job so Selo never sees the private key.
 
