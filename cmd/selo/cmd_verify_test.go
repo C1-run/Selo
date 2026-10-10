@@ -1,9 +1,15 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -52,14 +58,52 @@ func signedVerifyTestReceipt(t *testing.T) receipt.ForgeReceipt {
 	return r
 }
 
+// commandSourcedReceiptSimulated builds a receipt a real external signer would
+// have produced: it is signed by a key Selo never loaded, and records
+// KeySource=command. This exercises the verify gate without spawning a signer
+// process (the real out-of-process path is covered separately below).
+func commandSourcedReceiptSimulated(t *testing.T) receipt.ForgeReceipt {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	r := newVerifyTestReceipt()
+	r.KeyMode = receipt.KeyModePersistent
+	r.KeySource = receipt.KeySourceCommand
+	canonical, err := receipt.CanonicalJSON(&r)
+	if err != nil {
+		t.Fatalf("canonical: %v", err)
+	}
+	sum := sha256.Sum256(canonical)
+	r.ReceiptHash = hex.EncodeToString(sum[:])
+	r.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, canonical))
+	r.PublicKey = base64.StdEncoding.EncodeToString(pub)
+	return r
+}
+
+// buildReferenceSigner compiles scripts/selo-signer so a test can exercise the
+// real ADR-008 command backend end to end.
+func buildReferenceSigner(t *testing.T) string {
+	t.Helper()
+	src := filepath.Join("..", "..", "scripts", "selo-signer", "main.go")
+	bin := filepath.Join(t.TempDir(), "selo-signer")
+	cmd := exec.Command("go", "build", "-o", bin, src)
+	cmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOTOOLCHAIN=local")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build reference signer: %v\n%s", err, out)
+	}
+	return bin
+}
+
 // setVerifyFlags sets the package-level verify flags for one test and restores
 // them afterwards.
-func setVerifyFlags(t *testing.T, tsaCA string, requireTSA bool, rekorKey string, requireRekor bool) {
+func setVerifyFlags(t *testing.T, tsaCA string, requireTSA bool, rekorKey string, requireRekor bool, requireKeySource string) {
 	t.Helper()
-	prevCA, prevRTSA, prevKey, prevRRek := verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek
-	verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek = tsaCA, requireTSA, rekorKey, requireRekor
+	prevCA, prevRTSA, prevKey, prevRRek, prevRKS := verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek, verifyRequireKeySource
+	verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek, verifyRequireKeySource = tsaCA, requireTSA, rekorKey, requireRekor, requireKeySource
 	t.Cleanup(func() {
-		verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek = prevCA, prevRTSA, prevKey, prevRRek
+		verifyTSACA, verifyRequireTSA, verifyRekorKey, verifyRequireRek, verifyRequireKeySource = prevCA, prevRTSA, prevKey, prevRRek, prevRKS
 	})
 }
 
@@ -71,7 +115,7 @@ func TestVerifyTimestampAndTransparencyStates(t *testing.T) {
 	path := writeVerifyTestReceipt(t, &r)
 
 	// No records: reported absent, not fatal.
-	setVerifyFlags(t, "", false, "", false)
+	setVerifyFlags(t, "", false, "", false, "")
 	res := verifyReceiptFile(path, ".", false, "")
 	if !res.Valid {
 		t.Fatalf("expected a clean signed receipt to be valid, got: %v", res.Errors)
@@ -81,11 +125,11 @@ func TestVerifyTimestampAndTransparencyStates(t *testing.T) {
 	}
 
 	// Requiring them makes absence fatal.
-	setVerifyFlags(t, "", true, "", false)
+	setVerifyFlags(t, "", true, "", false, "")
 	if res := verifyReceiptFile(path, ".", false, ""); res.Valid {
 		t.Error("--require-tsa should fail a receipt without a timestamp")
 	}
-	setVerifyFlags(t, "", false, "", true)
+	setVerifyFlags(t, "", false, "", true, "")
 	if res := verifyReceiptFile(path, ".", false, ""); res.Valid {
 		t.Error("--require-rekor should fail a receipt without a log entry")
 	}
@@ -94,7 +138,7 @@ func TestVerifyTimestampAndTransparencyStates(t *testing.T) {
 	r.Timestamp = &receipt.TimestampAnchor{TSAURL: "https://tsa.example", Status: receipt.TimestampAbsent, Reason: "tsa unreachable"}
 	r.Transparency = &receipt.TransparencyAnchor{LogURL: "https://rekor.example", Status: receipt.TransparencyAbsent, Reason: "log unreachable"}
 	path2 := writeVerifyTestReceipt(t, &r)
-	setVerifyFlags(t, "", false, "", false)
+	setVerifyFlags(t, "", false, "", false, "")
 	res = verifyReceiptFile(path2, ".", false, "")
 	if !res.Valid {
 		t.Fatalf("absent records must not invalidate by default: %v", res.Errors)
@@ -384,5 +428,101 @@ func TestVerifyEphemeralKeyModeUnpinned(t *testing.T) {
 	}
 	if res.Provenance != "UNPINNED_EPHEMERAL" {
 		t.Errorf("expected provenance UNPINNED_EPHEMERAL, got %s", res.Provenance)
+	}
+}
+
+// TestVerifyRequireKeySourceCommand proves the ADR-008 trust-domain gate: a
+// receipt signed by the agent's own key (the default file/env backend) is
+// rejected when the verifier requires an external signer, while one signed by
+// the command backend is accepted.
+func TestVerifyRequireKeySourceCommand(t *testing.T) {
+	// Default backend (KeySource=env/file): must fail the gate.
+	envR := signedVerifyTestReceipt(t)
+	envPath := writeVerifyTestReceipt(t, &envR)
+	setVerifyFlags(t, "", false, "", false, "command")
+	res := verifyReceiptFile(envPath, t.TempDir(), false, "")
+	if res.Valid {
+		t.Fatalf("expected INVALID for env-sourced receipt under --require-keysource=command, got: %v", res.Errors)
+	}
+	if res.KeySourceState != receipt.KeySourceStateFailed {
+		t.Errorf("key_source_state = %s, want FAILED", res.KeySourceState)
+	}
+
+	// Command backend (KeySource=command): must pass the gate.
+	cmdR := commandSourcedReceiptSimulated(t)
+	cmdPath := writeVerifyTestReceipt(t, &cmdR)
+	setVerifyFlags(t, "", false, "", false, "command")
+	res = verifyReceiptFile(cmdPath, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("expected VALID for command-sourced receipt under --require-keysource=command, got: %v", res.Errors)
+	}
+	if res.KeySourceState != receipt.KeySourceStateOK {
+		t.Errorf("key_source_state = %s, want OK", res.KeySourceState)
+	}
+}
+
+// TestVerifyKeySourceStates checks the reported-but-not-gated and absent cases.
+func TestVerifyKeySourceStates(t *testing.T) {
+	// No gate: the source is reported but Unverified, and the receipt is valid.
+	r := signedVerifyTestReceipt(t)
+	path := writeVerifyTestReceipt(t, &r)
+	setVerifyFlags(t, "", false, "", false, "")
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("expected VALID without gate, got: %v", res.Errors)
+	}
+	if res.KeySourceState != receipt.KeySourceStateUnverified {
+		t.Errorf("key_source_state = %s, want UNVERIFIED", res.KeySourceState)
+	}
+
+	// A receipt recording no key_source (e.g. an unsigned/legacy one) is reported
+	// Absent. It is invalid for other reasons (no signature), but the gate state
+	// is Absent and is not what fails it.
+	rNo := newVerifyTestReceipt() // unsigned, KeySource empty
+	pathAbsent := writeVerifyTestReceipt(t, &rNo)
+	setVerifyFlags(t, "", false, "", false, "")
+	resAbsent := verifyReceiptFile(pathAbsent, t.TempDir(), false, "")
+	if resAbsent.KeySourceState != receipt.KeySourceStateAbsent {
+		t.Errorf("key_source_state = %s, want ABSENT", resAbsent.KeySourceState)
+	}
+}
+
+// TestVerifyRequireKeySourceEndToEndCommand exercises the real ADR-008 command
+// backend: it compiles the reference external signer, signs a receipt by
+// delegating to it, then verifies with --require-keysource=command. This proves
+// the whole out-of-process signing path works, not just a simulated field.
+func TestVerifyRequireKeySourceEndToEndCommand(t *testing.T) {
+	if testing.Short() {
+		t.Skip("compiles a helper binary")
+	}
+	bin := buildReferenceSigner(t)
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	keyFile := filepath.Join(t.TempDir(), "signer-key")
+	if err := os.WriteFile(keyFile, []byte(base64.StdEncoding.EncodeToString(priv.Seed())), 0600); err != nil {
+		t.Fatalf("write key: %v", err)
+	}
+	t.Setenv("SELO_SIGNER", "command")
+	t.Setenv("SELO_SIGNER_COMMAND", fmt.Sprintf("%s --key %s", bin, keyFile))
+	t.Setenv("SELO_SIGNER_PUBKEY", base64.StdEncoding.EncodeToString(pub))
+
+	r := newVerifyTestReceipt()
+	if _, err := receipt.SignReceipt(&r); err != nil {
+		t.Fatalf("SignReceipt via command backend: %v", err)
+	}
+	if r.KeySource != receipt.KeySourceCommand {
+		t.Fatalf("KeySource = %q, want command", r.KeySource)
+	}
+	path := writeVerifyTestReceipt(t, &r)
+
+	setVerifyFlags(t, "", false, "", false, "command")
+	res := verifyReceiptFile(path, t.TempDir(), false, "")
+	if !res.Valid {
+		t.Fatalf("expected VALID command-sourced receipt, got: %v", res.Errors)
+	}
+	if res.KeySourceState != receipt.KeySourceStateOK {
+		t.Errorf("key_source_state = %s, want OK", res.KeySourceState)
 	}
 }
