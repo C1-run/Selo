@@ -114,6 +114,64 @@ func TestRunForbiddenClaimsScan(t *testing.T) {
 	}
 }
 
+// TestRunForbiddenClaimsScanDoesNotShellOut is the regression guard for a
+// fail-open: the scan used to shell out to `grep` and ignore its error, so on a
+// host without grep (or with a grep that rejected the arguments) every term was
+// silently skipped and the control reported "no forbidden claims".
+func TestRunForbiddenClaimsScanDoesNotShellOut(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "bad.go"), []byte("// PROFITABLE strategy\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir()) // nothing on PATH: no grep, no anything
+
+	hits, err := RunForbiddenClaimsScan(dir, []string{"PROFITABLE"})
+	if err != nil {
+		t.Fatalf("RunForbiddenClaimsScan: %v", err)
+	}
+	if len(hits) == 0 {
+		t.Fatal("claim not detected with an empty PATH: the scan still depends on an external command and fails open")
+	}
+}
+
+// TestRunForbiddenClaimsScanAgreesWithDiffScoped pins the invariant that the
+// full-worktree scan and the diff-scoped scan classify the same file the same
+// way. The full scan used `grep -i` over a fixed extension allowlist, so it
+// missed both evasion substitutions and every file outside that list, while the
+// diff-scoped scan caught them — the same claim was a violation or not
+// depending only on whether a diff happened to be available.
+func TestRunForbiddenClaimsScanAgreesWithDiffScoped(t *testing.T) {
+	cases := []struct{ name, file, content string }{
+		{"evasion substitution", "bad.go", "// pr0duct1on_ready\n"},
+		{"yaml outside the old allowlist", "config.yml", "claim: PRODUCTION_READY\n"},
+		{"python outside the old allowlist", "app.py", "CLAIM = 'PRODUCTION_READY'\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, tc.file), []byte(tc.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			scoped, err := RunForbiddenClaimsScanDiffScoped(dir, []string{"PRODUCTION_READY"}, []string{tc.file})
+			if err != nil {
+				t.Fatalf("diff-scoped scan: %v", err)
+			}
+			if len(scoped) == 0 {
+				t.Fatalf("diff-scoped scan missed %s: the test case itself is wrong", tc.file)
+			}
+
+			full, err := RunForbiddenClaimsScan(dir, []string{"PRODUCTION_READY"})
+			if err != nil {
+				t.Fatalf("full scan: %v", err)
+			}
+			if len(full) == 0 {
+				t.Errorf("full worktree scan missed %s, but the diff-scoped scan caught it", tc.file)
+			}
+		})
+	}
+}
+
 func TestMapVerdictSuccess(t *testing.T) {
 	r := &C1Result{ExitCode: 0, Diff: "diff --git a/src/main.go b/src/main.go\n--- a/src/main.go\n+++ b/src/main.go\n@@ -1 +1 @@\n-foo\n+bar\n+extra line here to make diff longer"}
 	v := MapVerdict(r, nil, false)

@@ -358,21 +358,27 @@ func CaptureTestOutput(workDir string, commands []string) string {
 }
 
 // RunForbiddenClaimsScan checks for forbidden terms in the worktree.
+//
+// The scan runs in-process, over the same file set and with the same matcher as
+// RunForbiddenClaimsScanDiffScoped. An earlier version shelled out to
+// `grep -rni --include=...` and ignored the error, so on a host without grep —
+// or with a grep that rejected the arguments — every term was silently skipped
+// and the control failed open. It also matched plain substrings over a fixed
+// extension allowlist, so an evasion variant (pr0duct1on_ready) or a claim in a
+// file outside that list was caught only when a diff happened to be available.
 func RunForbiddenClaimsScan(workDir string, forbiddenTerms []string) ([]string, error) {
-	var hits []string
-	for _, term := range forbiddenTerms {
-		cmd := exec.Command("grep", "-rni", "--include=*.go", "--include=*.rs", "--include=*.md", "--include=*.yaml", "--include=*.toml", "--include=*.json", "--include=*.txt", term, workDir)
-		out, err := cmd.Output()
-		if err == nil {
-			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-			for _, line := range lines {
-				if line != "" {
-					hits = append(hits, fmt.Sprintf("%s: %s", term, line))
-				}
-			}
-		}
+	if len(forbiddenTerms) == 0 {
+		return nil, nil
 	}
-	return hits, nil
+	patterns, err := compileClaimPatterns(forbiddenTerms)
+	if err != nil {
+		return nil, err
+	}
+	relPaths, err := walkWorktreeFiles(workDir)
+	if err != nil {
+		return nil, err
+	}
+	return scanFilesForClaims(workDir, relPaths, forbiddenTerms, patterns), nil
 }
 
 // secretScanPatterns are the secret detectors used by every secret scan.
@@ -424,8 +430,10 @@ func scanFilesForSecrets(workDir string, relPaths []string) []string {
 	return hits
 }
 
-// RunSecretScan runs the secret pattern scan over the whole worktree.
-func RunSecretScan(workDir string) ([]string, error) {
+// walkWorktreeFiles returns every file in workDir, relative to workDir, skipping
+// the .git directory. Shared by the secret and forbidden-claim scans so the two
+// cannot drift apart on which files they consider.
+func walkWorktreeFiles(workDir string) ([]string, error) {
 	var relPaths []string
 	err := filepath.WalkDir(workDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -444,6 +452,15 @@ func RunSecretScan(workDir string) ([]string, error) {
 		relPaths = append(relPaths, rel)
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return relPaths, nil
+}
+
+// RunSecretScan runs the secret pattern scan over the whole worktree.
+func RunSecretScan(workDir string) ([]string, error) {
+	relPaths, err := walkWorktreeFiles(workDir)
 	if err != nil {
 		return nil, err
 	}
@@ -478,6 +495,50 @@ func compileClaimPattern(term string) (*regexp.Regexp, error) {
 	return regexp.Compile(b.String())
 }
 
+// compileClaimPatterns compiles every forbidden term up front so a bad term is
+// reported instead of being skipped.
+func compileClaimPatterns(terms []string) ([]*regexp.Regexp, error) {
+	patterns := make([]*regexp.Regexp, 0, len(terms))
+	for _, term := range terms {
+		re, err := compileClaimPattern(term)
+		if err != nil {
+			return nil, fmt.Errorf("compile claim pattern for %q: %w", term, err)
+		}
+		patterns = append(patterns, re)
+	}
+	return patterns, nil
+}
+
+// scanFilesForClaims scans relPaths (relative to workDir) line by line and
+// returns one "term: rel:lineno:text" hit per matching line. Both the full
+// worktree scan and the diff-scoped scan go through here, so they cannot
+// disagree about what counts as a hit.
+func scanFilesForClaims(workDir string, relPaths, terms []string, patterns []*regexp.Regexp) []string {
+	var hits []string
+	for _, rel := range relPaths {
+		path := filepath.Join(workDir, rel)
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() > maxClaimScanFileBytes {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if line == "" {
+				continue
+			}
+			for j, term := range terms {
+				if patterns[j].MatchString(line) {
+					hits = append(hits, fmt.Sprintf("%s: %s:%d: %s", term, rel, i+1, strings.TrimSpace(line)))
+				}
+			}
+		}
+	}
+	return hits
+}
+
 // GetChangedFiles extracts repo-relative changed file paths (b/ side)
 // from a unified diff. workDir is reserved for a future git fallback.
 func GetChangedFiles(workDir, diff string) ([]string, error) {
@@ -506,33 +567,11 @@ func RunForbiddenClaimsScanDiffScoped(workDir string, forbiddenTerms, changedFil
 	if len(changedFiles) == 0 {
 		return RunForbiddenClaimsScan(workDir, forbiddenTerms)
 	}
-	patterns := make([]*regexp.Regexp, 0, len(forbiddenTerms))
-	for _, term := range forbiddenTerms {
-		re, err := compileClaimPattern(term)
-		if err != nil {
-			return nil, fmt.Errorf("compile claim pattern for %q: %w", term, err)
-		}
-		patterns = append(patterns, re)
+	patterns, err := compileClaimPatterns(forbiddenTerms)
+	if err != nil {
+		return nil, err
 	}
-	var hits []string
-	for _, rel := range changedFiles {
-		path := filepath.Join(workDir, rel)
-		if info, err := os.Stat(path); err != nil || info.Size() > maxClaimScanFileBytes {
-			continue
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			continue
-		}
-		for i, line := range strings.Split(string(data), "\n") {
-			for j, term := range forbiddenTerms {
-				if patterns[j].MatchString(line) {
-					hits = append(hits, fmt.Sprintf("%s: %s:%d: %s", term, rel, i+1, strings.TrimSpace(line)))
-				}
-			}
-		}
-	}
-	return hits, nil
+	return scanFilesForClaims(workDir, changedFiles, forbiddenTerms, patterns), nil
 }
 
 // RunSecretScanDiffScoped runs the secret patterns over changed files only.
