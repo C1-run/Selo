@@ -154,11 +154,29 @@ slsa-verifier verify-artifact selo-linux-amd64 \
   --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/Selo
 ```
 
-The identity regexp is case-sensitive, so it must carry the canonical
-`C1-run/Selo` casing — the lowercase spelling that used to appear here would
-have rejected our own release signature. The `(?i)` prefix keeps it working on
-case-insensitive readers; the rest of the string must still match this workflow
-at a version tag.
+cosign's `--certificate-identity-regexp` is case-sensitive by default, which
+makes the `(?i)` prefix load-bearing: a repository's canonical name
+(`C1-run/Selo`) need not match the casing used in its URLs, and without the
+prefix a lowercase spelling silently rejects a *good* signature. This documented
+command once had the repository name in lowercase and omitted the prefix; that
+combination rejects our own release — measured against the v0.6.0 bundle, exit 1.
+The regexp therefore keeps the canonical casing as well, so it stays correct even
+if the prefix is ever dropped. The broken form is deliberately not reproduced
+here, so that no line in this file can be copied into a failing verification.
+
+What the pin actually enforces, measured against the v0.6.0 bundle:
+
+| Regexp | Result |
+|---|---|
+| `(?i)` + canonical, `release.yml@refs/tags/v.*` | accepts |
+| canonical, no `(?i)` | accepts |
+| lowercase, no `(?i)` | **rejects** |
+| `(?i)` + `selo-trusted.yml@refs/heads/main` | **rejects** |
+| correct workflow, `checksums.txt` edited by one line | **rejects** |
+
+The last two matter most: the pin is not decorative. It binds the signature to
+this repository's release workflow at a version tag, so a signature from any
+other workflow — or any edit to `checksums.txt` after signing — fails.
 
 Keyless signing means there is no long-lived release key to steal or leak: the
 signature's certificate is bound to the workflow's OIDC identity and is only
