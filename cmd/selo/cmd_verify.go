@@ -383,11 +383,22 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 	// source is reported but not required.
 	res.KeySourceState = receipt.KeySourceStateSkipped
 	switch {
-	case r.KeySource == "":
+	case verifyRequireKeySource == "" && r.KeySource == "":
+		// No gate was requested, so a missing source is reported, not fatal.
 		res.KeySourceState = receipt.KeySourceStateAbsent
 	case verifyRequireKeySource == "":
 		res.KeySourceState = receipt.KeySourceStateUnverified
 		res.KeySourceReason = "no --require-keysource given: the source is reported but not gated"
+	case r.KeySource == "":
+		// Fail closed. A gate is set but the receipt records no source, so
+		// nothing shows the signer was external. Passing here would make the
+		// gate bypassable by clearing one field: an attacker holding the
+		// signing key (which is the very threat this gate exists for) could
+		// re-sign the receipt with key_source omitted.
+		f := false
+		res.KeySourceOK = &f
+		res.KeySourceState = receipt.KeySourceStateAbsent
+		res.Errors = append(res.Errors, fmt.Sprintf("--require-keysource=%s: receipt records no key_source, so the signer cannot be shown to sit outside the agent's trust domain; a missing field is not compliance", verifyRequireKeySource))
 	case r.KeySource == verifyRequireKeySource:
 		ok := true
 		res.KeySourceOK = &ok

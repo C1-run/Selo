@@ -30,7 +30,7 @@ type Signer interface {
 // `selo verify --require-keysource` evaluated a receipt.
 const (
 	KeySourceStateSkipped    = "SKIPPED"    // gate not applicable (no --require-keysource)
-	KeySourceStateAbsent     = "ABSENT"     // receipt records no key_source
+	KeySourceStateAbsent     = "ABSENT"     // no key_source; reported when ungated, fatal when gated
 	KeySourceStateUnverified = "UNVERIFIED" // source reported but not gated
 	KeySourceStateOK         = "OK"         // source matches the required value
 	KeySourceStateFailed     = "FAILED"     // source present but not the required value
