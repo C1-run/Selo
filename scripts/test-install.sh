@@ -246,7 +246,7 @@ SECURITY_MD="$REPO_ROOT/SECURITY.md"
 if [ ! -f "$SECURITY_MD" ]; then
     bad "SECURITY.md not found at $SECURITY_MD"
 elif grep -q 'C1-run/selo' "$SECURITY_MD"; then
-    bad "SECURITY.md documents the lowercase repo spelling, which would reject our own release signature"
+    bad "SECURITY.md contains the lowercase repo spelling; keep the canonical case so the example stays correct if the (?i) prefix is dropped"
 elif grep -q 'C1-run/Selo' "$SECURITY_MD"; then
     ok "SECURITY.md documents the canonical repo case (C1-run/Selo)"
 else
