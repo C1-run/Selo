@@ -238,6 +238,67 @@ PY
     fi
 fi
 
+# --- 11. SECURITY.md documents the same canonical identity ------------------
+# The lowercase repo spelling was wrong in install.sh AND in the docs. The docs
+# are what a user copies by hand, so they get the same guard.
+echo "11. SECURITY.md identity example"
+SECURITY_MD="$REPO_ROOT/SECURITY.md"
+if [ ! -f "$SECURITY_MD" ]; then
+    bad "SECURITY.md not found at $SECURITY_MD"
+elif grep -q 'C1-run/selo' "$SECURITY_MD"; then
+    bad "SECURITY.md documents the lowercase repo spelling, which would reject our own release signature"
+elif grep -q 'C1-run/Selo' "$SECURITY_MD"; then
+    ok "SECURITY.md documents the canonical repo case (C1-run/Selo)"
+else
+    bad "SECURITY.md does not document the pinned identity at all"
+fi
+
+# --- 12. Loadability guard: one authority, Go, invoked not `go run` --------
+# The Mach-O guard was a Python script and is now a Go command. Keeping both
+# would give two authorities for one property, and `go run` collapses every
+# non-zero exit to 1, which destroys the exit-2 "a glob matched nothing" signal
+# that stops a renamed artifact from passing the release gate.
+echo "12. loadability guard wiring"
+GUARD_GO="$REPO_ROOT/scripts/check-macho-uuid/main.go"
+GUARD_PY="$REPO_ROOT/scripts/check-macho-uuid.py"
+
+if [ -f "$GUARD_GO" ]; then
+    ok "the guard is a Go command (scripts/check-macho-uuid)"
+else
+    bad "the Go guard is missing at $GUARD_GO"
+fi
+
+if [ -e "$GUARD_PY" ]; then
+    bad "the superseded Python guard still exists at $GUARD_PY; two copies of one check will drift"
+else
+    ok "the superseded Python guard is gone"
+fi
+
+for wf in release.yml ci.yml; do
+    f="$REPO_ROOT/.github/workflows/$wf"
+    if [ ! -f "$f" ]; then
+        bad "$wf not found at $f"
+        continue
+    fi
+    if grep -q 'check-macho-uuid\.py' "$f"; then
+        bad "$wf still invokes the removed Python guard"
+    fi
+    if grep -q 'go run .*check-macho-uuid' "$f"; then
+        bad "$wf runs the guard via 'go run', which collapses exit 2 into 1"
+    fi
+    if grep -q 'check-macho-uuid' "$f"; then
+        ok "$wf invokes the Go guard"
+    else
+        bad "$wf does not invoke the loadability guard at all"
+    fi
+done
+
+if grep -q 'check-macho-uuid\.py' "$SECURITY_MD"; then
+    bad "SECURITY.md still points at the removed Python guard"
+else
+    ok "SECURITY.md does not reference the removed Python guard"
+fi
+
 echo ""
 echo "passed: $PASS   failed: $FAIL"
 [ "$FAIL" -eq 0 ]

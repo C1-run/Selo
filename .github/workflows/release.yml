@@ -53,8 +53,14 @@ jobs:
       # that the bytes match checksums.txt; it cannot know whether the binary
       # loads. A darwin binary with no LC_UUID is rejected by newer macOS dyld,
       # so it must never reach the release.
+      #
+      # Built and run rather than `go run`: go run collapses every non-zero exit
+      # to 1, and exit 2 is what tells us a glob matched nothing at all.
       - name: Verify darwin binaries are loadable
-        run: python3 scripts/check-macho-uuid.py selo-darwin-*
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/check-macho-uuid" ./scripts/check-macho-uuid
+          "$RUNNER_TEMP/check-macho-uuid" selo-darwin-*
 
       - name: Generate checksums
         id: checksums
