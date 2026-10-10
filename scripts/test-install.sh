@@ -348,6 +348,28 @@ else
     bad "release.yml downloads cosign without verifying it"
 fi
 
+# --- 15. the release job can actually see the release notes ----------------
+# body_path points at docs/releases/<tag>.md, which only exists if the job has
+# checked out the repository. Everything else in that job comes from
+# download-artifact, so a checkout is easy to forget -- and forgetting it fails
+# the release *after* the signature has been produced.
+echo "15. release job can see the release notes"
+if grep -q 'body_path' "$RELEASE_YML"; then
+    release_job="$(awk '/^  release:/{f=1} /^  provenance:/{f=0} f' "$RELEASE_YML")"
+    if printf '%s\n' "$release_job" | grep -q 'actions/checkout'; then
+        ok "the release job checks out the tree, so body_path resolves"
+    else
+        bad "release.yml uses body_path but the release job has no actions/checkout"
+    fi
+    if printf '%s\n' "$release_job" | grep -q 'docs/releases'; then
+        ok "the release job checks the notes file exists before publishing"
+    else
+        bad "release.yml uses body_path without checking the file exists"
+    fi
+else
+    ok "release.yml does not use body_path"
+fi
+
 echo ""
 echo "passed: $PASS   failed: $FAIL"
 [ "$FAIL" -eq 0 ]

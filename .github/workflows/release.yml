@@ -91,6 +91,12 @@ jobs:
       contents: write
       id-token: write # OIDC token for Fulcio keyless signing.
     steps:
+      # The release body is docs/releases/<tag>.md, so this job needs the
+      # repository tree. actions/download-artifact only brings the built
+      # binaries; without a checkout the notes file is absent and the
+      # "Check release notes exist" step fails closed.
+      - uses: actions/checkout@v4
+
       - name: Download dist
         uses: actions/download-artifact@v4
         with:
