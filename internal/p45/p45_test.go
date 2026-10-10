@@ -265,3 +265,41 @@ func TestCheckForbidden_DetectsTerms(t *testing.T) {
 		t.Errorf("unexpected error for clean path: %v", err)
 	}
 }
+
+// TestLoadScope_RefusesInvalidGlob is the fail-closed guard at the entry point:
+// a scope_contract.json with an unevaluable pattern must stop the run before it
+// starts, naming the field and the pattern. Silently ignoring the pattern would
+// leave forbidden_paths unenforced while every receipt still reported clean.
+func TestLoadScope_RefusesInvalidGlob(t *testing.T) {
+	contracts := t.TempDir()
+	writeFixture(t, contracts, "scope_contract.json", map[string]interface{}{
+		"allowed_paths":   []string{"src/*"},
+		"forbidden_paths": []string{".env", "[a-z"},
+	})
+
+	_, err := LoadScope(contracts)
+	if err == nil {
+		t.Fatal("LoadScope accepted a malformed forbidden_paths glob; the run would start with the boundary unenforced")
+	}
+	for _, want := range []string{"scope_contract.json", "forbidden_paths", "[a-z"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q, got: %v", want, err)
+		}
+	}
+}
+
+func TestLoadScope_AcceptsValidGlobs(t *testing.T) {
+	contracts := t.TempDir()
+	writeFixture(t, contracts, "scope_contract.json", map[string]interface{}{
+		"allowed_paths":   []string{"src/admin/users/*"},
+		"forbidden_paths": []string{".env", ".env.*", "*secret*", "*.pem"},
+	})
+
+	scope, err := LoadScope(contracts)
+	if err != nil {
+		t.Fatalf("LoadScope rejected valid globs: %v", err)
+	}
+	if len(scope.ForbiddenPaths) != 4 {
+		t.Fatalf("expected 4 forbidden patterns, got %d", len(scope.ForbiddenPaths))
+	}
+}

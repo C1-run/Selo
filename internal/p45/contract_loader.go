@@ -60,6 +60,11 @@ func LoadScope(dir string) (*containment.ScopeContract, error) {
 	if err := validateScopeNaming(&c); err != nil {
 		return nil, err
 	}
+	// Refuse to start on a glob we cannot evaluate. Silently ignoring one would
+	// leave the boundary it describes unenforced while the run reports clean.
+	if err := containment.ValidateScopePatterns(&c); err != nil {
+		return nil, fmt.Errorf("p45: scope_contract.json: %w", err)
+	}
 	return &c, nil
 }
 

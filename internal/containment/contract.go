@@ -54,11 +54,55 @@ type ScopeContract struct {
 	ScopeViolations []string `json:"scope_violations,omitempty"`
 }
 
+// ValidateScopePatterns reports the first allowed_paths or forbidden_paths entry
+// that filepath.Match cannot evaluate.
+//
+// A malformed glob is not a harmless typo. Verification reads a pattern it
+// cannot evaluate as "does not match", so a broken entry in forbidden_paths
+// silently opens the boundary it was meant to close: the run proceeds, the
+// receipt records no violation, and nothing anywhere says the control was never
+// armed. Refusing the contract is the only fail-closed answer.
+//
+// Each pattern is probed against itself rather than against a short name such
+// as "x". filepath.Match only reports ErrBadPattern for the chunks it walks,
+// and it stops after the first chunk that cannot match: with a short probe
+// "abc*[" is accepted, because the literal "abc" has already failed by the time
+// the unterminated class would be parsed. Matching the pattern against its own
+// bytes walks every chunk. Both the 1.21 and the 1.24+ toolchains behave this
+// way; see TestValidateScopePatterns.
+func ValidateScopePatterns(c *ScopeContract) error {
+	if c == nil {
+		return fmt.Errorf("scope contract is nil")
+	}
+	for _, field := range []struct {
+		key      string
+		patterns []string
+	}{
+		{"allowed_paths", c.AllowedPaths},
+		{"forbidden_paths", c.ForbiddenPaths},
+	} {
+		for _, pattern := range field.patterns {
+			if _, err := filepath.Match(pattern, pattern); err != nil {
+				return fmt.Errorf("invalid glob in %s: %q: %w", field.key, pattern, err)
+			}
+		}
+	}
+	return nil
+}
+
 // VerifyScopeContract checks changed paths against the scope boundary.
 // Returns (true, nil) if all paths are in scope, (false, violations) otherwise.
+//
+// An unevaluable pattern is itself a violation, so the run stops instead of
+// silently passing a boundary that could not be checked.
 func VerifyScopeContract(c *ScopeContract) (bool, []string) {
 	if c == nil {
 		return false, []string{"nil contract"}
+	}
+	if err := ValidateScopePatterns(c); err != nil {
+		violations := []string{err.Error()}
+		c.ScopeViolations = violations
+		return false, violations
 	}
 	var violations []string
 	for _, changed := range c.ChangedPaths {
