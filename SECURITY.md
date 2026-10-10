@@ -145,18 +145,60 @@ To verify by hand:
 ```
 cosign verify-blob --bundle checksums.txt.sigstore.json \
   --certificate-identity-regexp \
-    '^https://github\.com/C1-run/selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
+    '(?i)^https://github\.com/C1-run/Selo/\.github/workflows/release\.yml@refs/tags/v.*$' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
 sha256sum -c checksums.txt
 
 slsa-verifier verify-artifact selo-linux-amd64 \
-  --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/selo
+  --provenance-path multiple.intoto.jsonl --source-uri github.com/C1-run/Selo
 ```
+
+The identity regexp is case-sensitive, so it must carry the canonical
+`C1-run/Selo` casing — the lowercase spelling that used to appear here would
+have rejected our own release signature. The `(?i)` prefix keeps it working on
+case-insensitive readers; the rest of the string must still match this workflow
+at a version tag.
 
 Keyless signing means there is no long-lived release key to steal or leak: the
 signature's certificate is bound to the workflow's OIDC identity and is only
 valid for that run.
+
+### What `install.sh` verifies — and what it does not
+
+Two different properties are easy to conflate. The release chain covers the
+first, and until v0.6.0 the second was assumed rather than checked.
+
+**Supply-chain integrity — verified by `install.sh`.** That the bytes you
+downloaded are the bytes this repository's release workflow produced, unmodified
+in transit: the SHA-256 matches `checksums.txt`, `checksums.txt` carries a
+keyless cosign signature bound to `release.yml` at a version tag, and SLSA L3
+provenance ties the artifact to that workflow and commit.
+
+**Runtime compatibility — not verifiable from the bytes.** That the binary
+actually loads and runs on your machine. No checksum or signature can tell you
+this: a perfectly signed binary can be rejected by the dynamic loader before
+`main` ever runs. This is not hypothetical. v0.4.1, v0.5.0 and v0.5.1 shipped
+darwin binaries built by a Go toolchain (< 1.24) that omitted the Mach-O
+`LC_UUID` load command, which newer macOS dyld refuses to load:
+
+```
+dyld: missing LC_UUID load command
+signal: abort trap
+```
+
+The signatures verified. The binaries did not run. `install.sh` could not notice,
+because this is a property of the loader, not of the bytes.
+
+Loadability is therefore enforced **fail-closed at build time**, in
+`.github/workflows/release.yml`: before anything is signed or published, both
+darwin binaries are checked with `scripts/check-macho-uuid`, and the release
+fails if either lacks `LC_UUID`. CI checks the same property on the macOS leg, so
+a toolchain regression fails on the commit that introduces it rather than at tag
+time.
+
+`install.sh` verifies integrity; the release job verifies loadability. Together
+they are the delivery trust chain — neither alone is sufficient.
 
 ## Known limitations (not vulnerabilities)
 
@@ -219,6 +261,6 @@ documentation issue and an ordinary issue is fine.
 
 ## Supported versions
 
-`0.5.x` is the current supported line. It is an alpha: expect breaking changes,
+`0.6.x` is the current supported line. It is an alpha: expect breaking changes,
 incomplete checks, and behavior that moves between minor releases. Reports
 against anything older, or against a fork, are out of scope.
