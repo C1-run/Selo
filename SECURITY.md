@@ -251,13 +251,18 @@ documentation issue and an ordinary issue is fine.
    `--rekor-pubkey`/`--tsa-ca` pin the *log's* or *TSA's* key; they say nothing
    about the receipt's own signer, which still needs `--pubkey`.
 8. **Third-party release actions are pinned by version tag, not commit SHA.**
-   `actions/*`, `softprops/action-gh-release` and `sigstore/cosign-installer`
-   are referenced by major-version tag in `.github/workflows/release.yml`. A
-   moved tag would therefore be followed. SHA-pinning requires resolving and
-   maintaining commit hashes; it is a tracked hardening item, not a present
-   guarantee. Note `slsa-github-generator` is deliberately pinned to the full
-   tag `@v2.1.0` (not a floating major) because pinning it by SHA would force
-   `compile-generator: true` — see ADR-003.
+   `actions/*` and `softprops/action-gh-release` are referenced by major-version
+   tag in `.github/workflows/release.yml`. A moved tag would therefore be
+   followed. SHA-pinning requires resolving and maintaining commit hashes; it is
+   a tracked hardening item, not a present guarantee. Note `slsa-github-generator`
+   is deliberately pinned to the full tag `@v2.1.0` (not a floating major)
+   because pinning it by SHA would force `compile-generator: true` — see ADR-003.
+
+   cosign is no longer installed by a third-party action at all. It is fetched
+   directly and checked against a SHA-256 pinned in this repository, so the
+   version-to-digest binding is reviewable here rather than inside someone else's
+   action. (`sigstore/cosign-installer` cannot install cosign v3.x: it fetches the
+   legacy `cosign-linux-amd64.sig` asset, which v3.x no longer publishes.)
 
 ## Supported versions
 
