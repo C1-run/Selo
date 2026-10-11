@@ -14,7 +14,7 @@ forge:
     - "MONEY_ENGINE"
   runner:
     mode: "real"
-    command: "/home/runner/selo/scripts/opencode-adapter.sh"
+    command: "./scripts/opencode-adapter.sh"
     args:
       - "--task-file"
       - "{{task_file}}"

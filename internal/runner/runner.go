@@ -82,12 +82,12 @@ type C1LoopRunner struct {
 	StopFile   string
 	Mode       RunnerMode
 	Config     RunnerConfig
-	BaseDir    string // selo base directory (for resolving relative command paths)
+	BaseDir    string // Selo base directory (for resolving relative command paths)
 }
 
 // NewC1LoopRunner creates a new runner with the given mode and config.
 // If config is nil or empty, it defaults to mock mode.
-// baseDir is the selo base directory, used to resolve relative command paths.
+// baseDir is the Selo base directory, used to resolve relative command paths.
 func NewC1LoopRunner(workDir, taskPath string, maxMinutes int, stopFile string, mode RunnerMode, config RunnerConfig) *C1LoopRunner {
 	baseDir, _ := os.Getwd()
 	return &C1LoopRunner{

@@ -268,7 +268,8 @@ func TestAdapterChainContinuity(t *testing.T) {
 }
 
 func TestNoRawContentInMetadata(t *testing.T) {
-	ev := CreateAuditEvent("selo", "p45_stop_written", "task-001", "scope violation",
+	ev := CreateAuditEvent("selo", "p45_stop_written", "task-001",
+		"scope violation",
 		map[string]string{"raw_content_included": "false"}, "")
 	if v, ok := ev.Metadata["raw_content_included"]; !ok || v != "false" {
 		t.Error("raw_content_included must be false")

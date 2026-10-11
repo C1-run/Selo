@@ -2,8 +2,9 @@
 """Convert Markdown docs to HTML pages."""
 import os
 import re
+from pathlib import Path
 
-DOCS_DIR = "/home/runner/work/selo/docs"
+DOCS_DIR = str(Path(__file__).resolve().parent.parent / "docs")
 
 CSS = """
 <style>

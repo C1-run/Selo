@@ -17,7 +17,7 @@
     "forbidden file modified: README.md (matches: README.md)"
   ],
   "runner_mode": "real",
-  "runner_command": "/home/runner/selo/scripts/fixture_agent.sh /tmp/selo-e2e-g/ws/queue/running/run-6qqimeee.md /tmp/selo-e2e-g/ws/worktrees/wt-run-6qqimeee",
+  "runner_command": "./scripts/fixture_agent.sh /tmp/selo-e2e-g/ws/queue/running/run-6qqimeee.md /tmp/selo-e2e-g/ws/worktrees/wt-run-6qqimeee",
   "runner_binary_kind": "opencode",
   "runner_binary_path": "/usr/local/bin/opencode",
   "runner_binary_version": "1.18.34",
