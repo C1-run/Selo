@@ -5,7 +5,7 @@ A step-by-step walkthrough of using Selo locally with a mock runner. This demo s
 ## Prerequisites
 
 ```bash
-# 1. Clone or enter the selo repository
+# 1. Clone or enter the Selo repository
 cd /path/to/selo
 
 # 2. Build the binary

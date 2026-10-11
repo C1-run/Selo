@@ -177,7 +177,7 @@ func TestRealRunTestCommand(t *testing.T) {
 }
 
 // AgentPath is the absolute path to the fixture agent script.
-// Resolved from the selo home directory.
+// Resolved from the Selo home directory.
 func agentScriptPath(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(seloHome(), "scripts", "fixture_agent.sh")
@@ -929,7 +929,7 @@ func homeDir() string {
 	return "/root"
 }
 
-// seloHome returns the selo repo root. In CI this is set via SELO_HOME
+// seloHome returns the Selo repo root. In CI this is set via SELO_HOME
 // (e.g. GITHUB_WORKSPACE); locally it defaults to ~/selo.
 func seloHome() string {
 	if h := os.Getenv("SELO_HOME"); h != "" {
