@@ -53,6 +53,13 @@ type Config struct {
 		NtfyTopic            string        `yaml:"ntfy_topic"`    // legacy: ntfy topic
 		NotifyConfig         notify.Config `yaml:"notify_config"` // new: structured config
 		ForbiddenClaims      []string      `yaml:"forbidden_claims"`
+		// RequireTestsPass is the opt-in gate: when true, a configured test
+		// command that exits non-zero overrides the verdict to FAILED_TESTS.
+		// It is off by default so existing verdict semantics are unchanged —
+		// the default verdict keys off the agent's exit code, not the test
+		// command's, and silently changing that would rewrite what every
+		// already-issued SUCCESS means.
+		RequireTestsPass bool `yaml:"require_tests_pass"`
 		Runner               RunnerConfig  `yaml:"runner"`
 		OpenCode             struct {
 			Model                      string   `yaml:"model"`
@@ -382,14 +389,21 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 
 	testOutput := ""
 	testsPassed := 0
+	var testExitCodes []int
+	// testsOK stays nil when no command was configured: there is then nothing to
+	// assert, and the receipt omits the field rather than claiming "tests passed".
+	var testsOK *bool
 	if len(commands) > 0 {
-		testOutput = runner.CaptureTestOutput(worktreePath, commands)
-		// Count passing tests: look for "PASS" or "ok" indicators
-		for _, line := range strings.Split(testOutput, "\n") {
-			if strings.Contains(line, "PASS") || strings.HasPrefix(line, "ok ") {
+		testOutput, testExitCodes = runner.CaptureTestResults(worktreePath, commands)
+		ok := true
+		for _, code := range testExitCodes {
+			if code == 0 {
 				testsPassed++
+			} else {
+				ok = false
 			}
 		}
+		testsOK = &ok
 	}
 
 	// 11. Safety scans + Supply chain
@@ -537,6 +551,18 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 			strings.Join(tiResult.TestCommandsChanged, ","))
 	}
 
+	// 12f. Opt-in gate: a configured test command that exits non-zero makes the
+	// run a failure. Off by default (see Config.RequireTestsPass), so the default
+	// verdict still keys off the agent's exit code.
+	if verdict, reason := requireTestsPassOverride(finalVerdict, cfg.Forge.RequireTestsPass, testsOK, testExitCodes, testsPassed); verdict != "" {
+		finalVerdict = verdict
+		verdictOverridden = true
+		if overrideReason != "" {
+			overrideReason += "; "
+		}
+		overrideReason += reason
+	}
+
 	// Bind the audited change and the effective policy into the signed receipt,
 	// so a SUCCESS cannot be replayed against a different diff or confused with
 	// one produced under an empty policy.
@@ -583,6 +609,8 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		PolicyHash:               policyHash,
 		SeloVersion:              Version,
 		TestsPassed:              testsPassed,
+		TestsOK:                  testsOK,
+		TestExitCodes:            testExitCodes,
 		ScansPassed:              scansPassed,
 		C1LoopReceiptPath:        c1LoopReceiptPath,
 		PinocchioVerified:        pinoResult.Verified,
@@ -1083,6 +1111,30 @@ func writeHeartbeat(f *os.File, state string, taskDir string) {
 
 // pinocchioVerdictSeverity returns the severity level for verdict comparison.
 // Empty string (no recommendation) has severity 0.
+// verdictFailedTests is the verdict used when the opt-in require-tests-pass gate
+// fires. It starts with "FAILED", so `selo run` already exits 1 on it.
+const verdictFailedTests = "FAILED_TESTS"
+
+// requireTestsPassOverride decides whether the opt-in require-tests-pass gate
+// should tighten the verdict. It returns ("", "") when the gate is off, when no
+// test command was configured, when every command exited 0, or when the current
+// verdict is already at least as severe.
+//
+// The gate is deliberately opt-in: turning it on by default would silently
+// change what every previously issued SUCCESS_WITH_RECEIPT means.
+func requireTestsPassOverride(current string, enabled bool, testsOK *bool, testExitCodes []int, passed int) (string, string) {
+	if !enabled || testsOK == nil || *testsOK {
+		return "", ""
+	}
+	if pinocchioVerdictSeverity(verdictFailedTests) <= pinocchioVerdictSeverity(current) {
+		return "", ""
+	}
+	failed := len(testExitCodes) - passed
+	reason := fmt.Sprintf("require-tests-pass gate: %d of %d configured command(s) exited non-zero (exit codes: %v)",
+		failed, len(testExitCodes), testExitCodes)
+	return verdictFailedTests, reason
+}
+
 func pinocchioVerdictSeverity(v string) int {
 	switch v {
 	case "":
@@ -1095,14 +1147,16 @@ func pinocchioVerdictSeverity(v string) int {
 		return 2
 	case "NEEDS_HUMAN":
 		return 3
-	case "FAILED_TIMEOUT":
+	case verdictFailedTests:
 		return 4
-	case "FAILED_LIMIT_EXCEEDED":
+	case "FAILED_TIMEOUT":
 		return 5
-	case "FAILED_SAFETY":
+	case "FAILED_LIMIT_EXCEEDED":
 		return 6
-	case "FAILED_INTERNAL_ERROR":
+	case "FAILED_SAFETY":
 		return 7
+	case "FAILED_INTERNAL_ERROR":
+		return 8
 	default:
 		return 3
 	}

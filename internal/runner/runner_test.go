@@ -428,3 +428,70 @@ func TestSecretScanDetectsCommonTokens(t *testing.T) {
 		t.Fatalf("hits = %d (%v), want >= 5 common token types", len(hits), hits)
 	}
 }
+
+// TestCaptureTestResultsReportsExitCodes is the regression guard for deciding
+// pass/fail from the exit status. The previous implementation counted output
+// lines containing "PASS" or starting with "ok ", so it reported "3 tests
+// passed" for a command that had exited non-zero, and reported nothing for
+// pytest's lowercase "1 passed" — wrong in both directions.
+func TestCaptureTestResultsReportsExitCodes(t *testing.T) {
+	dir := t.TempDir()
+	out, codes := CaptureTestResults(dir, []string{"true", "false"})
+	if len(codes) != 2 {
+		t.Fatalf("got %d exit codes; want 2 (one per configured command)", len(codes))
+	}
+	if codes[0] != 0 {
+		t.Errorf("true: exit code = %d; want 0", codes[0])
+	}
+	if codes[1] == 0 {
+		t.Errorf("false: exit code = %d; want non-zero", codes[1])
+	}
+	if !strings.Contains(out, "[exit code:") {
+		t.Errorf("output should record the failing exit code, got %q", out)
+	}
+}
+
+func TestCaptureTestResultsUsesExitCodeNotOutputText(t *testing.T) {
+	dir := t.TempDir()
+
+	// Commands are whitespace-split and run without a shell, so use scripts to
+	// control both the output text and the exit status.
+	writeScript := func(name, body string) string {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte("#!/bin/sh\n"+body), 0755); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	// Output mentions "PASS" (via PASSWORD) but the command FAILS. The old
+	// heuristic counted this line as a passing test.
+	failing := writeScript("fail_with_pass.sh", "echo PASSWORD=secret\nexit 1\n")
+	_, codes := CaptureTestResults(dir, []string{failing})
+	if len(codes) != 1 || codes[0] == 0 {
+		t.Fatalf("failing command whose output contains PASS: codes = %v; want a non-zero code", codes)
+	}
+
+	// Output is pytest's lowercase "1 passed" and the command SUCCEEDS. The old
+	// heuristic matched nothing here, so the field vanished entirely.
+	passing := writeScript("pass_lower.sh", "echo '1 passed'\nexit 0\n")
+	_, codes = CaptureTestResults(dir, []string{passing})
+	if len(codes) != 1 || codes[0] != 0 {
+		t.Fatalf("passing pytest-style command: codes = %v; want [0]", codes)
+	}
+}
+
+func TestCaptureTestResultsMarksCommandThatNeverRan(t *testing.T) {
+	dir := t.TempDir()
+	// A binary that does not exist, and an empty command string: neither ran,
+	// so neither may be recorded as passing.
+	_, codes := CaptureTestResults(dir, []string{"definitely-not-a-real-binary-xyz", ""})
+	if len(codes) != 2 {
+		t.Fatalf("got %d exit codes; want 2 (one per configured command)", len(codes))
+	}
+	for i, c := range codes {
+		if c == 0 {
+			t.Errorf("command %d never ran but exit code = 0; want %d", i, ExitCodeNotRun)
+		}
+	}
+}

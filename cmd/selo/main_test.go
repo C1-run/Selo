@@ -2956,3 +2956,75 @@ func TestProcessOneTaskPreservesExistingBehaviorWithoutP45Contracts(t *testing.T
 	}
 	t.Logf("PASS: Existing behavior preserved, no P45 slip written, verdict=%v", rec["final_verdict"])
 }
+
+func boolPtr(b bool) *bool { return &b }
+
+// TestRequireTestsPassOverrideGate covers the opt-in gate in isolation.
+func TestRequireTestsPassOverrideGate(t *testing.T) {
+	cases := []struct {
+		name      string
+		current   string
+		enabled   bool
+		testsOK   *bool
+		codes     []int
+		passed    int
+		wantVerd  string
+		wantFired bool
+	}{
+		{"off by default leaves verdict alone", "SUCCESS_WITH_RECEIPT", false, boolPtr(false), []int{1}, 0, "", false},
+		{"no commands configured asserts nothing", "SUCCESS_WITH_RECEIPT", true, nil, nil, 0, "", false},
+		{"all commands passed", "SUCCESS_WITH_RECEIPT", true, boolPtr(true), []int{0}, 1, "", false},
+		{"failing command fires the gate", "SUCCESS_WITH_RECEIPT", true, boolPtr(false), []int{0, 1}, 1, verdictFailedTests, true},
+		{"already more severe is left alone", "FAILED_SAFETY", true, boolPtr(false), []int{1}, 0, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := requireTestsPassOverride(tc.current, tc.enabled, tc.testsOK, tc.codes, tc.passed)
+			if got != tc.wantVerd {
+				t.Fatalf("verdict = %q; want %q", got, tc.wantVerd)
+			}
+			if fired := reason != ""; fired != tc.wantFired {
+				t.Fatalf("fired = %v (reason %q); want %v", fired, reason, tc.wantFired)
+			}
+		})
+	}
+}
+
+// TestReceiptRecordsTestsOKFromExitCodes is the regression guard for the report
+// that --commands "false" produced SUCCESS_WITH_RECEIPT with scans_passed=true
+// and no indication that the configured test command had failed. The verdict
+// still keys off the agent's exit code by default, but the receipt must now say
+// what the test commands actually did.
+func TestReceiptRecordsTestsOKFromExitCodes(t *testing.T) {
+	t.Run("failing command", func(t *testing.T) {
+		baseDir, cleanup := setupTestDir(t)
+		defer cleanup()
+
+		rec := runExternalTaskWithOpts(t, baseDir, "tests-fail", "Failing test command", "NOOP", "", []string{"false"}, nil, false)
+
+		if got, ok := rec["tests_ok"]; !ok || got != false {
+			t.Errorf("tests_ok = %v (present=%v); want false — the configured command exited non-zero", got, ok)
+		}
+		codes, _ := rec["test_exit_codes"].([]interface{})
+		if len(codes) != 1 {
+			t.Fatalf("test_exit_codes = %v; want 1 entry", rec["test_exit_codes"])
+		}
+		if n, _ := codes[0].(float64); n == 0 {
+			t.Errorf("test_exit_codes[0] = %v; want non-zero", codes[0])
+		}
+	})
+
+	t.Run("passing command", func(t *testing.T) {
+		baseDir, cleanup := setupTestDir(t)
+		defer cleanup()
+
+		rec := runExternalTaskWithOpts(t, baseDir, "tests-pass", "Passing test command", "NOOP", "", []string{"true"}, nil, false)
+
+		if got := rec["tests_ok"]; got != true {
+			t.Errorf("tests_ok = %v; want true", got)
+		}
+		if got := rec["tests_passed"]; got != float64(1) {
+			t.Errorf("tests_passed = %v; want 1", got)
+		}
+	})
+}

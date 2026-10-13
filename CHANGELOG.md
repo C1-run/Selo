@@ -6,6 +6,41 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.5] — 2026-10-13
+
+### Fixed
+- **A receipt could say SUCCESS while every configured test command had failed,
+  with nothing on the receipt to show it.** The verdict keys off the *agent's*
+  exit code, so `--commands "false"` produced `SUCCESS_WITH_RECEIPT` with
+  `scans_passed: true` and a gatechain of `pass`, even though the signed
+  `test_output` recorded `[exit code: 1]`. Worse, the field that was supposed to
+  describe tests — `tests_passed` — was computed by counting output lines
+  containing the substring `PASS` or starting with `ok `, which was wrong in both
+  directions: it reported **3 tests passed** for a command that had exited
+  non-zero (its output merely contained `PASSWORD`), and it reported **nothing at
+  all** for pytest, whose output is lowercase `1 passed`. Test results are now
+  derived from **exit codes**:
+  - `tests_ok` (new) — `true` only when every configured command exited 0,
+    `false` when one did not, and **absent** when no command was configured
+    (there is then nothing to assert, rather than a vacuous "passed").
+  - `test_exit_codes` (new) — each command's exit code, in order; `-1` means the
+    command never ran.
+  - `tests_passed` is now the number of configured commands that exited 0,
+    instead of a substring count.
+  - `scans_passed` is unchanged and is now documented as what it always was:
+    the **safety** scans (forbidden files, forbidden claims, secret scan), not a
+    statement about tests.
+
+### Added
+- **`--require-tests-pass`** (and the config key `forge.require_tests_pass`):
+  opt-in gate that overrides the verdict to `FAILED_TESTS` when any configured
+  command exits non-zero. **Off by default**, so existing verdict semantics are
+  unchanged — switching it on by default would silently rewrite what every
+  already-issued `SUCCESS_WITH_RECEIPT` means. `selo run` already exits 1 on any
+  `FAILED*` verdict.
+- README section "What the receipt says about tests", spelling out the
+  `scans_passed` vs `tests_ok` distinction for compliance readers.
+
 ## [0.6.4] — 2026-10-13
 
 ### Fixed

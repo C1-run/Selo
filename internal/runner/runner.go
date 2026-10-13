@@ -334,12 +334,38 @@ func CaptureBaseCommit(workDir string) string {
 }
 
 // CaptureTestOutput runs a test command and captures the result.
+// ExitCodeNotRun is recorded for a configured command that never ran (an empty
+// command string, or a binary that could not be started). It is deliberately not
+// 0, so a command that did not run can never be counted as passing.
+const ExitCodeNotRun = -1
+
+// CaptureTestOutput runs each configured command in workDir and returns the
+// combined output. It discards exit codes; use CaptureTestResults whenever the
+// caller needs to know whether the commands actually passed.
 func CaptureTestOutput(workDir string, commands []string) string {
+	out, _ := CaptureTestResults(workDir, commands)
+	return out
+}
+
+// CaptureTestResults runs each configured command in workDir and returns the
+// combined output plus the exit code of every command, in the same order as the
+// commands slice.
+//
+// Pass/fail is decided from the exit status, never from parsing output text. An
+// earlier version counted output lines containing "PASS" or starting with "ok ",
+// which reported "3 tests passed" for a command that had exited non-zero, and
+// reported nothing at all for pytest's lowercase "1 passed" — so the field was
+// wrong in both directions on a receipt whose whole purpose is to be honest.
+func CaptureTestResults(workDir string, commands []string) (string, []int) {
 	var all bytes.Buffer
+	codes := make([]int, 0, len(commands))
 	for _, cmdStr := range commands {
 		all.WriteString(fmt.Sprintf("$ %s\n", cmdStr))
 		parts := strings.Fields(cmdStr)
 		if len(parts) == 0 {
+			// Nothing to execute: record it rather than dropping it, so the
+			// codes stay aligned with the configured commands.
+			codes = append(codes, ExitCodeNotRun)
 			continue
 		}
 		cmd := exec.Command(parts[0], parts[1:]...)
@@ -348,13 +374,18 @@ func CaptureTestOutput(workDir string, commands []string) string {
 		all.Write(out)
 		if err != nil {
 			if cmd.ProcessState != nil {
-				all.WriteString(fmt.Sprintf("\n[exit code: %d]\n", cmd.ProcessState.ExitCode()))
+				code := cmd.ProcessState.ExitCode()
+				codes = append(codes, code)
+				all.WriteString(fmt.Sprintf("\n[exit code: %d]\n", code))
 			} else {
+				codes = append(codes, ExitCodeNotRun)
 				all.WriteString(fmt.Sprintf("\n[error: %v]\n", err))
 			}
+			continue
 		}
+		codes = append(codes, 0)
 	}
-	return all.String()
+	return all.String(), codes
 }
 
 // RunForbiddenClaimsScan checks for forbidden terms in the worktree.

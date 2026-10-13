@@ -68,8 +68,23 @@ type ForgeReceipt struct {
 	DiffHash                 string   `json:"diff_hash,omitempty"`
 	PolicyHash               string   `json:"policy_hash,omitempty"`
 	SeloVersion              string   `json:"selo_version,omitempty"`
-	TestsPassed              int      `json:"tests_passed,omitempty"`
-	ScansPassed              bool     `json:"scans_passed"`
+	// TestsPassed is the number of configured commands that exited 0. It is
+	// derived from exit codes. (It used to count output lines containing "PASS"
+	// or starting with "ok ", which was wrong in both directions.)
+	TestsPassed int `json:"tests_passed,omitempty"`
+	// TestsOK is nil when no test command was configured — there is then nothing
+	// to assert, and the field is absent rather than making a claim. Otherwise it
+	// is true only when every configured command exited 0. The pointer is
+	// deliberate: a plain bool with omitempty would drop a genuine false from the
+	// JSON, which is precisely the ambiguity this field removes.
+	TestsOK *bool `json:"tests_ok,omitempty"`
+	// TestExitCodes records the exit code of every configured command, in order.
+	// -1 (runner.ExitCodeNotRun) means the command never ran.
+	TestExitCodes []int `json:"test_exit_codes,omitempty"`
+	// ScansPassed reports the SAFETY scans only: forbidden files, forbidden
+	// claims, and the secret scan. It says nothing about whether the configured
+	// test commands passed — read tests_ok / test_exit_codes for that.
+	ScansPassed bool `json:"scans_passed"`
 	C1LoopReceiptPath        string   `json:"c1_loop_receipt_path,omitempty"`
 	ForgeReceiptPath         string   `json:"forge_receipt_path,omitempty"`
 	PinocchioVerified        bool     `json:"pinocchio_verified"`
