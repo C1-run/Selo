@@ -40,6 +40,19 @@ forge:
     - "SOC2_COMPLIANT"
     - "SECURE_BY_DESIGN"
 
+  # Require the configured test commands to pass. When true, a command that
+  # exits non-zero overrides the verdict to FAILED_TESTS.
+  #
+  # This is OFF by default in Selo itself (see docs/releases/v0.6.5.md), and
+  # turning it on CHANGES WHAT SUCCESS_WITH_RECEIPT MEANS: afterwards SUCCESS
+  # implies the test commands passed, where by default it only means the agent's
+  # run was not rejected (the receipt records tests_ok / test_exit_codes either
+  # way, and can say SUCCESS with a red suite).
+  #
+  # This EXAMPLE sets it to true because CI is exactly where a red suite should
+  # block the merge. Delete it (or set false) to keep Selo's default.
+  require_tests_pass: true
+
   # Runner configuration
   runner:
     # mode: "mock" (placeholder echo), "real" (configured command), or

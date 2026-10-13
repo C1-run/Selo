@@ -6,6 +6,18 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.6] — 2026-10-13
+
+### Changed
+- **Documentation now recommends `--require-tests-pass` for CI**, and
+  `config/selo.example.yaml` sets `require_tests_pass: true` as the
+  CI-appropriate example. This is guidance and example config only — **Selo's own
+  default is still off**, so no existing run changes meaning. Both places state
+  the trade-off explicitly: with the gate on, `SUCCESS_WITH_RECEIPT` implies every
+  configured command exited 0; with it off, SUCCESS means only that the agent's
+  run was not rejected, and the receipt can say SUCCESS while the suite is red
+  (recording `tests_ok: false`). Full rationale: `docs/releases/v0.6.5.md`.
+
 ## [0.6.5] — 2026-10-13
 
 ### Fixed

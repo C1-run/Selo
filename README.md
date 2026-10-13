@@ -142,6 +142,24 @@ permissions or tokens needed:
 The card always shows the receipt's integrity state. Anyone can reproduce the
 check with `selo verify <receipt.json>`.
 
+**If you configure test commands in CI, turn on the gate.** By default the verdict
+keys off the *agent's* exit code, so a red suite still yields
+`SUCCESS_WITH_RECEIPT` (the receipt records `tests_ok: false`, but the job passes):
+
+```bash
+./selo run "Add feature X" \
+  --commands "go test ./..." \
+  --require-tests-pass
+```
+
+> ⚠️ **This changes what `SUCCESS_WITH_RECEIPT` means.** With the gate on, SUCCESS
+> implies every configured command exited 0, and a failing suite overrides the
+> verdict to `FAILED_TESTS` (which `selo run` exits 1 on). With it off, SUCCESS
+> means only that the agent's run was not rejected — the suite may be red. Both
+> are honest; they answer different questions. Pick one deliberately and say so
+> in your runbook. See
+> [docs/releases/v0.6.5.md](docs/releases/v0.6.5.md).
+
 <details>
 <summary><strong>OpenCode integration</strong></summary>
 
