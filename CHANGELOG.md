@@ -6,6 +6,25 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-10-13
+
+### Fixed
+- **Daemon / c1loop / anchor tests no longer flake under full-suite load**
+  (test-only — no shipped binary behavior changed). Every `TestC1Loop*`,
+  `TestDaemon*`, `TestRealRun*` and P45 test shared a single global fixture git
+  repo at `/tmp/selo-fixture` and ran `git worktree add` with **fixed branch
+  names** (`selo/c1-noop`, `selo/real-noop`, …). Registered-worktree metadata left
+  behind by a prior run on the shared repo made the next test's `git worktree add`
+  fail, producing an intermittent `FAILED_INTERNAL_ERROR` ~0.25s in with no
+  `Preparing worktree` log line. The misleading `anchor failed … not a git
+  repository` non-fatal error (from anchoring the test's *non-repo* queue dir)
+  obscured the real cause during diagnosis. Each test now creates its own isolated
+  fixture repo under `t.TempDir()` so git state — branches, registered worktrees,
+  the receipt-anchor branch — cannot leak between tests, and the best-effort anchor
+  is disabled in the daemon E2E harness (still covered by
+  `internal/receipt/anchor_test.go` against a real repository). The full `cmd/selo`
+  suite passes 74/74 three consecutive times.
+
 ## [0.6.1] — 2026-10-13
 
 ### Fixed

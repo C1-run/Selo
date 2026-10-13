@@ -28,12 +28,13 @@ const FixtureRepoPath = "/tmp/selo-fixture"
 
 func setupTestDir(t *testing.T) (string, func()) {
 	t.Helper()
-	// The real-run tests operate on a fixture git repo. It used to be assumed
-	// to already exist at /tmp/selo-fixture, which was true on one machine and
-	// nowhere else: on a clean checkout every TestC1Loop* test failed with
-	// FAILED_INTERNAL_ERROR because the loop could not create a worktree from a
-	// repo that was not there. Create it here so the suite is self-contained.
-	ensureFixtureRepo(t)
+	// The daemon E2E tests run against a queue directory that is NOT a git
+	// repository, so the best-effort receipt anchor has nothing to anchor to.
+	// Disable it here: anchoring against a non-repo only ever produced a
+	// misleading "not a git repository" non-fatal error and obscured the real
+	// cause of the daemon flakes. The anchor itself is covered by
+	// internal/receipt/anchor_test.go against a real repository.
+	t.Setenv("SELO_DISABLE_ANCHOR", "1")
 	dir, err := os.MkdirTemp("", "selo-test-*")
 	if err != nil {
 		t.Fatalf("TempDir: %v", err)
@@ -93,7 +94,10 @@ func TestRealRunNoopTask(t *testing.T) {
 	dir, cleanup := setupTestDir(t)
 	defer cleanup()
 
-	writeTask(t, dir, "real-noop", "No-op real run", "Do nothing, succeed", FixtureRepoPath, nil, nil, nil, 1, false)
+	fx := filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fx)
+
+	writeTask(t, dir, "real-noop", "No-op real run", "Do nothing, succeed", fx, nil, nil, nil, 1, false)
 
 	qm := queue.NewQueueManager(dir)
 	rw := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())
@@ -129,8 +133,11 @@ func TestRealRunDocsPatchTask(t *testing.T) {
 	dir, cleanup := setupTestDir(t)
 	defer cleanup()
 
+	fx := filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fx)
+
 	// This task simulates making a docs patch by using mock mode
-	writeTask(t, dir, "real-docs", "Docs patch", "Add README.md", FixtureRepoPath, []string{"touch README.md"}, nil, nil, 1, false)
+	writeTask(t, dir, "real-docs", "Docs patch", "Add README.md", fx, []string{"touch README.md"}, nil, nil, 1, false)
 
 	qm := queue.NewQueueManager(dir)
 	rw := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())
@@ -154,8 +161,11 @@ func TestRealRunTestCommand(t *testing.T) {
 	dir, cleanup := setupTestDir(t)
 	defer cleanup()
 
+	fx := filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fx)
+
 	// Use a real test command on the fixture repo
-	writeTask(t, dir, "real-test", "Run fixture tests", "Run tests on fixture", FixtureRepoPath,
+	writeTask(t, dir, "real-test", "Run fixture tests", "Run tests on fixture", fx,
 		[]string{"go test ./..."}, nil, nil, 1, false)
 
 	qm := queue.NewQueueManager(dir)
@@ -224,10 +234,11 @@ func runExternalTask(t *testing.T, baseDir, taskID, title, goal, fixtureRepo str
 func runExternalTaskWithOpts(t *testing.T, baseDir, taskID, title, goal, fixtureRepo string, cmds, forbiddenFiles []string, allowTestMods bool) map[string]interface{} {
 	t.Helper()
 
-	// The fixture repo lives in /tmp and periodic temp cleaners remove it;
-	// every task run depends on it, so make sure it exists (and has a commit)
-	// instead of relying on another test having created it first.
-	ensureFixtureRepo(t)
+	// Give every task its own isolated fixture git repo so git state (branches,
+	// registered worktrees, the receipt-anchor branch) cannot leak between tests.
+	// This is the root-cause fix for the intermittent daemon/c1loop/anchor flakes.
+	fixtureRepo = filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fixtureRepo)
 
 	_ = os.RemoveAll(filepath.Join(baseDir, "worktrees"))
 	_ = os.RemoveAll(filepath.Join(baseDir, "queue"))
@@ -274,6 +285,10 @@ func runExternalTaskWithOpts(t *testing.T, baseDir, taskID, title, goal, fixture
 // test files as part of its workflow; the test integrity gate is tested separately.
 func runC1LoopTask(t *testing.T, baseDir, taskID, title, goal, fixtureRepo string, cmds, forbiddenFiles []string) map[string]interface{} {
 	t.Helper()
+
+	// Isolated fixture repo per test (see runExternalTaskWithOpts for rationale).
+	fixtureRepo = filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fixtureRepo)
 
 	_ = os.RemoveAll(filepath.Join(baseDir, "worktrees"))
 	_ = os.RemoveAll(filepath.Join(baseDir, "queue"))
@@ -2788,42 +2803,55 @@ func writeFixtureJSON(t *testing.T, dir, name string, v interface{}) {
 	}
 }
 
-// ensureFixtureRepo creates the test fixture repo at FixtureRepoPath if it
-// does not already exist. This ensures P45 tests (and other tests) are
-// self-contained and do not depend on a prior smoke test run.
-func ensureFixtureRepo(t *testing.T) {
+// ensureFixtureRepoAt creates a disposable fixture git repo at path if it does
+// not already exist as a git repository. Tests that run real external agents now
+// each use their own isolated fixture repo (created under t.TempDir) so that git
+// state — branches, registered worktrees, the receipt-anchor branch — cannot leak
+// from one test into another. The previous design shared a single global
+// /tmp/selo-fixture across every daemon/c1loop/anchor test, which caused
+// intermittent wrong-verdict / "not a git repository" flakes under full-suite load.
+func ensureFixtureRepoAt(t *testing.T, path string) {
 	t.Helper()
-	if _, err := os.Stat(FixtureRepoPath); err == nil {
+	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
 		return
 	}
-	os.MkdirAll(FixtureRepoPath, 0755)
-	os.MkdirAll(filepath.Join(FixtureRepoPath, "src"), 0755)
+	os.MkdirAll(path, 0755)
+	os.MkdirAll(filepath.Join(path, "src"), 0755)
 	for _, args := range [][]string{
-		{"git", "init", FixtureRepoPath},
-		{"git", "-C", FixtureRepoPath, "config", "user.email", "test@selo.local"},
-		{"git", "-C", FixtureRepoPath, "config", "user.name", "Selo Test"},
+		{"git", "init", path},
+		{"git", "-C", path, "config", "user.email", "test@selo.local"},
+		{"git", "-C", path, "config", "user.name", "Selo Test"},
 	} {
 		if err := exec.Command(args[0], args[1:]...).Run(); err != nil {
-			t.Fatalf("git init fixture repo: %v", err)
+			t.Fatalf("git init fixture repo at %s: %v", path, err)
 		}
 	}
-	os.WriteFile(filepath.Join(FixtureRepoPath, "README.md"), []byte("# Fixture Repo\n"), 0644)
-	os.WriteFile(filepath.Join(FixtureRepoPath, "go.mod"), []byte("module example.com/math\n\ngo 1.21\n"), 0644)
-	os.WriteFile(filepath.Join(FixtureRepoPath, "src", "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644)
-	os.WriteFile(filepath.Join(FixtureRepoPath, "src", "main_test.go"), []byte("package main\n\nimport \"testing\"\n\nfunc TestPass(t *testing.T) {\n\tt.Log(\"passing\")\n}\n"), 0644)
-	exec.Command("git", "-C", FixtureRepoPath, "add", ".").Run()
-	exec.Command("git", "-C", FixtureRepoPath, "commit", "-m", "initial").Run()
+	os.WriteFile(filepath.Join(path, "README.md"), []byte("# Fixture Repo\n"), 0644)
+	os.WriteFile(filepath.Join(path, "go.mod"), []byte("module example.com/math\n\ngo 1.21\n"), 0644)
+	os.WriteFile(filepath.Join(path, "src", "main.go"), []byte("package main\n\nfunc main() {}\n"), 0644)
+	os.WriteFile(filepath.Join(path, "src", "main_test.go"), []byte("package main\n\nimport \"testing\"\n\nfunc TestPass(t *testing.T) {\n\tt.Log(\"passing\")\n}\n"), 0644)
+	exec.Command("git", "-C", path, "add", ".").Run()
+	exec.Command("git", "-C", path, "commit", "-m", "initial").Run()
+}
+
+// ensureFixtureRepo keeps backward compatibility for the few tests that still
+// reference the legacy shared global path directly.
+func ensureFixtureRepo(t *testing.T) {
+	ensureFixtureRepoAt(t, FixtureRepoPath)
 }
 
 // TestProcessOneTaskStopsOnP45ScopeViolation verifies that when P45 contracts
 // exist and the runner changes a forbidden file, the daemon writes P45_SLIP.md
 // and stops the task before normal completion.
 func TestProcessOneTaskStopsOnP45ScopeViolation(t *testing.T) {
-	ensureFixtureRepo(t)
 	baseDir, cleanup := setupTestDir(t)
 	defer cleanup()
 
 	taskID := "p45-violation"
+
+	// Isolated fixture repo per test.
+	fx := filepath.Join(t.TempDir(), "fixture-repo")
+	ensureFixtureRepoAt(t, fx)
 
 	// Create P45 contracts before task runs
 	contractsDir := p45.ContractsDir(filepath.Join(baseDir, "runs"), taskID)
@@ -2835,13 +2863,13 @@ func TestProcessOneTaskStopsOnP45ScopeViolation(t *testing.T) {
 	// receipt is written (P45 scope violation returns before receipt).
 	_ = os.RemoveAll(filepath.Join(baseDir, "worktrees"))
 	_ = os.RemoveAll(filepath.Join(baseDir, "queue"))
-	cleanupStaleBranches(t, FixtureRepoPath)
+	cleanupStaleBranches(t, fx)
 
 	for _, d := range []string{"queue/pending", "queue/running", "queue/done", "queue/failed", "queue/review", "receipts", "runs", "worktrees", "config"} {
 		os.MkdirAll(filepath.Join(baseDir, d), 0755)
 	}
 
-	writeTask(t, baseDir, taskID, "P45 scope violation", "FORBIDDEN_FILE", FixtureRepoPath, nil, nil, nil, 1, false)
+	writeTask(t, baseDir, taskID, "P45 scope violation", "FORBIDDEN_FILE", fx, nil, nil, nil, 1, false)
 
 	qm := queue.NewQueueManager(baseDir)
 	rw := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())
@@ -2891,7 +2919,6 @@ func TestProcessOneTaskStopsOnP45ScopeViolation(t *testing.T) {
 // TestProcessOneTaskPreservesExistingBehaviorWithoutP45Contracts verifies that
 // when no P45 contracts exist, the daemon behavior is completely unchanged.
 func TestProcessOneTaskPreservesExistingBehaviorWithoutP45Contracts(t *testing.T) {
-	ensureFixtureRepo(t)
 	baseDir, cleanup := setupTestDir(t)
 	defer cleanup()
 
