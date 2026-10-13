@@ -6,6 +6,8 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-10-13
+
 ### Fixed
 - **Task-file sections leaked into each other, so forbidden files were executed
   as test commands.** `ParseTaskConfig` treated its section flags as sticky: a
