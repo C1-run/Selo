@@ -6,6 +6,18 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+### Fixed
+- **Task-file sections leaked into each other, so forbidden files were executed
+  as test commands.** `ParseTaskConfig` treated its section flags as sticky: a
+  `forbidden_files:` header closed `allowed_files:` but not `commands:`, so every
+  forbidden path was also appended to the list of commands and then run. With the
+  task layout shown in the spec (`commands:` before `forbidden_files:`) this
+  always happened, and the resulting `$ README.md … executable file not found`
+  line was recorded in the signed `test_output` field. The safety scan itself was
+  unaffected — the forbidden-file check still fired correctly — but a signed field
+  contained commands that were never configured. Each section header now opens
+  exactly one list and closes all others.
+
 ## [0.6.0] — 2026-10-10
 
 ### Security

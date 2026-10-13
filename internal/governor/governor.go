@@ -105,22 +105,36 @@ func ParseTaskConfig(taskPath string) (int, int, int, int, []string, []string, [
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
+		// A section header opens exactly one list and closes every other one.
+		// Leaving a previous section open merges two unrelated lists: with the
+		// documented task layout (commands: then forbidden_files:) the forbidden
+		// paths were also appended to commands and then executed as test
+		// commands (ParseTaskConfig bug, fixed 2026-10-13).
 		if trimmed == "commands:" || trimmed == "commands_to_run:" {
 			inCommands = true
+			inAllowed = false
+			inForbidden = false
+			inForbiddenClaims = false
 			continue
 		}
 		if trimmed == "allowed_files:" {
 			inAllowed = true
 			inCommands = false
+			inForbidden = false
+			inForbiddenClaims = false
 			continue
 		}
 		if trimmed == "forbidden_files:" {
 			inForbidden = true
+			inCommands = false
 			inAllowed = false
+			inForbiddenClaims = false
 			continue
 		}
 		if trimmed == "forbidden_claims:" {
 			inForbiddenClaims = true
+			inCommands = false
+			inAllowed = false
 			inForbidden = false
 			continue
 		}
