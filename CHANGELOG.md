@@ -6,6 +6,19 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.4] — 2026-10-13
+
+### Fixed
+- **The shipped example receipt did not verify.** `samples/receipt-example.json`
+  failed `selo verify` with `Hash: MISMATCH / Signature: INVALID`, so the project's
+  own published sample was not verifiable — a bad look for a tool whose whole claim
+  is that a receipt can be checked by a third party. It was also generated *before*
+  the v0.6.1 parser fix, so its signed `test_output` still contained the leaked
+  forbidden file (`$ README.md … executable file not found`), i.e. it advertised the
+  very bug v0.6.1 fixed. Replaced with a freshly generated receipt from the v0.6.3
+  binary: `SUCCESS_WITH_RECEIPT`, `runner_mode: real`, tests passing, no safety hits,
+  and `selo verify` reports `VALID` (Hash / Signature / Anchor OK, Provenance PINNED).
+
 ## [0.6.3] — 2026-10-13
 
 ### Fixed
