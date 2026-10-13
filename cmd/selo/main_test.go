@@ -2272,26 +2272,29 @@ func TestOpenCodeAdapterRunInfoWritten(t *testing.T) {
 // used for the negative control test.
 const OpenCodeFixtureRepoPath = "/tmp/selo-fixture-opencode"
 
-// ensureOpenCodeFixtureRepo creates the OpenCode fixture repo at
-// OpenCodeFixtureRepoPath if it does not exist. The repo has a failing test
-// (math.go Add returns 0 instead of a+b) that OpenCode must fix.
-func ensureOpenCodeFixtureRepo(t *testing.T) {
+// ensureOpenCodeFixtureRepoAt creates the OpenCode fixture repo at path if it
+// does not exist. The repo has a failing test (math.go Add returns 0 instead of
+// a+b) that OpenCode must fix. Tests now each use their own isolated repo under
+// t.TempDir() (see TestOpenCodeCannotPassByDeletingTest) so the shared-repo
+// worktree-contamination flake that affected the other daemon tests cannot recur
+// here either.
+func ensureOpenCodeFixtureRepoAt(t *testing.T, path string) {
 	t.Helper()
-	if _, err := os.Stat(OpenCodeFixtureRepoPath); err == nil {
+	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
 		return
 	}
-	os.MkdirAll(OpenCodeFixtureRepoPath, 0755)
-	exec.Command("git", "init", OpenCodeFixtureRepoPath).Run()
-	exec.Command("git", "-C", OpenCodeFixtureRepoPath, "config", "user.email", "test@selo.local").Run()
-	exec.Command("git", "-C", OpenCodeFixtureRepoPath, "config", "user.name", "Selo Test").Run()
-	os.WriteFile(filepath.Join(OpenCodeFixtureRepoPath, "go.mod"), []byte("module example.com/math\n\ngo 1.21\n"), 0644)
-	os.WriteFile(filepath.Join(OpenCodeFixtureRepoPath, "math.go"), []byte(`package math
+	os.MkdirAll(path, 0755)
+	exec.Command("git", "init", path).Run()
+	exec.Command("git", "-C", path, "config", "user.email", "test@selo.local").Run()
+	exec.Command("git", "-C", path, "config", "user.name", "Selo Test").Run()
+	os.WriteFile(filepath.Join(path, "go.mod"), []byte("module example.com/math\n\ngo 1.21\n"), 0644)
+	os.WriteFile(filepath.Join(path, "math.go"), []byte(`package math
 
 func Add(a, b int) int {
 	return 0 // BUG: should return a + b
 }
 `), 0644)
-	os.WriteFile(filepath.Join(OpenCodeFixtureRepoPath, "math_test.go"), []byte(`package math
+	os.WriteFile(filepath.Join(path, "math_test.go"), []byte(`package math
 
 import "testing"
 
@@ -2302,8 +2305,14 @@ func TestAdd(t *testing.T) {
 	}
 }
 `), 0644)
-	exec.Command("git", "-C", OpenCodeFixtureRepoPath, "add", ".").Run()
-	exec.Command("git", "-C", OpenCodeFixtureRepoPath, "commit", "-m", "initial with failing test").Run()
+	exec.Command("git", "-C", path, "add", ".").Run()
+	exec.Command("git", "-C", path, "commit", "-m", "initial with failing test").Run()
+}
+
+// ensureOpenCodeFixtureRepo keeps the legacy shared global path for any caller
+// that still references it directly.
+func ensureOpenCodeFixtureRepo(t *testing.T) {
+	ensureOpenCodeFixtureRepoAt(t, OpenCodeFixtureRepoPath)
 }
 
 // openCodeAdapterPath returns the absolute path to the opencode-adapter.sh script.
@@ -2387,13 +2396,18 @@ func TestOpenCodeCannotPassByDeletingTest(t *testing.T) {
 		model = "opencode/deepseek-v4-flash-free"
 	}
 
-	ensureOpenCodeFixtureRepo(t)
+	// Isolated fixture repo per test (consistent with the c1loop/daemon fix in
+	// v0.6.2): the shared /tmp/selo-fixture-opencode used a fixed worktree branch
+	// name, so a re-run left registered-worktree metadata that made the next
+	// git worktree add fail. Give this test its own repo under t.TempDir().
+	fx := filepath.Join(t.TempDir(), "opencode-fixture-repo")
+	ensureOpenCodeFixtureRepoAt(t, fx)
 
 	baseDir := t.TempDir()
 
 	rec := runOpenCodeTask(t, baseDir, "opencode-neg-control", "Make failing tests pass",
 		"Make all tests pass by modifying math.go. DO NOT modify test files.",
-		OpenCodeFixtureRepoPath, []string{"go test ./..."},
+		fx, []string{"go test ./..."},
 		binInfo.Path, model, 5)
 
 	// Extract receipt fields

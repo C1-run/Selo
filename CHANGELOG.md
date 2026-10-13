@@ -6,6 +6,21 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.3] — 2026-10-13
+
+### Fixed
+- **The OpenCode negative-control test no longer shares a global fixture repo.**
+  `TestOpenCodeCannotPassByDeletingTest` (gated behind `SELO_RUN_OPENCODE_E2E=1`)
+  used the shared `/tmp/selo-fixture-opencode` and ran `git worktree add` with the
+  fixed branch `selo/opencode-neg-control`. The other daemon/c1loop tests had the
+  same shared-repo worktree-contamination flake, fixed in v0.6.2; this test was
+  dormant in the default suite (it is skipped unless E2E mode is enabled) but would
+  have reintroduced the flake under load once E2E was turned on. It now builds its
+  own isolated fixture repo under `t.TempDir()` via a new parameterized
+  `ensureOpenCodeFixtureRepoAt`, matching the v0.6.2 pattern. The
+  `TestRealOpenCodeSoak*` tests already used hermetic fixtures and were never at
+  risk. Test-only change; no shipped binary behavior changed.
+
 ## [0.6.2] — 2026-10-13
 
 ### Fixed
