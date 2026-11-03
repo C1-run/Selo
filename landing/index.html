@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Selo | C1 — Safety-first task runner for AI coding agents</title>
+    <meta
+      name="description"
+      content="Selo wraps any AI coding agent, audits what it actually changed, and signs every outcome. Open source, Apache-2.0."
+    />
+    <style>
+      :root {
+        --bg-base: #020204;
+        --bg-surface: #07070b;
+        --bg-elevated: #0a0a0f;
+        --accent: #00d4ff;
+        --accent-rgb: 0, 212, 255;
+        --accent-glow: rgba(0, 212, 255, 0.2);
+        --accent-magenta: #ff007b;
+        --fg: #e8e8ee;
+        --fg-dim: #8a8a99;
+        --line: rgba(0, 212, 255, 0.14);
+        --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: var(--bg-base);
+        color: var(--fg);
+        font-family: var(--mono);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-shadow: 0 0 10px var(--accent-glow); }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+      nav {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 20px 0; border-bottom: 1px solid var(--line);
+      }
+      .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.2em; color: var(--fg); }
+      .brand em { color: var(--accent); font-style: normal; }
+      nav .links { display: flex; gap: 24px; font-size: 13px; }
+      nav .links a { color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+      nav .links a:hover { color: var(--accent); }
+      .hero {
+        position: relative; padding: 110px 0 90px; overflow: hidden;
+        border-bottom: 1px solid var(--line);
+      }
+      .hero .grid {
+        position: absolute; inset: 0; pointer-events: none;
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 44px 44px;
+        mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
+      }
+      .status {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 12px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.15em;
+        border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px;
+        background: rgba(0, 212, 255, 0.04);
+      }
+      .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+      h1 {
+        margin: 28px 0 20px; font-size: clamp(40px, 7vw, 76px);
+        line-height: 1.05; letter-spacing: -0.01em; font-weight: 800;
+      }
+      h1 .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); }
+      .sub { max-width: 640px; color: var(--fg-dim); font-size: 16px; margin-bottom: 34px; }
+      .cta { display: flex; gap: 14px; flex-wrap: wrap; }
+      .btn {
+        font-family: var(--mono); font-size: 14px; padding: 12px 22px;
+        border: 1px solid var(--line); border-radius: 6px; color: var(--fg);
+        background: var(--bg-elevated); cursor: pointer;
+      }
+      .btn.primary { background: rgba(0, 212, 255, 0.1); border-color: rgba(var(--accent-rgb), 0.5); color: var(--accent); }
+      .btn:hover { border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); }
+      section { padding: 70px 0; border-bottom: 1px solid var(--line); }
+      .kicker { font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 14px; }
+      h2 { font-size: clamp(24px, 3.5vw, 34px); margin-bottom: 24px; font-weight: 700; }
+      pre {
+        background: var(--bg-elevated); border: 1px solid var(--line); border-radius: 8px;
+        padding: 18px 20px; overflow-x: auto; font-size: 13px; margin: 14px 0;
+      }
+      pre .c { color: var(--fg-dim); }
+      pre .p { color: var(--accent); }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--fg-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; }
+      td:first-child { color: var(--fg); white-space: nowrap; }
+      td:last-child { color: var(--fg-dim); }
+      code { color: var(--accent); font-family: var(--mono); }
+      .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      @media (max-width: 760px) { .two { grid-template-columns: 1fr; } nav .links { display: none; } }
+      footer { padding: 34px 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--fg-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <a class="brand" href="/">SE<em>LO</em></a>
+        <div class="links">
+          <a href="#install">INSTALL</a>
+          <a href="#works">WHAT WORKS</a>
+          <a href="#verify">VERIFY</a>
+          <a href="https://github.com/C1-run/selo">GITHUB</a>
+        </div>
+        <a class="btn primary" href="https://github.com/C1-run/selo" style="font-size:13px;padding:8px 16px;">★ STAR</a>
+      </nav>
+    </div>
+
+    <div class="hero">
+      <div class="grid"></div>
+      <div class="wrap">
+        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.4</div>
+        <h1>
+          AGENT WORK,<br />
+          AUDITED AND<br />
+          <span class="accent">SIGNED.</span>
+        </h1>
+        <p class="sub">
+          Selo wraps any AI coding agent in a contained worktree, audits what it
+          actually changed, and produces an Ed25519-signed receipt for every
+          outcome. Not "the agent said it's done" — a verifiable record.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href="#install">GET STARTED</a>
+          <a class="btn" href="https://github.com/C1-run/selo">SOURCE ON GITHUB</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <section id="install">
+        <div class="kicker">// 01 — INSTALL</div>
+        <h2>From zero to a signed receipt</h2>
+        <pre><span class="c"># one-time install (or: go install github.com/C1-run/selo/cmd/selo@latest)</span>
+curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
+
+<span class="c"># make signatures attributable across runs</span>
+<span class="p">selo</span> keys generate
+
+<span class="c"># initialize a workspace and run a task through the pipeline</span>
+<span class="p">selo</span> init
+<span class="p">selo</span> run "fix the login bug"
+
+<span class="c"># read the verdict — always from the receipt, never from the agent</span>
+<span class="p">selo</span> receipt list
+<span class="p">selo</span> receipt show &lt;id&gt; --format github</pre>
+      </section>
+
+      <section id="works">
+        <div class="kicker">// 02 — WHAT WORKS</div>
+        <h2>No claims without code behind them</h2>
+        <table>
+          <tr><th>Capability</th><th>Status</th></tr>
+          <tr><td>Post-run audit</td><td>Forbidden file edits, claims, secrets, patch/round limits, test integrity — violations reject the task with a signed receipt.</td></tr>
+          <tr><td>permission_allowlist</td><td>Enforced as a post-run scope check (globs). Does not sandbox the agent process.</td></tr>
+          <tr><td>Signed receipts</td><td>Ed25519 over canonical JSON; <code>selo keys generate</code> makes signatures attributable across runs.</td></tr>
+          <tr><td>selo verify</td><td>Anyone can re-check a receipt's hash and signature — third-party verification is a one-liner.</td></tr>
+          <tr><td>Containment</td><td>Git worktree only. docker/local are refused, not silently degraded.</td></tr>
+          <tr><td>Real-time interception</td><td>Does not exist. The audit is post-execution only.</td></tr>
+        </table>
+      </section>
+
+      <section id="verify">
+        <div class="kicker">// 03 — WHERE DECISIONS HAPPEN</div>
+        <h2>The verdict, in the pull request</h2>
+        <div class="two">
+          <div>
+            <p style="color:var(--fg-dim); margin-bottom:14px;">
+              Post the receipt card into a GitHub Actions job summary — no token,
+              no marketplace. The card always shows the integrity state, so a
+              tampered receipt can never look clean.
+            </p>
+            <p style="color:var(--fg-dim);">
+              Running an MCP client? <code>selo mcp serve</code> exposes the real
+              checks — audit diffs and scan paths without a reimplementation.
+            </p>
+          </div>
+          <pre>## Selo receipt `c1f-…`
+
+**Verdict: `FAILED_SAFETY`** —
+integrity: hash ✅ signature ✅
+
+**Safety findings (1):**
+- forbidden file modified:
+  src/secret.rs</pre>
+        </div>
+      </section>
+
+      <section style="border-bottom:none;">
+        <div class="kicker">// 04 — THE HONEST PART</div>
+        <h2>Built by C1-run</h2>
+        <p style="color:var(--fg-dim); max-width:720px;">
+          Selo is maintained by <a href="https://github.com/C1-run">C1-run</a>
+          (<a href="mailto:team@c1.run">team@c1.run</a>). Every claim on this page
+          is checked against the code in the repository — read the
+          <a href="https://github.com/C1-run/selo#what-works-in-v02">What works table</a>
+          for the full list, including what does not exist yet.
+        </p>
+        <p style="color:var(--fg-dim); max-width:720px; margin-top:14px;">
+          C1 is the studio behind Selo. We also take scoped builds: one defined task,
+          one fixed price, and a signed receipt for every step — so you can check the
+          work yourself instead of taking our word for it.
+        </p>
+        <div class="cta" style="margin-top:22px;">
+          <a class="btn primary" href="https://c1.run/?panel=scope">SCOPE A BUILD WITH C1 →</a>
+        </div>
+      </section>
+
+      <footer>
+        <span>C1-RUN // SELO</span>
+        <a href="https://github.com/C1-run/selo">GITHUB</a>
+        <a href="https://c1.run">C1.RUN</a>
+        <span>APACHE-2.0</span>
+      </footer>
+    </div>
+  </body>
+</html>
