@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://selo.c1.run/sitemap.xml
