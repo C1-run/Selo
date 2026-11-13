@@ -290,6 +290,6 @@ documentation issue and an ordinary issue is fine.
 
 ## Supported versions
 
-`0.6.x` is the current supported line. It is an alpha: expect breaking changes,
+`0.7.x` is the current supported line. It is an alpha: expect breaking changes,
 incomplete checks, and behavior that moves between minor releases. Reports
 against anything older, or against a fork, are out of scope.
