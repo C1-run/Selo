@@ -6,9 +6,18 @@
     <title>Selo | C1 — Safety-first task runner for AI coding agents</title>
     <meta
       name="description"
-      content="Selo wraps any AI coding agent, audits what it actually changed, and signs every outcome. Open source, Apache-2.0."
+      content="Selo contains the agent's run, audits what it actually changed, and signs every outcome with a receipt anyone can verify. Open source, Apache-2.0."
     />
     <link rel="canonical" href="https://selo.c1.run/" />
+    <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Selo","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","license":"https://opensource.org/licenses/Apache-2.0","url":"https://selo.c1.run/","downloadUrl":"https://github.com/C1-run/Selo/releases","softwareVersion":"0.6","description":"Safety-first task runner for AI coding agents — contains the agent, audits the real diff, and signs every outcome with a verifiable receipt. Open source, Apache-2.0.","author":{"@type":"Organization","name":"C1-run","url":"https://github.com/C1-run"}}
+    </script>
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://selo.c1.run/" />
+    <meta property="og:title" content="Selo — agent work, audited and signed" />
+    <meta property="og:description" content="Selo contains the agent's run, audits what it actually changed, and signs every outcome with a receipt anyone can verify. Open source, Apache-2.0." />
+    <meta name="twitter:card" content="summary" />
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%23020204"/><text x="16" y="22" font-family="monospace" font-size="16" font-weight="bold" fill="%2300d4ff" text-anchor="middle">S</text></svg>' />
     <style>
       :root {
         --bg-base: #020204;
@@ -34,9 +43,15 @@
       a { color: var(--accent); text-decoration: none; }
       a:hover { text-shadow: 0 0 10px var(--accent-glow); }
       .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+      .navwrap {
+        position: sticky; top: 0; z-index: 50;
+        background: rgba(2, 2, 4, 0.72);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
       nav {
         display: flex; align-items: center; justify-content: space-between;
-        padding: 20px 0; border-bottom: 1px solid var(--line);
+        padding: 16px 0;
       }
       .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.2em; color: var(--fg); }
       .brand em { color: var(--accent); font-style: normal; }
@@ -62,6 +77,15 @@
         background: rgba(0, 212, 255, 0.04);
       }
       .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+      .tag { margin: -16px 0 30px; font-size: 15px; color: var(--fg); border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; letter-spacing: 0.02em; }
+      .tag span { color: var(--accent); }
+      .pipe { font-size: 12px; color: var(--fg-dim); margin: -14px 0 20px; letter-spacing: 0.06em; }
+      .pipe b { color: var(--accent); font-weight: 600; }
+      .demo { display: block; width: 100%; max-width: 760px; margin: 0 0 26px; border: 1px solid var(--line); border-radius: 8px; }
+      .agents { color: var(--fg-dim); margin-top: 16px; font-size: 13.5px; }
+      .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 44px; align-items: center; position: relative; }
+      .hero-receipt { margin: 0; font-size: 12.5px; box-shadow: 0 0 44px rgba(var(--accent-rgb), 0.08); background: var(--bg-elevated); overflow-x: auto; }
+      .cardnote { font-size: 10.5px; letter-spacing: 0.16em; color: var(--fg-dim); margin: 0 0 8px; }
       h1 {
         margin: 28px 0 20px; font-size: clamp(40px, 7vw, 76px);
         line-height: 1.05; letter-spacing: -0.01em; font-weight: 800;
@@ -73,6 +97,7 @@
         font-family: var(--mono); font-size: 14px; padding: 12px 22px;
         border: 1px solid var(--line); border-radius: 6px; color: var(--fg);
         background: var(--bg-elevated); cursor: pointer;
+        transition: border-color .15s ease, box-shadow .15s ease;
       }
       .btn.primary { background: rgba(0, 212, 255, 0.1); border-color: rgba(var(--accent-rgb), 0.5); color: var(--accent); }
       .btn:hover { border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); }
@@ -87,47 +112,96 @@
       pre .p { color: var(--accent); }
       table { width: 100%; border-collapse: collapse; font-size: 14px; }
       th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      th { color: var(--fg-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; }
+      th { color: var(--fg-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; border-bottom-color: rgba(var(--accent-rgb), 0.4); }
+      tr:nth-child(2n) td { background: rgba(0, 212, 255, 0.025); }
+      tr:hover td { background: rgba(var(--accent-rgb), 0.06); }
       td:first-child { color: var(--fg); white-space: nowrap; }
       td:last-child { color: var(--fg-dim); }
       code { color: var(--accent); font-family: var(--mono); }
+      p a, td a, li a { text-decoration: underline; text-underline-offset: 3px; }
+      a:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-      @media (max-width: 760px) { .two { grid-template-columns: 1fr; } nav .links { display: none; } }
+      .plans { margin-top: 24px; }
+      .card { background: var(--bg-surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; transition: border-color .15s ease; }
+      .card:hover { border-color: rgba(var(--accent-rgb), 0.35); }
+      .card ul { list-style: none; margin: 18px 0 22px; }
+      .card li { padding: 8px 0 8px 22px; position: relative; color: var(--fg-dim); font-size: 14px; border-bottom: 1px dashed rgba(0, 212, 255, 0.10); }
+      .card li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); }
+      .pro-card { border-color: rgba(var(--accent-rgb), 0.5); background: var(--bg-elevated); }
+      .plan-name { font-size: 12px; letter-spacing: 0.2em; color: var(--fg-dim); text-transform: uppercase; }
+      .plan-price { font-size: 34px; font-weight: 800; margin-top: 6px; }
+      .plan-price small { font-size: 13px; font-weight: 400; color: var(--fg-dim); letter-spacing: 0; }
+      .fineprint { margin-top: 14px; font-size: 11px; color: var(--fg-dim); letter-spacing: 0.04em; }
+      details { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-top: 10px; background: var(--bg-surface); }
+      details summary { cursor: pointer; color: var(--fg); font-size: 14px; }
+      details[open] summary { margin-bottom: 8px; }
+      details p { color: var(--fg-dim); font-size: 13.5px; }
+      html { scroll-behavior: smooth; }
+      @media (max-width: 760px) {
+        .two { grid-template-columns: 1fr; }
+        nav .links { gap: 14px; font-size: 11px; }
+        nav .links a { white-space: nowrap; }
+        td:first-child { white-space: normal; }
+        .hero-grid { grid-template-columns: 1fr; gap: 26px; }
+        section { padding: 52px 0; }
+        h1 { margin-top: 18px; }
+      }
       footer { padding: 34px 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--fg-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
     </style>
   </head>
   <body>
-    <div class="wrap">
+    <div class="navwrap">
+      <div class="wrap">
       <nav>
         <a class="brand" href="/">SE<em>LO</em></a>
         <div class="links">
           <a href="#install">INSTALL</a>
           <a href="#works">WHAT WORKS</a>
           <a href="#verify">VERIFY</a>
+          <a href="#pilot">TEAM PILOT</a>
           <a href="https://github.com/C1-run/selo">GITHUB</a>
         </div>
         <a class="btn primary" href="https://github.com/C1-run/selo" style="font-size:13px;padding:8px 16px;">★ STAR</a>
       </nav>
+      </div>
     </div>
 
+    <main>
     <div class="hero">
       <div class="grid"></div>
       <div class="wrap">
-        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.4</div>
+        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.6</div>
         <h1>
-          AGENT WORK,<br />
-          AUDITED AND<br />
-          <span class="accent">SIGNED.</span>
+          Your coding agent<br />
+          says it's done.<br />
+          <span class="accent">Check the receipt.</span>
         </h1>
         <p class="sub">
-          Selo wraps any AI coding agent in a contained worktree, audits what it
-          actually changed, and produces an Ed25519-signed receipt for every
-          outcome. Not "the agent said it's done" — a verifiable record.
+          Selo contains the agent's run in its own worktree, audits the real
+          diff, and hands you an Ed25519-signed receipt — pass or fail.
         </p>
+        <p class="tag">Don't trust the agent. <span>Verify the receipt.</span></p>
         <div class="cta">
           <a class="btn primary" href="#install">GET STARTED</a>
+          <a class="btn" href="#pilot">SEE THE TEAM PILOT</a>
           <a class="btn" href="https://github.com/C1-run/selo">SOURCE ON GITHUB</a>
         </div>
+        </div>
+        <p class="cardnote">REAL ENGINE OUTPUT — UNMODIFIED SANDBOXED PLAYTASK</p>
+        <pre class="hero-receipt">## Selo receipt `c1f-1794189543603029000`
+
+**Verdict: `FAILED_SAFETY`** —
+integrity: hash ✅ signature ✅
+
+**Safety findings (3):**
+- forbidden file modified: .env
+- SECURE_BY_DESIGN / BATTLE_TESTED:
+  src/summary.md:3
+
+**Check it yourself:**
+curl -fsSL https://selo.c1.run/playground-receipt.json -o r.json
+selo verify r.json --pubkey a7b14aa3c41d3298493db74fcf7fac7c59a55b80fa2d5f583b6b0ecaeccb7995
+→ Provenance: PINNED · Result: VALID</pre>
       </div>
     </div>
 
@@ -148,11 +222,13 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
 <span class="c"># read the verdict — always from the receipt, never from the agent</span>
 <span class="p">selo</span> receipt list
 <span class="p">selo</span> receipt show &lt;id&gt; --format github</pre>
+        <p class="agents">Works with any agent that can run a shell command — OpenCode and ZCode adapters ship in-repo. macOS and Linux binaries today; Windows builds from source.</p>
       </section>
 
       <section id="works">
         <div class="kicker">// 02 — WHAT WORKS</div>
         <h2>No claims without code behind them</h2>
+        <p class="pipe">contain → audit → sign → <b>verify</b></p>
         <table>
           <tr><th>Capability</th><th>Status</th></tr>
           <tr><td>Post-run audit</td><td>Forbidden file edits, claims, secrets, patch/round limits, test integrity — violations reject the task with a signed receipt.</td></tr>
@@ -161,15 +237,19 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
           <tr><td>selo verify</td><td>Anyone can re-check a receipt's hash and signature — third-party verification is a one-liner.</td></tr>
           <tr><td>Containment</td><td>Git worktree only. docker/local are refused, not silently degraded.</td></tr>
           <tr><td>Real-time interception</td><td>Does not exist. The audit is post-execution only.</td></tr>
+          <tr><td>Trusted timestamp</td><td><code>selo run --tsa</code> obtains an RFC3161 timestamp from an external authority — signing time cannot be back-dated (ADR-005).</td></tr>
+          <tr><td>Transparency log</td><td><code>selo run --rekor</code> publishes only the receipt hash to a Sigstore Rekor log; inclusion proofs verify with <code>selo verify</code> (ADR-006).</td></tr>
+          <tr><td>Separable signer</td><td>Key in file (default), OS keychain, or an external <code>command</code> signer. Only a non-extractable command key leaves the agent's trust domain — enforceable with <code>selo verify --require-keysource=command</code> (ADR-008).</td></tr>
+          <tr><td>Verifiable releases</td><td>Selo's own releases ship SLSA Build L3 provenance and a cosign keyless signature; <code>install.sh</code> verifies both and fails closed.</td></tr>
+          <tr><td>In-toto export</td><td><code>selo receipt export</code> re-signs a receipt as a DSSE-wrapped in-toto Statement v1 — verifiable with cosign or slsa-verifier, no Selo install required.</td></tr>
         </table>
       </section>
 
       <section id="verify">
-        <div class="kicker">// 03 — WHERE DECISIONS HAPPEN</div>
+        <div class="kicker">// 03 — VERIFY</div>
         <h2>The verdict, in the pull request</h2>
-        <div class="two">
-          <div>
-            <p style="color:var(--fg-dim); margin-bottom:14px;">
+        <img class="demo" src="https://raw.githubusercontent.com/C1-run/Selo/main/docs/demo.gif" alt="The engine's own demo from the repository: a forbidden-file edit is rejected with FAILED_SAFETY and the receipt verifies" loading="lazy" width="760" />
+        <p style="color:var(--fg-dim); margin-bottom:14px;">
               Post the receipt card into a GitHub Actions job summary — no token,
               no marketplace. The card always shows the integrity state, so a
               tampered receipt can never look clean.
@@ -178,44 +258,82 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
               Running an MCP client? <code>selo mcp serve</code> exposes the real
               checks — audit diffs and scan paths without a reimplementation.
             </p>
-          </div>
-          <pre>## Selo receipt `c1f-…`
-
-**Verdict: `FAILED_SAFETY`** —
-integrity: hash ✅ signature ✅
-
-**Safety findings (1):**
-- forbidden file modified:
-  src/secret.rs</pre>
-        </div>
       </section>
 
-      <section style="border-bottom:none;">
+      <section>
         <div class="kicker">// 04 — THE HONEST PART</div>
         <h2>Built by C1-run</h2>
         <p style="color:var(--fg-dim); max-width:720px;">
           Selo is maintained by <a href="https://github.com/C1-run">C1-run</a>
           (<a href="mailto:team@c1.run">team@c1.run</a>). Every claim on this page
           is checked against the code in the repository — read the
-          <a href="https://github.com/C1-run/selo#what-works-in-v02">What works table</a>
-          for the full list, including what does not exist yet.
+          <a href="https://github.com/C1-run/selo#what-works-in-v06">What works table</a>
+          for the full list, including what does not exist yet — plus the honest
+          <a href="https://github.com/C1-run/selo#why-not-selo">Why not Selo counterpoints</a>.
         </p>
         <p style="color:var(--fg-dim); max-width:720px; margin-top:14px;">
-          C1 is the studio behind Selo. We also take scoped builds: one defined task,
-          one fixed price, and a signed receipt for every step — so you can check the
-          work yourself instead of taking our word for it.
+          C1 is testing Selo with software agencies that deliver agent-assisted work
+          to clients. The pilot asks the client's technical approver to inspect the
+          receipt as part of a real handoff.
         </p>
-        <div class="cta" style="margin-top:22px;">
-          <a class="btn primary" href="https://c1.run/?panel=scope">SCOPE A BUILD WITH C1 →</a>
+      <section id="pilot" style="border-bottom:none;">
+        <div class="kicker">// 05 — PAID TEAM PILOT</div>
+        <h2>One repository. Two agent changes. A real client review.</h2>
+        <p style="color:var(--fg-dim); max-width:720px;">
+          A 14-day, one-repository pilot for software agencies using coding agents
+          on client work. C1 helps set up the existing Selo CLI in your own workflow;
+          your client's named technical approver reviews the receipt on up to two
+          agent-authored changes. The CLI remains free and open source.
+        </p>
+        <div class="two plans">
+          <div class="card">
+            <div class="plan-name">Free CLI</div>
+            <div class="plan-price">$0 <small>forever</small></div>
+            <ul>
+              <li>Every check: forbidden files, claims, secrets, limits, test integrity</li>
+              <li><code>selo verify</code> — third-party checkable</li>
+              <li>Ed25519 receipts, offline</li>
+              <li>SLSA-verified releases · cosign · TSA/Rekor options</li>
+              <li>In-toto/DSSE export</li>
+              <li>Apache-2.0 — never shrinking</li>
+            </ul>
+            <a class="btn" href="#install">USE THE CLI →</a>
+          </div>
+          <div class="card pro-card">
+            <div class="plan-name">Proposed paid design-partner pilot</div>
+            <div class="plan-price">$500 <small>one time</small></div>
+            <ul>
+              <li>One repository · 14 days · up to two agent-authored changes</li>
+              <li>Assisted setup of the existing CLI in your own workflow</li>
+              <li>One named client-side technical approver reviews the evidence</li>
+              <li>Written scope, privacy, IP, and acceptance terms before payment</li>
+            </ul>
+            <a class="btn primary" href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">DISCUSS THE PAID PILOT →</a>
+            <div class="fineprint">Pilot availability follows a successful delivery rehearsal. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification. Payment only follows an accepted written scope; no instant checkout.</div>
+          </div>
         </div>
+        <details>
+          <summary>Is the pilot a hosted service?</summary>
+          <p>No. Selo runs in your workflow. Your agent and repository remain under your control; there is no hosted scheduler or upload service in this pilot.</p>
+        </details>
+        <details>
+          <summary>Does Selo prevent every unsafe change?</summary>
+          <p>No. Its audit runs after the agent finishes. It can flag and reject a run under configured checks, but it is not a complete sandbox or security certification.</p>
+        </details>
+        <details>
+          <summary>What happens before payment?</summary>
+          <p>We confirm the repository, acceptance checks, data handling, and delivery terms in writing. If the agreed pilot cannot be delivered with the existing CLI, we will not take payment.</p>
+        </details>
       </section>
 
       <footer>
         <span>C1-RUN // SELO</span>
         <a href="https://github.com/C1-run/selo">GITHUB</a>
+        <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">DISCUSS A SELO PILOT</a>
         <a href="https://c1.run">C1.RUN</a>
         <span>APACHE-2.0</span>
       </footer>
     </div>
+    </main>
   </body>
 </html>
