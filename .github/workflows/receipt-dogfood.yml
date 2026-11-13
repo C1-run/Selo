@@ -1,0 +1,68 @@
+name: selo receipt dogfood
+
+# Selo audits its own pull requests: build the binary from the PR's source,
+# run a mock-mode task through the full pipeline (worktree, scans, signing),
+# and post the receipt card as a PR comment. This exercises the whole
+# receipt -> render -> PR-comment arc on every PR with no external agent.
+#
+# The receipt is signed with a --dev ephemeral key by design: CI has no
+# long-lived signing key, and the card states that the receipt is not
+# attributable across runs. A production caller would pin --pubkey instead.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  run-and-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Build selo from this PR's source
+        run: go build -o "$RUNNER_TEMP/selo" ./cmd/selo
+
+      - name: Run a mock task through the pipeline
+        run: |
+          mkdir -p config
+          cat > config/selo.yaml <<'EOF'
+          forge:
+            runner:
+              mode: mock
+            notify: stdout
+          EOF
+          "$RUNNER_TEMP/selo" run "Dogfood: audit this checkout via the mock runner" \
+            --repo "$GITHUB_WORKSPACE" --dev
+
+      - name: Render the receipt card
+        run: |
+          RECEIPT=$(ls -t runs/*/receipt.json | head -1)
+          "$RUNNER_TEMP/selo" receipt show "$RECEIPT" --format github > card.md
+          echo "RECEIPT=$RECEIPT" >> "$GITHUB_ENV"
+
+      - name: Append the card to the job summary
+        run: cat card.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogfood-receipt
+          path: |
+            runs/
+            receipts/
+          retention-days: 7
+
+      - name: Post the PR comment
+        if: github.event.pull_request.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/post-receipt-comment.sh card.md

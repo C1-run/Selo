@@ -1,0 +1,98 @@
+name: selo receipt comment
+
+# Reusable: verify a Selo receipt, render its decision card, and post it as a
+# sticky PR comment (updated in place on re-run) plus the job summary.
+#
+# Usage from a caller repository:
+#
+#   jobs:
+#     selo-receipt:
+#       permissions:
+#         contents: read
+#         pull-requests: write
+#       uses: C1-run/Selo/.github/workflows/receipt-comment.yml@main
+#       with:
+#         receipt-path: runs/run-abc123/receipt.json
+#         # pr-number: 42            # optional; defaults to the triggering PR
+#         # pubkey: <fingerprint>     # optional; pins the signer in the card
+#         # fail-on-invalid: true     # optional; fail the job when verify fails
+
+on:
+  workflow_call:
+    inputs:
+      receipt-path:
+        description: "Path to the receipt.json to render"
+        required: true
+        type: string
+      pr-number:
+        description: "PR to comment on (defaults to the triggering pull request)"
+        required: false
+        type: string
+      pubkey:
+        description: "Pin the signer: key-file path, 64-char hex fingerprint, or inline base64 public key"
+        required: false
+        type: string
+      fail-on-invalid:
+        description: "Fail the job when the receipt does not verify"
+        required: false
+        type: boolean
+        default: false
+      selo-repo:
+        description: "Repository to build the selo binary from"
+        required: false
+        type: string
+        default: C1-run/Selo
+      selo-ref:
+        description: "Ref to build the selo binary from"
+        required: false
+        type: string
+        default: main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.selo-repo }}
+          ref: ${{ inputs.selo-ref }}
+          path: _selo-src
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+
+      - name: Build selo
+        run: go build -o "$RUNNER_TEMP/selo" ./cmd/selo
+        working-directory: _selo-src
+
+      - name: Verify the receipt
+        if: ${{ inputs.fail-on-invalid }}
+        run: |
+          "$RUNNER_TEMP/selo" verify "$RECEIPT"
+        env:
+          RECEIPT: ${{ inputs.receipt-path }}
+
+      - name: Render the receipt card
+        run: |
+          args=()
+          if [ -n "$PUBKEY" ]; then args+=(--pubkey "$PUBKEY"); fi
+          "$RUNNER_TEMP/selo" receipt show "$RECEIPT" --format github "${args[@]}" > card.md
+        env:
+          RECEIPT: ${{ inputs.receipt-path }}
+          PUBKEY: ${{ inputs.pubkey }}
+
+      - name: Append the card to the job summary
+        run: cat card.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post the PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
+        run: bash _selo-src/scripts/post-receipt-comment.sh card.md

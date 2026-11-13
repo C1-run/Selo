@@ -279,6 +279,29 @@ selo run "<goal>" --commands "go test ./..." --no-require-commands-pass
 `--no-require-commands-pass` keeps the receipt's `commands_ok` /
 `command_exit_codes` record but leaves the verdict to the agent's exit code.
 
+### Surfacing receipts on pull requests
+
+A receipt nobody reads is a log, not evidence. Selo ships a reusable workflow
+that verifies a receipt, renders its decision card, and posts it as a sticky
+PR comment (updated in place on re-run) plus a job summary:
+
+```yaml
+jobs:
+  selo-receipt:
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: C1-run/Selo/.github/workflows/receipt-comment.yml@main
+    with:
+      receipt-path: runs/run-abc123/receipt.json
+      # pubkey: <fingerprint or key file>  # pin the signer in the card
+      # fail-on-invalid: true              # fail the job when verify fails
+```
+
+Selo dogfoods the whole arc on its own pull requests — every PR runs a
+mock-mode task through the pipeline and posts the resulting card (see
+`.github/workflows/receipt-dogfood.yml`).
+
 ## Architecture
 
 ```
