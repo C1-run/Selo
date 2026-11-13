@@ -6,6 +6,114 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.6.6] — 2026-10-13
+
+### Changed
+- **Documentation now recommends `--require-tests-pass` for CI**, and
+  `config/selo.example.yaml` sets `require_tests_pass: true` as the
+  CI-appropriate example. This is guidance and example config only — **Selo's own
+  default is still off**, so no existing run changes meaning. Both places state
+  the trade-off explicitly: with the gate on, `SUCCESS_WITH_RECEIPT` implies every
+  configured command exited 0; with it off, SUCCESS means only that the agent's
+  run was not rejected, and the receipt can say SUCCESS while the suite is red
+  (recording `tests_ok: false`). Full rationale: `docs/releases/v0.6.5.md`.
+
+## [0.6.5] — 2026-10-13
+
+### Fixed
+- **A receipt could say SUCCESS while every configured test command had failed,
+  with nothing on the receipt to show it.** The verdict keys off the *agent's*
+  exit code, so `--commands "false"` produced `SUCCESS_WITH_RECEIPT` with
+  `scans_passed: true` and a gatechain of `pass`, even though the signed
+  `test_output` recorded `[exit code: 1]`. Worse, the field that was supposed to
+  describe tests — `tests_passed` — was computed by counting output lines
+  containing the substring `PASS` or starting with `ok `, which was wrong in both
+  directions: it reported **3 tests passed** for a command that had exited
+  non-zero (its output merely contained `PASSWORD`), and it reported **nothing at
+  all** for pytest, whose output is lowercase `1 passed`. Test results are now
+  derived from **exit codes**:
+  - `tests_ok` (new) — `true` only when every configured command exited 0,
+    `false` when one did not, and **absent** when no command was configured
+    (there is then nothing to assert, rather than a vacuous "passed").
+  - `test_exit_codes` (new) — each command's exit code, in order; `-1` means the
+    command never ran.
+  - `tests_passed` is now the number of configured commands that exited 0,
+    instead of a substring count.
+  - `scans_passed` is unchanged and is now documented as what it always was:
+    the **safety** scans (forbidden files, forbidden claims, secret scan), not a
+    statement about tests.
+
+### Added
+- **`--require-tests-pass`** (and the config key `forge.require_tests_pass`):
+  opt-in gate that overrides the verdict to `FAILED_TESTS` when any configured
+  command exits non-zero. **Off by default**, so existing verdict semantics are
+  unchanged — switching it on by default would silently rewrite what every
+  already-issued `SUCCESS_WITH_RECEIPT` means. `selo run` already exits 1 on any
+  `FAILED*` verdict.
+- README section "What the receipt says about tests", spelling out the
+  `scans_passed` vs `tests_ok` distinction for compliance readers.
+
+## [0.6.4] — 2026-10-13
+
+### Fixed
+- **The shipped example receipt did not verify.** `samples/receipt-example.json`
+  failed `selo verify` with `Hash: MISMATCH / Signature: INVALID`, so the project's
+  own published sample was not verifiable — a bad look for a tool whose whole claim
+  is that a receipt can be checked by a third party. It was also generated *before*
+  the v0.6.1 parser fix, so its signed `test_output` still contained the leaked
+  forbidden file (`$ README.md … executable file not found`), i.e. it advertised the
+  very bug v0.6.1 fixed. Replaced with a freshly generated receipt from the v0.6.3
+  binary: `SUCCESS_WITH_RECEIPT`, `runner_mode: real`, tests passing, no safety hits,
+  and `selo verify` reports `VALID` (Hash / Signature / Anchor OK, Provenance PINNED).
+
+## [0.6.3] — 2026-10-13
+
+### Fixed
+- **The OpenCode negative-control test no longer shares a global fixture repo.**
+  `TestOpenCodeCannotPassByDeletingTest` (gated behind `SELO_RUN_OPENCODE_E2E=1`)
+  used the shared `/tmp/selo-fixture-opencode` and ran `git worktree add` with the
+  fixed branch `selo/opencode-neg-control`. The other daemon/c1loop tests had the
+  same shared-repo worktree-contamination flake, fixed in v0.6.2; this test was
+  dormant in the default suite (it is skipped unless E2E mode is enabled) but would
+  have reintroduced the flake under load once E2E was turned on. It now builds its
+  own isolated fixture repo under `t.TempDir()` via a new parameterized
+  `ensureOpenCodeFixtureRepoAt`, matching the v0.6.2 pattern. The
+  `TestRealOpenCodeSoak*` tests already used hermetic fixtures and were never at
+  risk. Test-only change; no shipped binary behavior changed.
+
+## [0.6.2] — 2026-10-13
+
+### Fixed
+- **Daemon / c1loop / anchor tests no longer flake under full-suite load**
+  (test-only — no shipped binary behavior changed). Every `TestC1Loop*`,
+  `TestDaemon*`, `TestRealRun*` and P45 test shared a single global fixture git
+  repo at `/tmp/selo-fixture` and ran `git worktree add` with **fixed branch
+  names** (`selo/c1-noop`, `selo/real-noop`, …). Registered-worktree metadata left
+  behind by a prior run on the shared repo made the next test's `git worktree add`
+  fail, producing an intermittent `FAILED_INTERNAL_ERROR` ~0.25s in with no
+  `Preparing worktree` log line. The misleading `anchor failed … not a git
+  repository` non-fatal error (from anchoring the test's *non-repo* queue dir)
+  obscured the real cause during diagnosis. Each test now creates its own isolated
+  fixture repo under `t.TempDir()` so git state — branches, registered worktrees,
+  the receipt-anchor branch — cannot leak between tests, and the best-effort anchor
+  is disabled in the daemon E2E harness (still covered by
+  `internal/receipt/anchor_test.go` against a real repository). The full `cmd/selo`
+  suite passes 74/74 three consecutive times.
+
+## [0.6.1] — 2026-10-13
+
+### Fixed
+- **Task-file sections leaked into each other, so forbidden files were executed
+  as test commands.** `ParseTaskConfig` treated its section flags as sticky: a
+  `forbidden_files:` header closed `allowed_files:` but not `commands:`, so every
+  forbidden path was also appended to the list of commands and then run. With the
+  task layout shown in the spec (`commands:` before `forbidden_files:`) this
+  always happened, and the resulting `$ README.md … executable file not found`
+  line was recorded in the signed `test_output` field. The safety scan itself was
+  unaffected — the forbidden-file check still fired correctly — but a signed field
+  contained commands that were never configured. Each section header now opens
+  exactly one list and closes all others.
+
 ## [0.6.0] — 2026-10-10
 
 ### Security

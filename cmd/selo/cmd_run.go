@@ -15,16 +15,17 @@ import (
 )
 
 var (
-	runRepo           string
-	runCommands       []string
-	runMaxMinutes     int
-	runForbiddenFiles []string
-	runDev            bool
-	runSigner         string
-	runTSA            string
-	runTSASoft        bool
-	runRekor          string
-	runRekorSoft      bool
+	runRepo             string
+	runCommands         []string
+	runMaxMinutes       int
+	runForbiddenFiles   []string
+	runDev              bool
+	runSigner           string
+	runTSA              string
+	runTSASoft          bool
+	runRekor            string
+	runRekorSoft        bool
+	runRequireTestsPass bool
 )
 
 var runCmd = &cobra.Command{
@@ -49,6 +50,7 @@ func init() {
 	runCmd.Flags().BoolVar(&runTSASoft, "tsa-soft", false, "If the TSA is unreachable, record the timestamp as absent instead of failing the run (ADR-005)")
 	runCmd.Flags().StringVar(&runRekor, "rekor", "", "Sigstore Rekor transparency-log URL (see ADR-006). Publishes the receipt hash so the run is publicly witnessed.")
 	runCmd.Flags().BoolVar(&runRekorSoft, "rekor-soft", false, "If the transparency log is unreachable, record the entry as absent instead of failing the run (ADR-006)")
+	runCmd.Flags().BoolVar(&runRequireTestsPass, "require-tests-pass", false, "Override the verdict to FAILED_TESTS if any configured test command exits non-zero. Off by default: the default verdict keys off the agent's exit code, and the receipt already records tests_ok / test_exit_codes either way.")
 }
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
@@ -131,6 +133,9 @@ commands:
 	}
 	if runRekorSoft {
 		os.Setenv("SELO_REKOR_SOFT", "1")
+	}
+	if runRequireTestsPass {
+		cfg.Forge.RequireTestsPass = true
 	}
 	processed := processOneTask(qm, receiptWriter, worktreeMgr, cfg)
 	if !processed {

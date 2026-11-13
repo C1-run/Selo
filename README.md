@@ -142,6 +142,24 @@ permissions or tokens needed:
 The card always shows the receipt's integrity state. Anyone can reproduce the
 check with `selo verify <receipt.json>`.
 
+**If you configure test commands in CI, turn on the gate.** By default the verdict
+keys off the *agent's* exit code, so a red suite still yields
+`SUCCESS_WITH_RECEIPT` (the receipt records `tests_ok: false`, but the job passes):
+
+```bash
+./selo run "Add feature X" \
+  --commands "go test ./..." \
+  --require-tests-pass
+```
+
+> ⚠️ **This changes what `SUCCESS_WITH_RECEIPT` means.** With the gate on, SUCCESS
+> implies every configured command exited 0, and a failing suite overrides the
+> verdict to `FAILED_TESTS` (which `selo run` exits 1 on). With it off, SUCCESS
+> means only that the agent's run was not rejected — the suite may be red. Both
+> are honest; they answer different questions. Pick one deliberately and say so
+> in your runbook. See
+> [docs/releases/v0.6.5.md](docs/releases/v0.6.5.md).
+
 <details>
 <summary><strong>OpenCode integration</strong></summary>
 
@@ -221,6 +239,36 @@ real SAST tool.
 **Scope.** The verdict is a **post-execution audit** of the real diff, not
 real-time inline interception. A violating change is contained in the worktree,
 rejected with a signed receipt, and never merged — but it did happen.
+
+### What the receipt says about tests
+
+Two fields are easy to confuse. Read them carefully:
+
+- **`scans_passed`** is about the **safety scans only** — forbidden files,
+  forbidden claims, and the secret scan. It says **nothing** about whether your
+  test suite passed. A run can have `scans_passed: true` while every configured
+  test command failed.
+- **`tests_ok` / `test_exit_codes`** are about the **configured test commands**,
+  and are derived from their **exit codes**. `tests_ok` is `true` only when every
+  configured command exited 0, `false` when at least one did not, and **absent**
+  when no test command was configured (there is then nothing to assert).
+  `test_exit_codes` records each command's exit code in order; `-1` means the
+  command never ran.
+
+By default the **verdict keys off the agent's exit code**, not the test command's
+— so a failing test command yields `SUCCESS_WITH_RECEIPT` with `tests_ok: false`.
+That is deliberate (Selo audits the diff; it does not redefine your CI), but it
+means you must read `tests_ok` rather than assuming SUCCESS means green tests.
+
+If you want a failing test command to **fail the run**, opt in:
+
+```bash
+selo run "<goal>" --commands "go test ./..." --require-tests-pass
+```
+
+`--require-tests-pass` overrides the verdict to `FAILED_TESTS` when any
+configured command exits non-zero. It is off by default so that enabling it
+cannot silently change what an already-issued `SUCCESS_WITH_RECEIPT` means.
 
 ## Architecture
 

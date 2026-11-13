@@ -396,7 +396,13 @@ type Receipt struct {
     C1RuntimeIsMock       bool              `json:"c1_runtime_is_mock"`
     WorktreePath          string            `json:"worktree_path"`
     BaseCommit            string            `json:"base_commit"`
+    // Safety scans only (forbidden files, forbidden claims, secret scan) —
+    // NOT a statement about test results. See TestsOK / TestExitCodes.
     ScansPassed           bool              `json:"scans_passed"`
+    // TestsOK is nil when no test command was configured, true when every
+    // configured command exited 0, false otherwise. Derived from exit codes.
+    TestsOK               *bool             `json:"tests_ok,omitempty"`
+    TestExitCodes         []int             `json:"test_exit_codes,omitempty"`
     PinocchioVerified     bool              `json:"pinocchio_verified"`
     PinocchioResultPath   string            `json:"pinocchio_result_path"`
     InitialVerdict        string            `json:"initial_verdict"`
