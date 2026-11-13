@@ -18,7 +18,7 @@ type Notification struct {
 	InitialVerdict    string
 	FinalVerdict      string
 	VerdictOverridden bool
-	TestsPassed       bool
+	CommandsPassed    bool
 	ScansPassed       bool
 	FilesChanged      int
 	ReceiptPath       string
@@ -126,7 +126,7 @@ func newBody(n Notification) string {
 	}
 	b.WriteString(fmt.Sprintf("verdict: %s\n", n.FinalVerdict))
 	b.WriteString(fmt.Sprintf("overridden: %v\n", n.VerdictOverridden))
-	b.WriteString(fmt.Sprintf("tests: %s\n", passFail(n.TestsPassed)))
+	b.WriteString(fmt.Sprintf("commands: %s\n", passFail(n.CommandsPassed)))
 	b.WriteString(fmt.Sprintf("scans: %s\n", passFail(n.ScansPassed)))
 	b.WriteString(fmt.Sprintf("files: %d\n", n.FilesChanged))
 	if n.ReceiptPath != "" {

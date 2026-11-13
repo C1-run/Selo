@@ -513,8 +513,8 @@ func printReceiptText(r map[string]any, res *verifyResult) {
 			fmt.Printf("  - %s\n", c)
 		}
 	}
-	fmt.Printf("Changes:    %d files, %d patch lines, tests passed: %d\n",
-		receiptFieldInt(r, "files_changed"), receiptFieldInt(r, "patch_lines"), receiptFieldInt(r, "tests_passed"))
+	fmt.Printf("Changes:    %d files, %d patch lines, commands passed: %d\n",
+		receiptFieldInt(r, "files_changed"), receiptFieldInt(r, "patch_lines"), receiptFieldInt(r, "commands_passed"))
 	fmt.Printf("Result:     %s\n", map[bool]string{true: "VALID", false: "INVALID"}[res.Valid])
 	for _, e := range res.Errors {
 		fmt.Printf("  - %s\n", e)
@@ -550,9 +550,9 @@ func renderReceiptMarkdown(r map[string]any, res *verifyResult, github bool) str
 	if goal := receiptField(r, "goal"); goal != "" {
 		b.WriteString(fmt.Sprintf("Task: `%s` — %s\n\n", receiptField(r, "task_id"), goal))
 	}
-	b.WriteString(fmt.Sprintf("Files changed: %d · Patch lines: %d · Tests passed: %d · Runner: %s\n\n",
+	b.WriteString(fmt.Sprintf("Files changed: %d · Patch lines: %d · Commands passed: %d · Runner: %s\n\n",
 		receiptFieldInt(r, "files_changed"), receiptFieldInt(r, "patch_lines"),
-		receiptFieldInt(r, "tests_passed"), receiptField(r, "runner_mode")))
+		receiptFieldInt(r, "commands_passed"), receiptField(r, "runner_mode")))
 
 	if hits := receiptFieldList(r, "safety_hits"); len(hits) > 0 {
 		b.WriteString(fmt.Sprintf("**Safety findings (%d):**\n\n", len(hits)))

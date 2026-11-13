@@ -15,17 +15,18 @@ import (
 )
 
 var (
-	runRepo             string
-	runCommands         []string
-	runMaxMinutes       int
-	runForbiddenFiles   []string
-	runDev              bool
-	runSigner           string
-	runTSA              string
-	runTSASoft          bool
-	runRekor            string
-	runRekorSoft        bool
-	runRequireTestsPass bool
+	runRepo                  string
+	runCommands              []string
+	runMaxMinutes            int
+	runForbiddenFiles        []string
+	runDev                   bool
+	runSigner                string
+	runTSA                   string
+	runTSASoft               bool
+	runRekor                 string
+	runRekorSoft             bool
+	runRequireCommandsPass   bool
+	runNoRequireCommandsPass bool
 )
 
 var runCmd = &cobra.Command{
@@ -50,7 +51,8 @@ func init() {
 	runCmd.Flags().BoolVar(&runTSASoft, "tsa-soft", false, "If the TSA is unreachable, record the timestamp as absent instead of failing the run (ADR-005)")
 	runCmd.Flags().StringVar(&runRekor, "rekor", "", "Sigstore Rekor transparency-log URL (see ADR-006). Publishes the receipt hash so the run is publicly witnessed.")
 	runCmd.Flags().BoolVar(&runRekorSoft, "rekor-soft", false, "If the transparency log is unreachable, record the entry as absent instead of failing the run (ADR-006)")
-	runCmd.Flags().BoolVar(&runRequireTestsPass, "require-tests-pass", false, "Override the verdict to FAILED_TESTS if any configured test command exits non-zero. Off by default: the default verdict keys off the agent's exit code, and the receipt already records tests_ok / test_exit_codes either way.")
+	runCmd.Flags().BoolVar(&runRequireCommandsPass, "require-commands-pass", false, "Force the required-commands gate on (on by default since v0.7.0): a configured command exiting non-zero overrides the verdict to FAILED_REQUIRED_COMMANDS.")
+	runCmd.Flags().BoolVar(&runNoRequireCommandsPass, "no-require-commands-pass", false, "Turn the required-commands gate off: a non-zero command exit is still recorded in the receipt (commands_ok / command_exit_codes) but does not fail the run. Restores the pre-v0.7.0 default.")
 }
 
 func runRunCmd(cmd *cobra.Command, args []string) error {
@@ -134,8 +136,11 @@ commands:
 	if runRekorSoft {
 		os.Setenv("SELO_REKOR_SOFT", "1")
 	}
-	if runRequireTestsPass {
-		cfg.Forge.RequireTestsPass = true
+	if cmd.Flags().Changed("require-commands-pass") {
+		cfg.Forge.RequireCommandsPass = true
+	}
+	if runNoRequireCommandsPass {
+		cfg.Forge.RequireCommandsPass = false
 	}
 	processed := processOneTask(qm, receiptWriter, worktreeMgr, cfg)
 	if !processed {

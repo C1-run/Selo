@@ -397,12 +397,13 @@ type Receipt struct {
     WorktreePath          string            `json:"worktree_path"`
     BaseCommit            string            `json:"base_commit"`
     // Safety scans only (forbidden files, forbidden claims, secret scan) —
-    // NOT a statement about test results. See TestsOK / TestExitCodes.
+    // NOT a statement about command results. See CommandsOK / CommandExitCodes.
     ScansPassed           bool              `json:"scans_passed"`
-    // TestsOK is nil when no test command was configured, true when every
+    // CommandsOK is nil when no command was configured, true when every
     // configured command exited 0, false otherwise. Derived from exit codes.
-    TestsOK               *bool             `json:"tests_ok,omitempty"`
-    TestExitCodes         []int             `json:"test_exit_codes,omitempty"`
+    // Named tests_ok / test_exit_codes before v0.7.0.
+    CommandsOK            *bool             `json:"commands_ok,omitempty"`
+    CommandExitCodes      []int             `json:"command_exit_codes,omitempty"`
     PinocchioVerified     bool              `json:"pinocchio_verified"`
     PinocchioResultPath   string            `json:"pinocchio_result_path"`
     InitialVerdict        string            `json:"initial_verdict"`

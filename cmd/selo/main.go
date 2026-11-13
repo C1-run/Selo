@@ -53,15 +53,19 @@ type Config struct {
 		NtfyTopic            string        `yaml:"ntfy_topic"`    // legacy: ntfy topic
 		NotifyConfig         notify.Config `yaml:"notify_config"` // new: structured config
 		ForbiddenClaims      []string      `yaml:"forbidden_claims"`
-		// RequireTestsPass is the opt-in gate: when true, a configured test
-		// command that exits non-zero overrides the verdict to FAILED_TESTS.
-		// It is off by default so existing verdict semantics are unchanged —
-		// the default verdict keys off the agent's exit code, not the test
-		// command's, and silently changing that would rewrite what every
-		// already-issued SUCCESS means.
-		RequireTestsPass bool         `yaml:"require_tests_pass"`
-		Runner           RunnerConfig `yaml:"runner"`
-		OpenCode         struct {
+		// RequireCommandsPass gates on configured command exit codes: when true,
+		// a configured command that exits non-zero overrides the verdict to
+		// FAILED_REQUIRED_COMMANDS. Introduced opt-in in v0.6.5
+		// (--require-tests-pass); the default flipped to on in v0.7.0 and the
+		// gate was renamed to be command-honest — --commands accepts any
+		// command, not only tests, and a failing `go build` is not a failing
+		// test. require_commands_pass: false (or --no-require-commands-pass)
+		// restores the recording-only behavior: the receipt still records
+		// commands_ok / command_exit_codes, but the verdict keys off the
+		// agent's exit code as before.
+		RequireCommandsPass bool         `yaml:"require_commands_pass"`
+		Runner              RunnerConfig `yaml:"runner"`
+		OpenCode            struct {
 			Model                      string   `yaml:"model"`
 			Agent                      string   `yaml:"agent"`
 			ServeTimeout               int      `yaml:"serve_timeout"`
@@ -388,22 +392,23 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 	}
 
 	testOutput := ""
-	testsPassed := 0
-	var testExitCodes []int
-	// testsOK stays nil when no command was configured: there is then nothing to
-	// assert, and the receipt omits the field rather than claiming "tests passed".
-	var testsOK *bool
+	commandsPassed := 0
+	var commandExitCodes []int
+	// commandsOK stays nil when no command was configured: there is then nothing
+	// to assert, and the receipt omits the field rather than claiming "commands
+	// passed".
+	var commandsOK *bool
 	if len(commands) > 0 {
-		testOutput, testExitCodes = runner.CaptureTestResults(worktreePath, commands)
+		testOutput, commandExitCodes = runner.CaptureTestResults(worktreePath, commands)
 		ok := true
-		for _, code := range testExitCodes {
+		for _, code := range commandExitCodes {
 			if code == 0 {
-				testsPassed++
+				commandsPassed++
 			} else {
 				ok = false
 			}
 		}
-		testsOK = &ok
+		commandsOK = &ok
 	}
 
 	// 11. Safety scans + Supply chain
@@ -551,10 +556,11 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 			strings.Join(tiResult.TestCommandsChanged, ","))
 	}
 
-	// 12f. Opt-in gate: a configured test command that exits non-zero makes the
-	// run a failure. Off by default (see Config.RequireTestsPass), so the default
-	// verdict still keys off the agent's exit code.
-	if verdict, reason := requireTestsPassOverride(finalVerdict, cfg.Forge.RequireTestsPass, testsOK, testExitCodes, testsPassed); verdict != "" {
+	// 12f. Required-commands gate: a configured command that exits non-zero makes
+	// the run a failure. On by default since v0.7.0 (see
+	// Config.RequireCommandsPass); require_commands_pass: false or
+	// --no-require-commands-pass restores the recording-only behavior.
+	if verdict, reason := requireCommandsPassOverride(finalVerdict, cfg.Forge.RequireCommandsPass, commandsOK, commandExitCodes, commandsPassed); verdict != "" {
 		finalVerdict = verdict
 		verdictOverridden = true
 		if overrideReason != "" {
@@ -608,9 +614,9 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		DiffHash:                 diffHash,
 		PolicyHash:               policyHash,
 		SeloVersion:              Version,
-		TestsPassed:              testsPassed,
-		TestsOK:                  testsOK,
-		TestExitCodes:            testExitCodes,
+		CommandsPassed:           commandsPassed,
+		CommandsOK:               commandsOK,
+		CommandExitCodes:         commandExitCodes,
 		ScansPassed:              scansPassed,
 		C1LoopReceiptPath:        c1LoopReceiptPath,
 		PinocchioVerified:        pinoResult.Verified,
@@ -1111,28 +1117,30 @@ func writeHeartbeat(f *os.File, state string, taskDir string) {
 
 // pinocchioVerdictSeverity returns the severity level for verdict comparison.
 // Empty string (no recommendation) has severity 0.
-// verdictFailedTests is the verdict used when the opt-in require-tests-pass gate
-// fires. It starts with "FAILED", so `selo run` already exits 1 on it.
-const verdictFailedTests = "FAILED_TESTS"
+// verdictFailedRequiredCommands is the verdict used when the required-commands
+// gate fires. It starts with "FAILED", so `selo run` already exits 1 on it.
+// Named FAILED_TESTS through v0.6.x; renamed because --commands accepts any
+// command, and a failing build or lint is not a failing test.
+const verdictFailedRequiredCommands = "FAILED_REQUIRED_COMMANDS"
 
-// requireTestsPassOverride decides whether the opt-in require-tests-pass gate
+// requireCommandsPassOverride decides whether the required-commands gate
 // should tighten the verdict. It returns ("", "") when the gate is off, when no
-// test command was configured, when every command exited 0, or when the current
+// command was configured, when every command exited 0, or when the current
 // verdict is already at least as severe.
 //
-// The gate is deliberately opt-in: turning it on by default would silently
-// change what every previously issued SUCCESS_WITH_RECEIPT means.
-func requireTestsPassOverride(current string, enabled bool, testsOK *bool, testExitCodes []int, passed int) (string, string) {
-	if !enabled || testsOK == nil || *testsOK {
+// The gate is on by default since v0.7.0 (opt-in as --require-tests-pass in
+// v0.6.5); --no-require-commands-pass restores the recording-only behavior.
+func requireCommandsPassOverride(current string, enabled bool, commandsOK *bool, commandExitCodes []int, passed int) (string, string) {
+	if !enabled || commandsOK == nil || *commandsOK {
 		return "", ""
 	}
-	if pinocchioVerdictSeverity(verdictFailedTests) <= pinocchioVerdictSeverity(current) {
+	if pinocchioVerdictSeverity(verdictFailedRequiredCommands) <= pinocchioVerdictSeverity(current) {
 		return "", ""
 	}
-	failed := len(testExitCodes) - passed
-	reason := fmt.Sprintf("require-tests-pass gate: %d of %d configured command(s) exited non-zero (exit codes: %v)",
-		failed, len(testExitCodes), testExitCodes)
-	return verdictFailedTests, reason
+	failed := len(commandExitCodes) - passed
+	reason := fmt.Sprintf("require-commands-pass gate: %d of %d configured command(s) exited non-zero (exit codes: %v)",
+		failed, len(commandExitCodes), commandExitCodes)
+	return verdictFailedRequiredCommands, reason
 }
 
 func pinocchioVerdictSeverity(v string) int {
@@ -1147,7 +1155,7 @@ func pinocchioVerdictSeverity(v string) int {
 		return 2
 	case "NEEDS_HUMAN":
 		return 3
-	case verdictFailedTests:
+	case verdictFailedRequiredCommands:
 		return 4
 	case "FAILED_TIMEOUT":
 		return 5
@@ -1212,7 +1220,7 @@ func sendNotification(ctx context.Context, cfg *Config, forgeReceipt *receipt.Fo
 		FinalVerdict:      forgeReceipt.FinalVerdict,
 		InitialVerdict:    forgeReceipt.InitialVerdict,
 		VerdictOverridden: forgeReceipt.VerdictOverridden,
-		TestsPassed:       forgeReceipt.TestsPassed > 0,
+		CommandsPassed:    forgeReceipt.CommandsPassed > 0,
 		ScansPassed:       forgeReceipt.ScansPassed,
 		FilesChanged:      forgeReceipt.FilesChanged,
 		ReceiptPath:       receiptPath,
@@ -1379,6 +1387,11 @@ func loadConfig(configPath string, baseDir string) *Config {
 	cfg.Forge.DefaultMaxPatchLines = 200
 	cfg.Forge.StopFile = ".selo-stop"
 	cfg.Forge.LockFile = ".selo.lock"
+	// Required-commands gate defaults to ON since v0.7.0 (behavior change, see
+	// CHANGELOG). Setting the field before Unmarshal means an explicit
+	// require_commands_pass: false in the config file still wins, while an
+	// absent key inherits the new default.
+	cfg.Forge.RequireCommandsPass = true
 	cfg.Forge.Notify = "stdout"
 	cfg.Forge.NotifyConfig.Mode = "stdout"
 	cfg.Forge.NotifyConfig.TimeoutSeconds = 5

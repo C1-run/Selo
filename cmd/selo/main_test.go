@@ -2431,7 +2431,7 @@ func TestOpenCodeCannotPassByDeletingTest(t *testing.T) {
 	tiPassed, _ := rec["test_integrity_passed"].(bool)
 	testsRemoved, _ := rec["tests_removed"].([]interface{})
 	testsModified, _ := rec["tests_modified"].([]interface{})
-	testsPassed, _ := rec["tests_passed"].(float64)
+	testsPassed, _ := rec["commands_passed"].(float64)
 	scansPassed, _ := rec["scans_passed"].(bool)
 
 	t.Log("")
@@ -2976,27 +2976,29 @@ func TestProcessOneTaskPreservesExistingBehaviorWithoutP45Contracts(t *testing.T
 
 func boolPtr(b bool) *bool { return &b }
 
-// TestRequireTestsPassOverrideGate covers the opt-in gate in isolation.
-func TestRequireTestsPassOverrideGate(t *testing.T) {
+// TestRequireCommandsPassOverrideGate covers the required-commands gate in
+// isolation (renamed from TestRequireTestsPassOverrideGate in v0.7.0, when the
+// gate was renamed to be command-honest and its default flipped to on).
+func TestRequireCommandsPassOverrideGate(t *testing.T) {
 	cases := []struct {
-		name      string
-		current   string
-		enabled   bool
-		testsOK   *bool
-		codes     []int
-		passed    int
-		wantVerd  string
-		wantFired bool
+		name       string
+		current    string
+		enabled    bool
+		commandsOK *bool
+		codes      []int
+		passed     int
+		wantVerd   string
+		wantFired  bool
 	}{
-		{"off by default leaves verdict alone", "SUCCESS_WITH_RECEIPT", false, boolPtr(false), []int{1}, 0, "", false},
+		{"off leaves verdict alone", "SUCCESS_WITH_RECEIPT", false, boolPtr(false), []int{1}, 0, "", false},
 		{"no commands configured asserts nothing", "SUCCESS_WITH_RECEIPT", true, nil, nil, 0, "", false},
 		{"all commands passed", "SUCCESS_WITH_RECEIPT", true, boolPtr(true), []int{0}, 1, "", false},
-		{"failing command fires the gate", "SUCCESS_WITH_RECEIPT", true, boolPtr(false), []int{0, 1}, 1, verdictFailedTests, true},
+		{"failing command fires the gate", "SUCCESS_WITH_RECEIPT", true, boolPtr(false), []int{0, 1}, 1, verdictFailedRequiredCommands, true},
 		{"already more severe is left alone", "FAILED_SAFETY", true, boolPtr(false), []int{1}, 0, "", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, reason := requireTestsPassOverride(tc.current, tc.enabled, tc.testsOK, tc.codes, tc.passed)
+			got, reason := requireCommandsPassOverride(tc.current, tc.enabled, tc.commandsOK, tc.codes, tc.passed)
 			if got != tc.wantVerd {
 				t.Fatalf("verdict = %q; want %q", got, tc.wantVerd)
 			}
@@ -3007,27 +3009,35 @@ func TestRequireTestsPassOverrideGate(t *testing.T) {
 	}
 }
 
-// TestReceiptRecordsTestsOKFromExitCodes is the regression guard for the report
-// that --commands "false" produced SUCCESS_WITH_RECEIPT with scans_passed=true
-// and no indication that the configured test command had failed. The verdict
-// still keys off the agent's exit code by default, but the receipt must now say
-// what the test commands actually did.
-func TestReceiptRecordsTestsOKFromExitCodes(t *testing.T) {
+// TestReceiptRecordsCommandsOKFromExitCodes is the regression guard for the
+// report that --commands "false" produced SUCCESS_WITH_RECEIPT with
+// scans_passed=true and no indication that the configured command had failed.
+// The Config{} used by the task helper leaves the required-commands gate off,
+// so this doubles as the opt-out E2E proof: the receipt records what the
+// commands actually did (commands_ok / command_exit_codes), and the verdict
+// still keys off the agent's exit code.
+func TestReceiptRecordsCommandsOKFromExitCodes(t *testing.T) {
 	t.Run("failing command", func(t *testing.T) {
 		baseDir, cleanup := setupTestDir(t)
 		defer cleanup()
 
 		rec := runExternalTaskWithOpts(t, baseDir, "tests-fail", "Failing test command", "NOOP", fixtureRepo(t), []string{"false"}, nil, false)
 
-		if got, ok := rec["tests_ok"]; !ok || got != false {
-			t.Errorf("tests_ok = %v (present=%v); want false — the configured command exited non-zero", got, ok)
+		if got, ok := rec["commands_ok"]; !ok || got != false {
+			t.Errorf("commands_ok = %v (present=%v); want false — the configured command exited non-zero", got, ok)
 		}
-		codes, _ := rec["test_exit_codes"].([]interface{})
+		codes, _ := rec["command_exit_codes"].([]interface{})
 		if len(codes) != 1 {
-			t.Fatalf("test_exit_codes = %v; want 1 entry", rec["test_exit_codes"])
+			t.Fatalf("command_exit_codes = %v; want 1 entry", rec["command_exit_codes"])
 		}
 		if n, _ := codes[0].(float64); n == 0 {
-			t.Errorf("test_exit_codes[0] = %v; want non-zero", codes[0])
+			t.Errorf("command_exit_codes[0] = %v; want non-zero", codes[0])
+		}
+		if got := rec["final_verdict"]; got == "FAILED_REQUIRED_COMMANDS" {
+			t.Errorf("final_verdict = %v; the gate is off in this configuration, so a non-zero command exit must not override the verdict", got)
+		}
+		if got := rec["verdict_overridden"]; got == true {
+			t.Errorf("verdict_overridden = %v; want false — the gate is off, so nothing overrides the verdict", got)
 		}
 	})
 
@@ -3037,11 +3047,88 @@ func TestReceiptRecordsTestsOKFromExitCodes(t *testing.T) {
 
 		rec := runExternalTaskWithOpts(t, baseDir, "tests-pass", "Passing test command", "NOOP", fixtureRepo(t), []string{"true"}, nil, false)
 
-		if got := rec["tests_ok"]; got != true {
-			t.Errorf("tests_ok = %v; want true", got)
+		if got := rec["commands_ok"]; got != true {
+			t.Errorf("commands_ok = %v; want true", got)
 		}
-		if got := rec["tests_passed"]; got != float64(1) {
-			t.Errorf("tests_passed = %v; want 1", got)
+		if got := rec["commands_passed"]; got != float64(1) {
+			t.Errorf("commands_passed = %v; want 1", got)
+		}
+	})
+}
+
+// TestRequiredCommandsGateFailsRun is the default-on E2E proof: with the gate
+// enabled (the v0.7.0 default), a configured command that exits non-zero
+// overrides the verdict to FAILED_REQUIRED_COMMANDS instead of letting a
+// zero-agent-exit run pass.
+func TestRequiredCommandsGateFailsRun(t *testing.T) {
+	baseDir, cleanup := setupTestDir(t)
+	defer cleanup()
+
+	_ = os.RemoveAll(filepath.Join(baseDir, "worktrees"))
+	_ = os.RemoveAll(filepath.Join(baseDir, "queue"))
+	for _, d := range []string{"queue/pending", "queue/running", "queue/done", "queue/failed", "queue/review", "receipts", "runs", "worktrees", "config"} {
+		os.MkdirAll(filepath.Join(baseDir, d), 0755)
+	}
+
+	writeTask(t, baseDir, "gate-fail", "Failing command under gate", "NOOP", fixtureRepo(t), []string{"false"}, nil, nil, 1, false)
+
+	qm := queue.NewQueueManager(baseDir)
+	rw := receipt.NewReceiptWriter(qm.ReceiptsDir(), qm.RunsDir())
+	wtm := workspace.NewWorktreeManager(filepath.Join(baseDir, "worktrees"))
+
+	cfg := &Config{}
+	cfg.Forge.DefaultMaxMinutes = 1
+	cfg.Forge.DefaultMaxRounds = 3
+	cfg.Forge.DefaultMaxFiles = 10
+	cfg.Forge.DefaultMaxPatchLines = 200
+	cfg.Forge.Runner.Mode = "real"
+	cfg.Forge.Runner.Command = agentScriptPath(t)
+	cfg.Forge.Runner.Args = []string{"{{task_file}}", "{{worktree}}", "--max-minutes", "{{max_minutes}}"}
+	cfg.Forge.Notify = "stdout"
+	cfg.Forge.RequireCommandsPass = true
+
+	if processed := processOneTask(qm, rw, wtm, cfg); !processed {
+		t.Fatal("processOneTask returned false")
+	}
+
+	rec := readReceiptJSON(t, qm.ReceiptsDir())
+	if got := rec["final_verdict"]; got != "FAILED_REQUIRED_COMMANDS" {
+		t.Errorf("final_verdict = %v; want FAILED_REQUIRED_COMMANDS — the gate is on and the command exited non-zero", got)
+	}
+	if got := rec["commands_ok"]; got != false {
+		t.Errorf("commands_ok = %v; want false", got)
+	}
+	reason, _ := rec["override_reason"].(string)
+	if !strings.Contains(reason, "require-commands-pass gate") {
+		t.Errorf("override_reason = %q; want it to mention the require-commands-pass gate", reason)
+	}
+}
+
+// TestLoadConfigRequireCommandsPassDefault pins the v0.7.0 default flip: the
+// gate is on when the config file does not mention it, and an explicit
+// require_commands_pass: false wins.
+func TestLoadConfigRequireCommandsPassDefault(t *testing.T) {
+	t.Run("absent key defaults to on", func(t *testing.T) {
+		base := t.TempDir()
+		os.MkdirAll(filepath.Join(base, "config"), 0755)
+		if err := os.WriteFile(filepath.Join(base, "config", "selo.yaml"), []byte("forge:\n  poll_interval_sec: 5\n"), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		cfg := loadConfig("config/selo.yaml", base)
+		if !cfg.Forge.RequireCommandsPass {
+			t.Error("RequireCommandsPass = false; want true — the gate is on by default since v0.7.0")
+		}
+	})
+
+	t.Run("explicit false wins", func(t *testing.T) {
+		base := t.TempDir()
+		os.MkdirAll(filepath.Join(base, "config"), 0755)
+		if err := os.WriteFile(filepath.Join(base, "config", "selo.yaml"), []byte("forge:\n  require_commands_pass: false\n"), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+		cfg := loadConfig("config/selo.yaml", base)
+		if cfg.Forge.RequireCommandsPass {
+			t.Error("RequireCommandsPass = true; want false — an explicit require_commands_pass: false must win over the default")
 		}
 	})
 }

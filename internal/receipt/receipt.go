@@ -66,26 +66,28 @@ type ForgeReceipt struct {
 	// (forbidden claims/files, limits) so a SUCCESS under a strict policy is
 	// distinguishable from one under an empty policy. SeloVersion records which
 	// build produced the receipt. All three are covered by the signature.
-	DiffHash                 string   `json:"diff_hash,omitempty"`
-	PolicyHash               string   `json:"policy_hash,omitempty"`
-	SeloVersion              string   `json:"selo_version,omitempty"`
-	// TestsPassed is the number of configured commands that exited 0. It is
+	DiffHash    string `json:"diff_hash,omitempty"`
+	PolicyHash  string `json:"policy_hash,omitempty"`
+	SeloVersion string `json:"selo_version,omitempty"`
+	// CommandsPassed is the number of configured commands that exited 0. It is
 	// derived from exit codes. (It used to count output lines containing "PASS"
-	// or starting with "ok ", which was wrong in both directions.)
-	TestsPassed int `json:"tests_passed,omitempty"`
-	// TestsOK is nil when no test command was configured — there is then nothing
+	// or starting with "ok ", which was wrong in both directions. Named
+	// tests_passed before v0.7.0; renamed because --commands accepts any
+	// command, not only tests.)
+	CommandsPassed int `json:"commands_passed,omitempty"`
+	// CommandsOK is nil when no command was configured — there is then nothing
 	// to assert, and the field is absent rather than making a claim. Otherwise it
 	// is true only when every configured command exited 0. The pointer is
 	// deliberate: a plain bool with omitempty would drop a genuine false from the
 	// JSON, which is precisely the ambiguity this field removes.
-	TestsOK *bool `json:"tests_ok,omitempty"`
-	// TestExitCodes records the exit code of every configured command, in order.
-	// -1 (runner.ExitCodeNotRun) means the command never ran.
-	TestExitCodes []int `json:"test_exit_codes,omitempty"`
+	CommandsOK *bool `json:"commands_ok,omitempty"`
+	// CommandExitCodes records the exit code of every configured command, in
+	// order. -1 (runner.ExitCodeNotRun) means the command never ran.
+	CommandExitCodes []int `json:"command_exit_codes,omitempty"`
 	// ScansPassed reports the SAFETY scans only: forbidden files, forbidden
 	// claims, and the secret scan. It says nothing about whether the configured
-	// test commands passed — read tests_ok / test_exit_codes for that.
-	ScansPassed bool `json:"scans_passed"`
+	// commands passed — read commands_ok / command_exit_codes for that.
+	ScansPassed              bool     `json:"scans_passed"`
 	C1LoopReceiptPath        string   `json:"c1_loop_receipt_path,omitempty"`
 	ForgeReceiptPath         string   `json:"forge_receipt_path,omitempty"`
 	PinocchioVerified        bool     `json:"pinocchio_verified"`
@@ -430,8 +432,8 @@ func (rw *ReceiptWriter) formatReceiptMD(receipt *ForgeReceipt, taskMeta *TaskMe
 	if receipt.OpenCodeAgent != "" {
 		b.WriteString(fmt.Sprintf("- OpenCode agent: %s\n", receipt.OpenCodeAgent))
 	}
-	if receipt.TestsPassed > 0 {
-		b.WriteString(fmt.Sprintf("- Tests passed: %d\n", receipt.TestsPassed))
+	if receipt.CommandsPassed > 0 {
+		b.WriteString(fmt.Sprintf("- Commands passed: %d\n", receipt.CommandsPassed))
 	}
 	b.WriteString(fmt.Sprintf("- Scans passed: %v\n", receipt.ScansPassed))
 	if receipt.C1LoopReceiptPath != "" {

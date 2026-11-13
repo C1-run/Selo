@@ -49,7 +49,7 @@ func archiveSignedReceipt(t *testing.T, mutate func(*receipt.ForgeReceipt)) (bas
 	r.RunnerMode = "real"
 	r.FilesChanged = 3
 	r.PatchLines = 120
-	r.TestsPassed = 1
+	r.CommandsPassed = 1
 	if mutate != nil {
 		mutate(&r)
 	}
