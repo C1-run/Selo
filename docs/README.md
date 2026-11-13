@@ -82,15 +82,16 @@ selo
 │   ├── cmd_soak.go         # Soak tests
 │   └── cmd_completion.go   # Shell completions
 ├── internal/
-│   ├── containment/        # Unified isolation interface
+│   ├── containment/        # Git-worktree isolation (the only strategy)
 │   ├── opencode/           # Native Go OpenCode adapter
-│   ├── pipeline/           # Safety pipeline
+│   ├── pipeline/           # Post-diff safety checks (the daemon's check set)
 │   ├── receipt/            # Cryptographic receipts
 │   ├── governor/           # Policy enforcement
 │   ├── pinocchio/          # Consistency checks
 │   ├── gatechain/          # Compliance gates
-│   ├── runner/             # C1 Loop runner
+│   ├── runner/             # Runner adapters + scans
 │   ├── queue/              # Task queue
+│   ├── taskmeta/           # Canonical task.md writer/parser (+ fuzz + shell drift tests)
 │   ├── workspace/          # Git worktree management
 │   └── ...
 ├── .opencode/              # OpenCode plugin
@@ -107,7 +108,7 @@ selo
 
 ```
 1. User submits task (CLI or plugin)
-2. Task queued in .selo/queue/pending/
+2. Task queued in queue/pending/
 3. Daemon claims task → moves to queue/running/
 4. Worktree created (isolation)
 5. Agent executes in worktree
@@ -127,13 +128,15 @@ Governor → Scans → Pinocchio → GateChain
  Timeout  Forbidden Phantom      Verdict
 ```
 
-### Containment Strategies
+### Containment Strategy
 
-| Strategy | Isolation | Use Case |
-|----------|-----------|----------|
-| `worktree` | Git worktree | Lightweight, host-based |
-| `docker` | Container | Strong, network-isolated |
-| `local` | Process | Development, testing |
+Worktree-only, by design. Every task runs in a throwaway `git worktree` of the
+target repository: the agent's blast radius is one checkout, and the audited
+diff is exactly what changed there. `docker` and `local` strategies existed in
+early versions but were never load-bearing — Selo refuses to start with any
+`containment.strategy` other than `worktree`. Sandboxed or network-isolated
+execution is a hard problem Selo does not claim to solve (see
+[SECURITY.md](SECURITY.md)).
 
 ---
 

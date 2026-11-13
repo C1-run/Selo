@@ -10,6 +10,7 @@ import (
 
 	"github.com/C1-run/selo/internal/queue"
 	"github.com/C1-run/selo/internal/receipt"
+	"github.com/C1-run/selo/internal/taskmeta"
 	"github.com/C1-run/selo/internal/workspace"
 	"github.com/spf13/cobra"
 )
@@ -91,27 +92,14 @@ func runRunCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	taskPath := filepath.Join(taskDir, taskID+".md")
-	taskContent := fmt.Sprintf(`id: "%s"
-goal: "%s"
-repo: "%s"
-commands:
-`, taskID, goal, runRepo)
-	for _, c := range runCommands {
-		taskContent += fmt.Sprintf(`  - "%s"
-`, c)
-	}
-	if runMaxMinutes > 0 {
-		taskContent += fmt.Sprintf("max_minutes: %d\n", runMaxMinutes)
-	}
-	if len(runForbiddenFiles) > 0 {
-		taskContent += "forbidden_files:\n"
-		for _, f := range runForbiddenFiles {
-			taskContent += fmt.Sprintf(`  - "%s"
-`, f)
-		}
-	}
-
-	if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
+	if err := taskmeta.Write(taskPath, &taskmeta.TaskConfig{
+		ID:             taskID,
+		Goal:           goal,
+		Repo:           runRepo,
+		Commands:       runCommands,
+		MaxMinutes:     runMaxMinutes,
+		ForbiddenFiles: runForbiddenFiles,
+	}); err != nil {
 		return fmt.Errorf("writing task file: %w", err)
 	}
 

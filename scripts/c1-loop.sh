@@ -51,12 +51,13 @@ fi
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
-# Extract goal from task file (strip quotes)
-GOAL_RAW=$(grep '^goal:' "$TASK_FILE" 2>/dev/null | sed 's/^goal:[[:space:]]*//' | head -1)
-GOAL=$(echo "$GOAL_RAW" | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')
-
-# Extract commands
-COMMANDS=$(awk '/^commands:/{flag=1; next} /^[a-z]/{flag=0} flag && /^- /{print $0}' "$TASK_FILE" 2>/dev/null || true)
+# Parse task.md through the shared shell extractor (scripts/task-parse.sh) —
+# one parser for all shell runners, drift-tested against internal/taskmeta.
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/task-parse.sh"
+task_parse_fields "$TASK_FILE"
+GOAL="$TASK_GOAL"
+COMMANDS="$TASK_COMMANDS"
 
 echo "[c1] loop goal=$GOAL workdir=$WORKDIR"
 
@@ -134,8 +135,9 @@ esac
 # Run commands from task if present
 if [ -n "$COMMANDS" ]; then
     echo "[c1] Running task commands..."
-    echo "$COMMANDS" | while IFS= read -r line; do
-        cmd=$(echo "$line" | sed 's/^- //' | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')
+    # Commands arrive eval-ready: task-parse.sh stripped the "- " prefix and
+    # quotes.
+    echo "$COMMANDS" | while IFS= read -r cmd; do
         [ -z "$cmd" ] && continue
         echo "[c1] $ $cmd"
         eval "$cmd" 2>&1 || echo "[c1] command exited $?"

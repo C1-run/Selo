@@ -85,7 +85,9 @@ func ParseTaskConfig(taskPath string) (int, int, int, int, []string, []string, [
 	if err != nil {
 		return 0, 0, 0, 0, nil, nil, nil, nil, false, err
 	}
-	return ConfigFromTask(cfg), nil
+	return cfg.MaxMinutes, cfg.MaxRounds, cfg.MaxFiles, cfg.MaxPatchLines,
+		cfg.Commands, cfg.AllowedFiles, cfg.ForbiddenFiles, cfg.ForbiddenClaims,
+		cfg.AllowTestModifications, nil
 }
 
 // ConfigFromTask derives the governor config from an already-parsed task

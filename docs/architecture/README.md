@@ -141,56 +141,45 @@ func processOneTask(qm, rw, wtm, cfg) bool {
 }
 ```
 
-### Pipeline (`internal/pipeline/`)
+### Post-diff checks (`internal/pipeline/`)
 
-**Interface:**
+The daemon runs the post-diff check set through one package, so there is
+exactly one definition of what a receipt's `scans_passed` / `safety_hits`
+mean — stamped into the receipt as `checks_version`:
 
 ```go
-type Pipeline struct {
-    Ctx PipelineContext
+type Check interface {
+    Name() string
+    Run(ctx *CheckContext) *CheckResult
 }
 
-type PipelineContext struct {
-    TaskID        string
-    WorktreePath  string
-    AllowedFiles  []string
-    ForbiddenFiles []string
+type CheckContext struct {
+    Diff            string
+    WorktreePath    string
+    AllowedFiles    []string
+    ForbiddenFiles  []string
     ForbiddenClaims []string
-    Commands      []string
-    BaseDir       string
+    ChangedFiles    []string // the forbidden-claims and secret scans are diff-scoped
+    Governor        *governor.Governor
 }
 
 type CheckResult struct {
-    Passed  bool
-    Message string
-    Details interface{}
+    Hits      []string
+    Violation bool
 }
 ```
 
-**Pipeline Stages:**
+**Checks (in receipt order):**
 
 ```go
-func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error) {
-    // Stage 1: Governor
-    governorResult := p.runGovernor(ctx)
-    
-    // Stage 2: Scans
-    scanResult := p.runScans(ctx)
-    
-    // Stage 3: Pinocchio
-    pinocchioResult := p.runPinocchio(ctx)
-    
-    // Stage 4: GateChain
-    gatechainResult := p.runGateChain(ctx)
-    
-    return &PipelineResult{
-        Governor:  governorResult,
-        Scans:     scanResult,
-        Pinocchio: pinocchioResult,
-        GateChain: gatechainResult,
-    }, nil
-}
+pipeline.DefaultChecks() // forbidden_file_edit, forbidden_claims,
+                         // secret_scan, patch_limit, round_limit
+report := pipeline.RunAll(pipeline.DefaultChecks(), ctx)
 ```
+
+Governor policy (rounds/limits), the supply-chain BOM, the test-integrity
+gate, Pinocchio and GateChain run in the daemon flow around this set
+(`cmd/selo/main.go`, `processOneTask`).
 
 ### Adapter (`internal/opencode/`)
 
@@ -274,6 +263,9 @@ type Receipt struct {
     // ScansPassed is the SAFETY scans only (forbidden files, forbidden claims,
     // secret scan). It says nothing about command results — see CommandsOK.
     ScansPassed      bool              `json:"scans_passed"`
+    // Which post-run check set produced scans_passed/safety_hits
+    // (pipeline.ChecksVersion, currently "1"; bumped when check semantics change).
+    ChecksVersion    string            `json:"checks_version,omitempty"`
     // CommandsOK is nil when no command was configured, true when every
     // configured command exited 0, false otherwise. Derived from exit codes.
     // Named tests_ok / test_exit_codes before v0.7.0.

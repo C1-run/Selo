@@ -17,7 +17,7 @@ task, and hands you a signed receipt.
 [![Go Reference](https://pkg.go.dev/badge/github.com/C1-run/selo.svg)](https://pkg.go.dev/github.com/C1-run/selo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/C1-run/selo)](https://goreportcard.com/report/github.com/C1-run/selo)
 
-[Changelog](CHANGELOG.md) · [What works](#what-works-in-v05) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
+[Changelog](CHANGELOG.md) · [What works](#what-works-in-v07) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
 ![Selo catches a forbidden-file edit: the task is rejected with FAILED_SAFETY, and the receipt verifies](docs/demo.gif)
 
@@ -62,16 +62,16 @@ selo verify runs/run-<id>/receipt.json --pubkey <your-fingerprint>   # proves th
 selo keys pub   # prints the public key; fingerprint = sha256 of that key
 ```
 
-## What works in v0.6
+## What works in v0.7
 
-| Capability | Status in v0.6 |
+| Capability | Status in v0.7 |
 |---|---|
-| Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task (exit 1) and produce a signed receipt. |
+| Post-run safety audit (forbidden file edits, forbidden claims, secret scan, patch/round limits, test integrity) | Enforced on the diff and worktree after the agent runs. Violations reject the task (exit 1) and produce a signed receipt. Since v0.7.0 the **required-commands gate is on by default**: a configured command (`--commands`) that exits non-zero overrides the verdict to `FAILED_REQUIRED_COMMANDS`; `--no-require-commands-pass` restores recording-only. |
 | `opencode.permission_allowlist` | Enforced as a post-run scope check: with a non-empty allowlist, any changed file that does not match it (repo-relative glob patterns; directory prefixes like `src/` or `src/**`) rejects the task. It does not sandbox the agent process itself. |
 | `selo verify` | Re-checks a receipt's content hash and Ed25519 signature; `--anchor` also verifies the git anchor. With `--pubkey <fingerprint\|file>` it proves the signer (provenance); without it, reports `Provenance: UNPINNED_*` — internally consistent but not proven who signed. |
-| `selo receipt` | `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary; `receipt show` also takes `--pubkey`. |
+| `selo receipt` | `receipt list` and `receipt show` render a receipt as a decision card — always including its integrity state — with `--format github` ready for a CI job summary or a PR comment; `receipt show` also takes `--pubkey`. A reusable workflow posts the card as a sticky PR comment (see [Surfacing receipts on pull requests](#surfacing-receipts-on-pull-requests)). |
 | `selo receipt export` | Re-signs a receipt as an **in-toto Statement v1** wrapped in a **DSSE** envelope (`--format in-toto`), so third parties can verify with standard tooling (cosign, slsa-verifier) without installing Selo. The signature covers the DSSE PAE over the exact statement bytes. `selo verify` accepts an envelope too. The native `receipt.json` is unchanged. |
-| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600), which Selo then **loads automatically** (`~/.selo/signing-key`) — no env var needed. Signing is fail-closed: with no key at all, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`, and binds the audited change (`diff_hash`), the effective policy (`policy_hash`), and the build (`selo_version`) into the signed bytes. |
+| Signed receipts | Ed25519 over canonical receipt JSON. `selo keys generate` writes a signing key (mode 0600), which Selo then **loads automatically** (`~/.selo/signing-key`) — no env var needed. Signing is fail-closed: with no key at all, `selo run` exits non-zero unless you pass `--dev` (ephemeral per-process key, stamped `key_mode: ephemeral`). Every receipt records `key_mode`, and binds the audited change (`diff_hash`), the effective policy (`policy_hash`), the build (`selo_version`), and the check-set semantics (`checks_version`) into the signed bytes. |
 | Pluggable signer | `SELO_SIGNER` picks where the key lives: `file` (default), `keychain` (seed in the OS keychain — `selo keys store --keychain`), or `command` (an external program signs; Selo holds no key at all — `SELO_SIGNER_COMMAND`). Only `command` with a non-extractable key moves the signer out of the agent's trust domain (ADR-008). Every receipt records the signed `key_source`, and a third party **enforces** that separation with `selo verify --require-keysource=command` — a receipt signed by the same user's `file` key is then rejected (ADR-008). |
 | Trusted timestamp | `selo run --tsa <url>` obtains an **RFC3161 timestamp** over the receipt hash from an external authority (ADR-005), so the signing time cannot be back-dated. `selo receipt timestamp <id> --tsa <url>` retrofits one onto an existing receipt. `selo verify --tsa-ca <pem>` anchors the token to a trusted TSA (chain + timestamping EKU); `--require-tsa` gates on it. Fail-closed: an unreachable TSA fails the run unless `--tsa-soft` records the absence explicitly. |
 | Transparency log | `selo run --rekor <url>` logs the receipt hash in a **Sigstore Rekor** log (ADR-006), so a receipt cannot be equivocated or quietly withdrawn. Only the hash is published — Rekor stores the envelope/payload *hashes*, never the receipt, task name, or file paths. `selo verify --rekor-pubkey <pem>` recomputes the RFC 6962 inclusion proof to the checkpoint root and verifies the log's checkpoint signature; `--require-rekor` gates on it. |
@@ -116,8 +116,14 @@ Honest counterpoints — read these before adopting:
 - **No accuracy numbers.** There is no annotated dataset, so no claim is made about how often the
   checks are right.
 - **Linux and macOS binaries.** Windows has no release artifacts yet (build from source works).
-- **Young project.** v0.6, one maintainer, breaking config changes possible before 1.0 — tracked in
+- **Young project.** v0.7, one maintainer, breaking config changes possible before 1.0 — tracked in
   the [changelog](CHANGELOG.md).
+- **The receipts are run-signed, not receiver-signed.** The receipt-protocol literature
+  ([arXiv 2606.04193](https://arxiv.org/abs/2606.04193)) draws the line we are on the wrong side of
+  by default: a log produced by the party being recorded can be repudiated by that party. Selo's
+  honest ceiling under the default setup is *operator-signed, tamper-evident* evidence (see the
+  trust-domain bullet above); the structural answer — an independent receiver (CI) co-signing the
+  receipt — is designed for, not built yet.
 
 ## Use in CI
 

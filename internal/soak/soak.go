@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/C1-run/selo/internal/taskmeta"
 )
 
 // SoakConfig controls the soak harness.
@@ -205,16 +207,15 @@ func (sr *SoakRunner) processNextFixture(queueDir string, taskStarted time.Time)
 	}
 
 	taskPath := filepath.Join(queueDir, entries[0].Name())
-	data, err := os.ReadFile(taskPath)
+	taskCfg, err := taskmeta.Parse(taskPath)
 	if err != nil {
 		sr.mu.Lock()
 		sr.errors++
 		sr.mu.Unlock()
 		return
 	}
-	content := string(data)
-	goal := extractGoal(content)
-	id := extractID(content)
+	goal := taskCfg.Goal
+	id := taskCfg.ID
 	simulatedVerdict := simulateVerdict(goal)
 
 	doneDir := filepath.Join(sr.cfg.OutDir, "queue", "done")
@@ -399,53 +400,23 @@ func GenerateFixtureTasks(count int) []FixtureTask {
 
 // --- Helpers ---
 
+// WriteFixtureTask writes the fixture task through the canonical taskmeta
+// writer, so the soak writes exactly the shape the parser (and every other
+// reader) expects.
 func WriteFixtureTask(dir string, task FixtureTask) error {
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("id: %q\n", task.ID))
-	b.WriteString(fmt.Sprintf("title: %q\n", task.Title))
-	b.WriteString(fmt.Sprintf("repo: %q\n", "/tmp/selo-fixture"))
-	b.WriteString(fmt.Sprintf("goal: %q\n", task.Goal))
-	b.WriteString("allowed_files: []\n")
-	if len(task.ForbiddenFiles) > 0 {
-		b.WriteString("forbidden_files:\n")
-		for _, f := range task.ForbiddenFiles {
-			b.WriteString(fmt.Sprintf("  - %s\n", f))
-		}
-	}
-	if len(task.Commands) > 0 {
-		b.WriteString("commands:\n")
-		for _, c := range task.Commands {
-			b.WriteString(fmt.Sprintf("  - %s\n", c))
-		}
-	}
-	b.WriteString(fmt.Sprintf("max_minutes: %d\n", task.MaxMinutes))
-	b.WriteString("max_rounds: 3\n")
-	b.WriteString("forbidden_claims:\n  - PROFITABLE\n  - LIVE_READY\n")
-	b.WriteString("deliverables:\n  - receipt.md\n")
 	path := filepath.Join(dir, fmt.Sprintf("%s.md", task.ID))
-	return os.WriteFile(path, []byte(b.String()), 0644)
-}
-
-func extractGoal(content string) string {
-	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "goal:") {
-			val := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "goal:"))
-			val = strings.Trim(val, `"'`)
-			return val
-		}
-	}
-	return ""
-}
-
-func extractID(content string) string {
-	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "id:") {
-			val := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "id:"))
-			val = strings.Trim(val, `"'`)
-			return val
-		}
-	}
-	return ""
+	return taskmeta.Write(path, &taskmeta.TaskConfig{
+		ID:              task.ID,
+		Title:           task.Title,
+		Repo:            "/tmp/selo-fixture",
+		Goal:            task.Goal,
+		Commands:        task.Commands,
+		MaxMinutes:      task.MaxMinutes,
+		MaxRounds:       3,
+		ForbiddenFiles:  task.ForbiddenFiles,
+		ForbiddenClaims: []string{"PROFITABLE", "LIVE_READY"},
+		Deliverables:    []string{"receipt.md"},
+	})
 }
 
 func simulateVerdict(goal string) string {

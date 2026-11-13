@@ -29,6 +29,7 @@ import (
 	"github.com/C1-run/selo/internal/runner"
 	"github.com/C1-run/selo/internal/soak"
 	"github.com/C1-run/selo/internal/supply"
+	"github.com/C1-run/selo/internal/taskmeta"
 	"github.com/C1-run/selo/internal/testintegrity"
 	"github.com/C1-run/selo/internal/workspace"
 )
@@ -105,12 +106,14 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		return false
 	}
 
-	// 3. Parse task metadata
-	taskMeta, err := receipt.ParseTaskMeta(runningPath)
+	// 3. Parse the task file once. The receipt metadata and the governor
+	// config both derive from this single parse.
+	taskCfg, err := taskmeta.Parse(runningPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[selo] Error parsing task: %v\n", err)
 		return false
 	}
+	taskMeta := receipt.TaskMetaFromConfig(taskCfg)
 
 	taskID := taskMeta.ID
 	if taskID == "" {
@@ -138,8 +141,8 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		maxRounds = cfg.Forge.DefaultMaxRounds
 	}
 
-	// 6. Parse additional governor config from task
-	_, _, maxFiles, maxPatchLines, commands, allowedFiles, forbiddenFiles, forbiddenClaims, allowTestMods, _ := governor.ParseTaskConfig(runningPath)
+	// 6. Governor config from the same parse
+	_, _, maxFiles, maxPatchLines, commands, allowedFiles, forbiddenFiles, forbiddenClaims, allowTestMods := governor.ConfigFromTask(taskCfg)
 	if maxFiles <= 0 {
 		maxFiles = cfg.Forge.DefaultMaxFiles
 	}

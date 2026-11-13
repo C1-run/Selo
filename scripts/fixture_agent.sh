@@ -20,15 +20,14 @@ WORKTREE="${2:?missing worktree}"
 
 cd "$WORKTREE"
 
-# Extract the goal field from task.md (strip quotes)
-GOAL_RAW=$(grep '^goal:' "$TASK_FILE" | sed 's/^goal:[[:space:]]*//' | head -1)
-GOAL=$(echo "$GOAL_RAW" | sed 's/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//')
-
-# Extract forbidden_files list (lines starting with "- " after "forbidden_files:")
-FORBIDDEN_FILES=$(awk '/^forbidden_files:/{flag=1; next} /^[a-z]/{flag=0} flag && /^- /{print $0}' "$TASK_FILE" 2>/dev/null || true)
-
-# Extract commands list (lines starting with "- " after "commands:")
-COMMANDS=$(awk '/^commands:/{flag=1; next} /^[a-z]/{flag=0} flag && /^- /{print $0}' "$TASK_FILE" 2>/dev/null || true)
+# Parse task.md through the shared shell extractor (scripts/task-parse.sh) —
+# one parser for all shell runners, drift-tested against internal/taskmeta.
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/task-parse.sh"
+task_parse_fields "$TASK_FILE"
+GOAL="$TASK_GOAL"
+FORBIDDEN_FILES="$TASK_FORBIDDEN_FILES"
+COMMANDS="$TASK_COMMANDS"
 
 echo "[fixture_agent] goal=$GOAL worktree=$WORKTREE"
 
@@ -101,9 +100,9 @@ esac
 # Run commands if specified (e.g., "go test ./...")
 if [ -n "$COMMANDS" ]; then
     echo "[fixture_agent] Running commands..."
-    # Remove "- " prefix and strip quotes from each command
-    echo "$COMMANDS" | while IFS= read -r line; do
-        cmd=$(echo "$line" | sed 's/^- //' | sed 's/^"//; s/"$//; s/'"'"'$//; s/^'"'"'//')
+    # Commands arrive eval-ready: task-parse.sh stripped the "- " prefix and
+    # quotes.
+    echo "$COMMANDS" | while IFS= read -r cmd; do
         [ -z "$cmd" ] && continue
         echo "[fixture_agent] $ $cmd"
         if ! eval "$cmd" 2>&1; then

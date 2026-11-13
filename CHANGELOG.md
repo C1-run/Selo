@@ -6,6 +6,70 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-14
+
+### ⚠️ Behavior change: required commands now enforced by default
+
+`selo run` now treats a non-zero exit from any `--commands` entry as a
+`FAILED_REQUIRED_COMMANDS` verdict. Previously this was opt-in
+(`--require-tests-pass`, introduced in v0.6.5). If you pass build / lint / info
+commands and want a non-zero exit to **not** fail the run, pass
+`--no-require-commands-pass` (or set `require_commands_pass: false` in
+`config/selo.yaml`); the receipt still records what the commands did.
+
+The gate was renamed from "tests" to "required commands" because `--commands`
+accepts any command, not only tests, and a failing `go build` is not a failing
+test:
+
+- CLI: `--require-tests-pass` → `--require-commands-pass` (default on) with
+  `--no-require-commands-pass` to opt out.
+- Config: `forge.require_tests_pass` → `forge.require_commands_pass`.
+- Verdict: `FAILED_TESTS` → `FAILED_REQUIRED_COMMANDS` (same severity slot, so
+  `selo run` still exits 1 on it).
+- Receipt fields renamed: `tests_ok` → `commands_ok`,
+  `test_exit_codes` → `command_exit_codes`, `tests_passed` → `commands_passed`.
+  The signature covers field *values*, not names — old receipts still verify.
+
+### Added
+
+- **Receipts carry `checks_version`** (`"1"` in this release): which post-run
+  check set produced `scans_passed` / `safety_hits`. It is bumped when check
+  semantics change, so a receipt is never judged by check semantics it was not
+  produced under.
+- **Receipt cards as sticky PR comments.** A reusable workflow
+  (`.github/workflows/receipt-comment.yml`) verifies a receipt, renders its
+  decision card (`selo receipt show --format github`), posts it as a PR comment
+  updated in place on re-run, and appends it to the job summary — with
+  optional `--pubkey` pinning and `fail-on-invalid`. Selo's own pull requests
+  dogfood the whole arc via `.github/workflows/receipt-dogfood.yml`.
+- **`taskmeta.Write`** — the canonical task.md writer. All machine-consumed
+  task files are written through it, with a writer↔reader round-trip test.
+
+### Changed
+
+- **One task.md parser.** `internal/taskmeta` is now the single parser (with
+  fuzz tests) behind `receipt.ParseTaskMeta` and `governor.ParseTaskConfig`;
+  the duplicated line-by-line parsers are deleted. Shell runners
+  (`fixture_agent.sh`, `c1-loop.sh`) extract task fields through one shared
+  `scripts/task-parse.sh`, and a drift test runs that shell parser against the
+  Go parser on writer-generated files. Fixing this consolidation surfaced a
+  real bug: the shell runners' list-item pattern required column-0 items, so
+  on canonical writer output (two-space-indented) their command loops never
+  executed anything.
+- **The daemon's check block runs through `internal/pipeline.RunAll`** — the
+  package was dead scaffolding that docs advertised and nothing called, with
+  whole-worktree scans that would have regressed the daemon. It is now the
+  single definition of the post-diff check set (diff-scoped scans), and
+  `checks_version` names its semantics.
+- The task file is parsed **once** per task instead of twice (receipt metadata
+  and governor config share one `taskmeta.Parse`).
+- Docs reconciled with the code: `internal/pipeline` documented with its real
+  API, the containment table no longer lists `docker`/`local` strategies that
+  are refused, the receipt struct docs show the v0.7.0 field names.
+- README states the run-signed vs receiver-signed distinction honestly, citing
+  [arXiv 2606.04193](https://arxiv.org/abs/2606.04193); the structural answer
+  (an independent receiver co-signing) is designed for, not built yet.
+
 ## [0.6.6] — 2026-10-13
 
 ### Changed

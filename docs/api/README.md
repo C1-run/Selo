@@ -7,9 +7,9 @@ Complete Go package documentation for Selo.
 | Package | Description |
 |---------|-------------|
 | `cmd/selo` | CLI entry point and commands |
-| `internal/containment` | Unified isolation interface |
+| `internal/containment` | Git-worktree isolation (the only strategy) |
 | `internal/opencode` | Native Go OpenCode adapter |
-| `internal/pipeline` | Safety pipeline |
+| `internal/pipeline` | Post-diff safety checks (the daemon's check set) |
 | `internal/receipt` | Cryptographic receipts |
 | `internal/governor` | Policy enforcement |
 | `internal/pinocchio` | Consistency checks |
@@ -291,76 +291,72 @@ Checks if a file path matches the allowlist patterns.
 
 ## `internal/pipeline`
 
+The post-diff safety checks the daemon runs after the agent finishes. One
+definition of the check set, stamped into every receipt as `checks_version`
+(`pipeline.ChecksVersion`, currently `"1"`). The daemon's supply-chain BOM and
+test-integrity gate run in the daemon flow (they need their full result
+objects) but belong to the same versioned set.
+
 ### Types
 
-#### `Pipeline`
+#### `Check`
 
 ```go
-type Pipeline struct {
-    Ctx PipelineContext
+type Check interface {
+    Name() string
+    Run(ctx *CheckContext) *CheckResult
 }
 ```
 
-Safety pipeline for task verification.
-
-#### `PipelineContext`
+#### `CheckContext`
 
 ```go
-type PipelineContext struct {
-    TaskID          string
+type CheckContext struct {
+    Diff            string
     WorktreePath    string
     AllowedFiles    []string
     ForbiddenFiles  []string
     ForbiddenClaims []string
-    Commands        []string
-    BaseDir         string
+    ChangedFiles    []string
+    Governor        *governor.Governor
 }
 ```
 
-Context for pipeline execution.
+`ChangedFiles` is the set of files the diff touched; the forbidden-claims and
+secret scans are diff-scoped against it.
 
 #### `CheckResult`
 
 ```go
 type CheckResult struct {
-    Passed  bool
-    Message string
-    Details interface{}
+    Hits      []string
+    Violation bool
 }
 ```
 
-Result of a pipeline check.
-
-#### `PipelineResult`
+#### `Report`
 
 ```go
-type PipelineResult struct {
-    Governor  *CheckResult
-    Scans     *CheckResult
-    Pinocchio *CheckResult
-    GateChain *CheckResult
+type Report struct {
+    Hits     []string
+    ByCheck  map[string]*CheckResult
+    Override string
 }
 ```
 
-Complete pipeline result.
+`Override` is the name of the first violating check (`""` when none); use
+`report.Violated(name)` to query a specific check.
 
 ### Functions
 
-#### `NewPipeline(ctx PipelineContext) *Pipeline`
+#### `DefaultChecks() []Check`
 
-```go
-func NewPipeline(ctx PipelineContext) *Pipeline
-```
+The standard post-diff check set, in receipt order: `forbidden_file_edit`,
+`forbidden_claims`, `secret_scan`, `patch_limit`, `round_limit`.
 
-Creates a new pipeline instance.
+#### `RunAll(checks []Check, ctx *CheckContext) *Report`
 
-#### `(p *Pipeline) Run(ctx context.Context) (*PipelineResult, error)`
-
-```go
-func (p *Pipeline) Run(ctx context.Context) (*PipelineResult, error)
-```
-
-Runs all pipeline stages sequentially.
+Executes the checks in order and aggregates their results.
 
 ---
 
@@ -399,6 +395,9 @@ type Receipt struct {
     // Safety scans only (forbidden files, forbidden claims, secret scan) —
     // NOT a statement about command results. See CommandsOK / CommandExitCodes.
     ScansPassed           bool              `json:"scans_passed"`
+    // Which post-run check set produced scans_passed/safety_hits
+    // (pipeline.ChecksVersion, currently "1"; bumped when check semantics change).
+    ChecksVersion         string            `json:"checks_version,omitempty"`
     // CommandsOK is nil when no command was configured, true when every
     // configured command exited 0, false otherwise. Derived from exit codes.
     // Named tests_ok / test_exit_codes before v0.7.0.
