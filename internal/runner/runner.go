@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -68,6 +69,7 @@ type C1Result struct {
 	Stderr     string
 	Duration   time.Duration
 	TimedOut   bool
+	Cancelled  bool
 	TestOutput string
 	Diff       string
 	CommandLog string // the actual command that was run
@@ -107,15 +109,16 @@ func NewMockRunner(workDir, taskPath string, maxMinutes int, stopFile string) *C
 }
 
 // Run executes the C1 Loop with a timeout, dispatching to real or mock mode.
-func (r *C1LoopRunner) Run() *C1Result {
+// The provided context can be cancelled to terminate the agent process immediately.
+func (r *C1LoopRunner) Run(ctx context.Context) *C1Result {
 	if r.Mode == ModeReal && r.Config.Command != "" {
-		return r.runReal()
+		return r.runReal(ctx)
 	}
-	return r.runMock()
+	return r.runMock(ctx)
 }
 
 // runReal executes the configured command with template substitution.
-func (r *C1LoopRunner) runReal() *C1Result {
+func (r *C1LoopRunner) runReal(ctx context.Context) *C1Result {
 	result := &C1Result{Mode: ModeReal}
 	start := time.Now()
 
@@ -143,7 +146,7 @@ func (r *C1LoopRunner) runReal() *C1Result {
 		}
 	}
 
-	cmd := exec.Command(cmdPath, fullArgs...)
+	cmd := exec.CommandContext(ctx, cmdPath, fullArgs...)
 	cmd.Dir = r.WorkDir
 	cmd.Env = append(agentEnv(),
 		fmt.Sprintf("C1_TASK=%s", r.TaskPath),
@@ -178,7 +181,10 @@ func (r *C1LoopRunner) runReal() *C1Result {
 		result.Stderr = stderr.String()
 		result.Duration = time.Since(start)
 		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			if ctx.Err() == context.Canceled {
+				result.Cancelled = true
+				result.ExitCode = -1
+			} else if exitErr, ok := err.(*exec.ExitError); ok {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.ExitCode = -1
@@ -194,6 +200,15 @@ func (r *C1LoopRunner) runReal() *C1Result {
 		result.Stderr = stderr.String()
 		result.Duration = time.Since(start)
 		result.TimedOut = true
+		result.ExitCode = -1
+
+	case <-ctx.Done():
+		cmd.Process.Kill()
+		<-done
+		result.Stdout = stdout.String()
+		result.Stderr = stderr.String()
+		result.Duration = time.Since(start)
+		result.Cancelled = true
 		result.ExitCode = -1
 	}
 
@@ -201,14 +216,14 @@ func (r *C1LoopRunner) runReal() *C1Result {
 }
 
 // runMock executes the placeholder echo command (Phase 0 behavior).
-func (r *C1LoopRunner) runMock() *C1Result {
+func (r *C1LoopRunner) runMock(ctx context.Context) *C1Result {
 	result := &C1Result{Mode: ModeMock}
 	start := time.Now()
 
 	mockCmd := fmt.Sprintf("echo 'C1 Loop mock mode: task=%s workdir=%s'; echo 'No changes made.'", r.TaskPath, r.WorkDir)
 	result.CommandLog = mockCmd
 
-	cmd := exec.Command("sh", "-c", mockCmd)
+	cmd := exec.CommandContext(ctx, "sh", "-c", mockCmd)
 	cmd.Dir = r.WorkDir
 	cmd.Env = append(agentEnv(),
 		fmt.Sprintf("C1_TASK=%s", r.TaskPath),
@@ -243,7 +258,10 @@ func (r *C1LoopRunner) runMock() *C1Result {
 		result.Stderr = stderr.String()
 		result.Duration = time.Since(start)
 		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+			if ctx.Err() == context.Canceled {
+				result.Cancelled = true
+				result.ExitCode = -1
+			} else if exitErr, ok := err.(*exec.ExitError); ok {
 				result.ExitCode = exitErr.ExitCode()
 			} else {
 				result.ExitCode = -1
@@ -258,6 +276,14 @@ func (r *C1LoopRunner) runMock() *C1Result {
 		result.Stderr = stderr.String()
 		result.Duration = time.Since(start)
 		result.TimedOut = true
+		result.ExitCode = -1
+	case <-ctx.Done():
+		cmd.Process.Kill()
+		<-done
+		result.Stdout = stdout.String()
+		result.Stderr = stderr.String()
+		result.Duration = time.Since(start)
+		result.Cancelled = true
 		result.ExitCode = -1
 	}
 

@@ -262,7 +262,7 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		// Fallback: use C1LoopRunner (shell adapter or C1 Loop)
 		c1Runner := runner.NewC1LoopRunner(worktreePath, absRunningPath, maxMinutes,
 			filepath.Join(qm.BaseDir, cfg.Forge.StopFile), runnerMode, runnerCfg)
-		result = c1Runner.Run()
+		result = c1Runner.Run(context.Background())
 	}
 	finishTime := time.Now()
 

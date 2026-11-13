@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/C1-run/selo/internal/taskmeta"
 )
 
 // Governor enforces task limits and constraints.
@@ -79,106 +81,11 @@ func (g *Governor) CheckRoundsExceeded(round int) bool {
 // ParseTaskConfig extracts governor config from a task.md file.
 // Returns (maxMinutes, maxRounds, maxFiles, maxPatchLines, commands, allowedFiles, forbiddenFiles, forbiddenClaims, allowTestModifications).
 func ParseTaskConfig(taskPath string) (int, int, int, int, []string, []string, []string, []string, bool, error) {
-	data, err := os.ReadFile(taskPath)
+	cfg, err := taskmeta.Parse(taskPath)
 	if err != nil {
-		return 0, 0, 0, 0, nil, nil, nil, nil, false, fmt.Errorf("read task: %w", err)
+		return 0, 0, 0, 0, nil, nil, nil, nil, false, err
 	}
-
-	content := string(data)
-	maxMinutes := 30
-	maxRounds := 3
-	maxFiles := 10
-	maxPatchLines := 200
-	var commands []string
-	var allowedFiles []string
-	var forbiddenFiles []string
-	var forbiddenClaims []string
-	allowTestMods := false
-
-	// Simple YAML-like parser for task.md
-	lines := strings.Split(content, "\n")
-	inCommands := false
-	inAllowed := false
-	inForbidden := false
-	inForbiddenClaims := false
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		if trimmed == "commands:" || trimmed == "commands_to_run:" {
-			inCommands = true
-			continue
-		}
-		if trimmed == "allowed_files:" {
-			inAllowed = true
-			inCommands = false
-			continue
-		}
-		if trimmed == "forbidden_files:" {
-			inForbidden = true
-			inAllowed = false
-			continue
-		}
-		if trimmed == "forbidden_claims:" {
-			inForbiddenClaims = true
-			inForbidden = false
-			continue
-		}
-		if trimmed == "deliverables:" {
-			inCommands = false
-			inAllowed = false
-			inForbidden = false
-			inForbiddenClaims = false
-			continue
-		}
-
-		// Check for next section
-		if strings.HasPrefix(trimmed, "acceptance_criteria:") || strings.HasPrefix(trimmed, "goal:") || strings.HasPrefix(trimmed, "title:") || strings.HasPrefix(trimmed, "repo:") || strings.HasPrefix(trimmed, "id:") {
-			inCommands = false
-			inAllowed = false
-			inForbidden = false
-			inForbiddenClaims = false
-		}
-
-		if strings.HasPrefix(trimmed, "max_minutes:") {
-			fmt.Sscanf(trimmed, "max_minutes: %d", &maxMinutes)
-		}
-		if strings.HasPrefix(trimmed, "max_rounds:") {
-			fmt.Sscanf(trimmed, "max_rounds: %d", &maxRounds)
-		}
-		if strings.HasPrefix(trimmed, "max_files:") {
-			fmt.Sscanf(trimmed, "max_files: %d", &maxFiles)
-		}
-		if strings.HasPrefix(trimmed, "max_patch_lines:") {
-			fmt.Sscanf(trimmed, "max_patch_lines: %d", &maxPatchLines)
-		}
-		if strings.HasPrefix(trimmed, "allow_test_modifications:") {
-			fmt.Sscanf(trimmed, "allow_test_modifications: %t", &allowTestMods)
-		}
-
-		if inCommands && strings.HasPrefix(trimmed, "- ") {
-			commands = append(commands, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
-		}
-		if inAllowed && strings.HasPrefix(trimmed, "- ") {
-			allowedFiles = append(allowedFiles, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
-		}
-		if inForbidden && strings.HasPrefix(trimmed, "- ") {
-			forbiddenFiles = append(forbiddenFiles, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
-		}
-		if inForbiddenClaims && strings.HasPrefix(trimmed, "- ") {
-			forbiddenClaims = append(forbiddenClaims, unquoteTaskItem(strings.TrimPrefix(trimmed, "- ")))
-		}
-	}
-
-	return maxMinutes, maxRounds, maxFiles, maxPatchLines, commands, allowedFiles, forbiddenFiles, forbiddenClaims, allowTestMods, nil
-}
-
-// unquoteTaskItem strips surrounding quotes from a task.md list value.
-// cmd_run writes list items quoted; a quoted forbidden_files entry never
-// substring-matches the paths it is audited against, and a quoted
-// allowed_files entry never prefix-matches, so the quotes must go.
-func unquoteTaskItem(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.Trim(s, "\"")
-	return strings.Trim(s, "'")
+	return cfg.MaxMinutes, cfg.MaxRounds, cfg.MaxFiles, cfg.MaxPatchLines,
+		cfg.Commands, cfg.AllowedFiles, cfg.ForbiddenFiles, cfg.ForbiddenClaims,
+		cfg.AllowTestModifications, nil
 }

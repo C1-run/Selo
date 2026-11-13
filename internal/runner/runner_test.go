@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -236,7 +237,7 @@ func TestMapVerdictLimitExceeded(t *testing.T) {
 func TestMockRunnerBasic(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMockRunner(dir, "/tmp/fake-task.md", 1, "")
-	result := r.Run()
+	result := r.Run(context.Background())
 	if result.ExitCode != 0 {
 		t.Errorf("expected exit 0, got %d", result.ExitCode)
 	}

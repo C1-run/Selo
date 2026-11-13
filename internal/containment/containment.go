@@ -1,11 +1,8 @@
-// Package containment provides a unified interface for isolated task execution.
+// Package containment provides isolated task execution via git worktree.
 //
-// Two strategies:
-//   - WorktreeContainment: git worktree-based isolation (lightweight, host-based)
-//   - DockerContainment: container-based isolation (strong, network-isolated)
-//
-// Both implement the Containment interface, allowing callers to swap strategies
-// without changing the task execution logic.
+// WorktreeContainment gives each task its own git worktree — the agent
+// never touches the main checkout. Docker and local strategies are
+// intentionally refused at config validation.
 package containment
 
 import (
@@ -19,13 +16,9 @@ import (
 
 // Containment is the unified interface for isolated task execution.
 type Containment interface {
-	// Setup creates the isolated environment (worktree or container).
 	Setup(repoPath, taskID string) (string, error)
-	// Run executes a command inside the isolated environment.
 	Run(cmd []string, env []string, timeout time.Duration) (*Result, error)
-	// Teardown removes the isolated environment.
 	Teardown(repoPath, taskID string) error
-	// Workdir returns the path to the isolated workspace.
 	Workdir() string
 }
 
@@ -41,52 +34,30 @@ type Strategy string
 
 const (
 	StrategyWorktree Strategy = "worktree"
-	StrategyDocker   Strategy = "docker"
-	StrategyLocal    Strategy = "local"
 )
 
 // Config configures the containment.
 type Config struct {
 	Strategy Strategy
-	WorkDir  string   // base directory for worktrees or container mounts
-	Image    string   // Docker image (only for StrategyDocker)
-	Writable []string // writable paths (only for StrategyDocker)
-	Extra    []string // extra mounts (only for StrategyDocker)
+	WorkDir  string
 }
 
 // New creates a Containment based on the strategy.
+// Only StrategyWorktree is accepted; all others are refused.
 func New(cfg Config) (Containment, error) {
 	switch cfg.Strategy {
 	case StrategyWorktree:
 		return &WorktreeContainment{workDir: cfg.WorkDir}, nil
-	case StrategyDocker:
-		if !DockerAvailable() {
-			return nil, fmt.Errorf("docker not available")
-		}
-		return &DockerContainment{
-			workDir:  cfg.WorkDir,
-			image:    cfg.Image,
-			writable: cfg.Writable,
-			extra:    cfg.Extra,
-		}, nil
-	case StrategyLocal:
-		return &LocalContainment{workDir: cfg.WorkDir}, nil
 	default:
-		return nil, fmt.Errorf("unknown containment strategy: %s", cfg.Strategy)
+		return nil, fmt.Errorf("unknown or unsupported containment strategy: %s", cfg.Strategy)
 	}
-}
-
-// DockerAvailable reports whether a docker daemon is reachable.
-func DockerAvailable() bool {
-	err := exec.Command("docker", "info").Run()
-	return err == nil
 }
 
 // --- WorktreeContainment ---
 
 type WorktreeContainment struct {
 	workDir string
-	workdir string // set after Setup
+	workdir string
 }
 
 func (c *WorktreeContainment) Setup(repoPath, taskID string) (string, error) {
@@ -97,14 +68,25 @@ func (c *WorktreeContainment) Setup(repoPath, taskID string) (string, error) {
 		wtPath = absPath
 	}
 
-	// Remove existing worktree if present
 	if _, err := os.Stat(wtPath); err == nil {
-		exec.Command("git", "worktree", "remove", "--force", wtPath).Run()
+		rmCmd := exec.Command("git", "worktree", "remove", "--force", wtPath)
+		rmCmd.Dir = repoPath
+		rmCmd.Run()
 		os.RemoveAll(wtPath)
 	}
 
 	branchName := fmt.Sprintf("selo/%s", taskID)
-	exec.Command("git", "branch", "-D", branchName).Run()
+
+	// A branch checked out in a stale worktree cannot be deleted, which would
+	// make `worktree add -b` fail on a rerun. --expire now is required because
+	// the default prune expiry is mtime-based over 3 months.
+	pruneCmd := exec.Command("git", "worktree", "prune", "--expire", "now")
+	pruneCmd.Dir = repoPath
+	pruneCmd.Run()
+
+	delCmd := exec.Command("git", "branch", "-D", branchName)
+	delCmd.Dir = repoPath
+	delCmd.Run()
 
 	cmd := exec.Command("git", "worktree", "add", "-b", branchName, wtPath, "HEAD")
 	cmd.Dir = repoPath
@@ -168,87 +150,6 @@ func (c *WorktreeContainment) Teardown(repoPath, taskID string) error {
 }
 
 func (c *WorktreeContainment) Workdir() string { return c.workdir }
-
-// --- DockerContainment ---
-
-type DockerContainment struct {
-	workDir   string
-	image     string
-	writable  []string
-	extra     []string
-	workdir   string
-	container string
-	volumes   []string
-}
-
-func (c *DockerContainment) Setup(repoPath, taskID string) (string, error) {
-	c.workdir = c.workDir
-	return c.workDir, nil
-}
-
-func (c *DockerContainment) Run(cmdArgs []string, env []string, timeout time.Duration) (*Result, error) {
-	args := []string{"run", "--rm", "--name", "c1_cell_" + fmt.Sprint(os.Getpid()),
-		"--network", "none",
-		"--security-opt", "no-new-privileges",
-		"--cap-drop", "ALL",
-		"--read-only",
-		"--tmpfs", "/tmp:rw,size=64m",
-		"-v", c.workdir + ":/work:ro",
-	}
-	for i, w := range c.writable {
-		vol := fmt.Sprintf("c1_w_%d_%d", os.Getpid(), i)
-		args = append(args, "-v", vol+":/work/"+strings.TrimPrefix(w, c.workdir+"/")+":rw")
-		c.volumes = append(c.volumes, vol)
-	}
-	for _, m := range c.extra {
-		args = append(args, "-v", m)
-	}
-	for _, e := range env {
-		args = append(args, "-e", e)
-	}
-	args = append(args, c.image)
-	args = append(args, cmdArgs...)
-
-	cmd := exec.Command("docker", args...)
-	var out strings.Builder
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Start(); err != nil {
-		return &Result{ExitCode: -1}, fmt.Errorf("docker start: %w", err)
-	}
-
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-
-	var r Result
-	select {
-	case err := <-done:
-		if err == nil {
-			r.ExitCode = 0
-		} else if ee, ok := err.(*exec.ExitError); ok {
-			r.ExitCode = ee.ExitCode()
-		} else {
-			return nil, err
-		}
-	case <-time.After(timeout):
-		cmd.Process.Kill()
-		<-done
-		r.TimedOut = true
-		r.ExitCode = -1
-	}
-	r.Output = out.String()
-	for _, vol := range c.volumes {
-		exec.Command("docker", "volume", "rm", "-f", vol).Run()
-	}
-	return &r, nil
-}
-
-func (c *DockerContainment) Teardown(repoPath, taskID string) error {
-	return nil // docker run --rm cleans up
-}
-
-func (c *DockerContainment) Workdir() string { return c.workdir }
 
 // --- LocalContainment ---
 

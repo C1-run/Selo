@@ -30,14 +30,26 @@ func (wm *WorktreeManager) CreateWorktree(repoPath, taskID string) (string, erro
 	// Remove existing worktree directory if present
 	if _, err := os.Stat(wtPath); err == nil {
 		// Try to remove through git first, then force delete
-		exec.Command("git", "worktree", "remove", "--force", wtPath).Run()
+		rmCmd := exec.Command("git", "worktree", "remove", "--force", wtPath)
+		rmCmd.Dir = repoPath
+		rmCmd.Run()
 		os.RemoveAll(wtPath)
 	}
 
 	branchName := fmt.Sprintf("selo/%s", taskID)
 
-	// Remove existing branch if present
-	exec.Command("git", "branch", "-D", branchName, "2>/dev/null").Run()
+	// Remove existing branch if present. A branch checked out in a worktree
+	// cannot be deleted, so drop stale registrations first: the default prune
+	// expiry is mtime-based with a 3-month window, which leaves a worktree
+	// registered moments ago (crashed run, removed directory) holding the
+	// branch hostage — and `worktree add -b` would then fail.
+	pruneCmd := exec.Command("git", "worktree", "prune", "--expire", "now")
+	pruneCmd.Dir = repoPath
+	pruneCmd.Run()
+
+	delCmd := exec.Command("git", "branch", "-D", branchName)
+	delCmd.Dir = repoPath
+	delCmd.Run()
 
 	// Create a new branch from HEAD
 	cmd := exec.Command("git", "worktree", "add", "-b", branchName, wtPath, "HEAD")
@@ -71,7 +83,9 @@ func (wm *WorktreeManager) RemoveWorktree(repoPath, taskID string) error {
 
 // CleanupAll removes all selo worktrees.
 func (wm *WorktreeManager) CleanupAll(repoPath string) error {
-	cmd := exec.Command("git", "worktree", "prune")
+	// --expire now: the default expiry is mtime-based over 3 months, so a
+	// worktree whose directory was just deleted stays registered.
+	cmd := exec.Command("git", "worktree", "prune", "--expire", "now")
 	cmd.Dir = repoPath
 	cmd.Stderr = os.Stderr
 	cmd.Run()

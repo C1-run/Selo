@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/C1-run/selo/internal/taskmeta"
 )
 
 // TaskMeta holds parsed task metadata from task.md.
@@ -202,93 +203,22 @@ func GenerateReceiptID() string {
 	return fmt.Sprintf("c1f-%d", now)
 }
 
-// taskKeyRe matches the key of a "key: value" line.
-var taskKeyRe = regexp.MustCompile(`^([A-Za-z_][A-Za-z0-9_]*):`)
-
-// recognizedTaskKeys is every task.md key Selo honors (across ParseTaskMeta and
-// governor.ParseTaskConfig). A "key:" line outside this set is almost always a
-// typo, so it is warned about instead of silently ignored: a misspelled
-// `max_minutes` used to leave the default in force with no signal at all.
-var recognizedTaskKeys = map[string]bool{
-	"id": true, "title": true, "repo": true, "goal": true,
-	"acceptance_criteria": true, "commands": true, "commands_to_run": true,
-	"deliverables": true, "max_minutes": true, "max_rounds": true,
-	"max_files": true, "max_patch_lines": true,
-	"allowed_files": true, "forbidden_files": true, "forbidden_claims": true,
-	"allow_test_modifications": true,
-}
-
 func ParseTaskMeta(taskPath string) (*TaskMeta, error) {
-	data, err := os.ReadFile(taskPath)
+	cfg, err := taskmeta.Parse(taskPath)
 	if err != nil {
-		return nil, fmt.Errorf("read task: %w", err)
+		return nil, err
 	}
-	meta := &TaskMeta{
-		MaxMinutes: 30,
-		MaxRounds:  3,
-	}
-	lines := strings.Split(string(data), "\n")
-	inAC := false
-	inCommands := false
-	inDeliverables := false
-
-	stripQuotes := func(s string) string {
-		s = strings.TrimSpace(s)
-		s = strings.Trim(s, "\"")
-		s = strings.Trim(s, "'")
-		return s
-	}
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if m := taskKeyRe.FindStringSubmatch(trimmed); m != nil && !recognizedTaskKeys[m[1]] {
-			fmt.Fprintf(os.Stderr, "[selo] warning: unknown task key %q in %s (ignored; check for a typo)\n", m[1], taskPath)
-		}
-		if strings.HasPrefix(trimmed, "id:") {
-			meta.ID = stripQuotes(strings.TrimPrefix(trimmed, "id:"))
-		} else if strings.HasPrefix(trimmed, "title:") {
-			meta.Title = stripQuotes(strings.TrimPrefix(trimmed, "title:"))
-		} else if strings.HasPrefix(trimmed, "repo:") {
-			meta.Repo = stripQuotes(strings.TrimPrefix(trimmed, "repo:"))
-		} else if strings.HasPrefix(trimmed, "goal:") {
-			meta.Goal = stripQuotes(strings.TrimPrefix(trimmed, "goal:"))
-		} else if strings.HasPrefix(trimmed, "acceptance_criteria:") {
-			inAC = true
-			inCommands = false
-			inDeliverables = false
-		} else if trimmed == "commands:" || trimmed == "commands_to_run:" {
-			inCommands = true
-			inAC = false
-			inDeliverables = false
-		} else if trimmed == "deliverables:" {
-			inDeliverables = true
-			inAC = false
-			inCommands = false
-		} else if strings.HasPrefix(trimmed, "max_minutes:") {
-			fmt.Sscanf(trimmed, "max_minutes: %d", &meta.MaxMinutes)
-			inAC = false
-			inCommands = false
-			inDeliverables = false
-		} else if strings.HasPrefix(trimmed, "max_rounds:") {
-			fmt.Sscanf(trimmed, "max_rounds: %d", &meta.MaxRounds)
-			inAC = false
-			inCommands = false
-			inDeliverables = false
-		} else if inAC && strings.HasPrefix(trimmed, "- ") {
-			meta.AcceptanceCriteria = append(meta.AcceptanceCriteria, stripQuotes(strings.TrimPrefix(trimmed, "- ")))
-		} else if inCommands && strings.HasPrefix(trimmed, "- ") {
-			meta.Commands = append(meta.Commands, stripQuotes(strings.TrimPrefix(trimmed, "- ")))
-		} else if inDeliverables && strings.HasPrefix(trimmed, "- ") {
-			meta.Deliverables = append(meta.Deliverables, stripQuotes(strings.TrimPrefix(trimmed, "- ")))
-		} else if trimmed != "" && !strings.Contains(trimmed, ":") && !strings.HasPrefix(trimmed, "- ") && !strings.HasPrefix(trimmed, "#") {
-			return nil, fmt.Errorf("invalid task syntax at line: %q", trimmed)
-		} else {
-			inAC = false
-			inCommands = false
-			inDeliverables = false
-		}
-	}
-	return meta, nil
+	return &TaskMeta{
+		ID:                 cfg.ID,
+		Title:              cfg.Title,
+		Repo:               cfg.Repo,
+		Goal:               cfg.Goal,
+		AcceptanceCriteria: cfg.AcceptanceCriteria,
+		Commands:           cfg.Commands,
+		MaxMinutes:         cfg.MaxMinutes,
+		MaxRounds:          cfg.MaxRounds,
+		Deliverables:       cfg.Deliverables,
+	}, nil
 }
 
 // ReceiptWriter writes receipt.json and receipt.md files.

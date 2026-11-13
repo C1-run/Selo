@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestWorktreeContainment_Setup(t *testing.T) {
@@ -17,7 +16,6 @@ func TestWorktreeContainment_Setup(t *testing.T) {
 	repoDir := filepath.Join(tmpDir, "repo")
 	os.MkdirAll(repoDir, 0755)
 
-	// Init a git repo
 	runCmd(t, repoDir, "git", "init")
 	runCmd(t, repoDir, "git", "config", "user.email", "test@test.com")
 	runCmd(t, repoDir, "git", "config", "user.name", "Test")
@@ -49,40 +47,15 @@ func TestWorktreeContainment_Setup(t *testing.T) {
 	}
 }
 
-func TestLocalContainment_Setup(t *testing.T) {
-	tmpDir := t.TempDir()
+func TestUnknownStrategyRefused(t *testing.T) {
 	cfg := Config{
-		Strategy: StrategyLocal,
-		WorkDir:  filepath.Join(tmpDir, "local"),
+		Strategy: "docker",
+		WorkDir:  t.TempDir(),
 	}
-	c, err := New(cfg)
-	if err != nil {
-		t.Fatalf("New: %v", err)
+	_, err := New(cfg)
+	if err == nil {
+		t.Fatal("expected error for unsupported strategy")
 	}
-
-	path, err := c.Setup(tmpDir, "test-1")
-	if err != nil {
-		t.Fatalf("Setup: %v", err)
-	}
-	if path == "" {
-		t.Error("Setup returned empty path")
-	}
-
-	r, err := c.Run([]string{"echo", "hello"}, nil, 5*time.Second)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if r.ExitCode != 0 {
-		t.Errorf("expected exit code 0, got %d", r.ExitCode)
-	}
-	if r.Output != "hello\n" {
-		t.Errorf("expected 'hello\\n', got %q", r.Output)
-	}
-}
-
-func TestDockerAvailable(t *testing.T) {
-	available := DockerAvailable()
-	t.Logf("docker available: %v", available)
 }
 
 func runCmd(t *testing.T, dir string, name string, args ...string) {
