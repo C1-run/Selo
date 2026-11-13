@@ -85,7 +85,14 @@ func ParseTaskConfig(taskPath string) (int, int, int, int, []string, []string, [
 	if err != nil {
 		return 0, 0, 0, 0, nil, nil, nil, nil, false, err
 	}
+	return ConfigFromTask(cfg), nil
+}
+
+// ConfigFromTask derives the governor config from an already-parsed task
+// config. Callers that parsed the task file with taskmeta.Parse should use
+// this instead of re-reading and re-parsing the file.
+func ConfigFromTask(cfg *taskmeta.TaskConfig) (int, int, int, int, []string, []string, []string, []string, bool) {
 	return cfg.MaxMinutes, cfg.MaxRounds, cfg.MaxFiles, cfg.MaxPatchLines,
 		cfg.Commands, cfg.AllowedFiles, cfg.ForbiddenFiles, cfg.ForbiddenClaims,
-		cfg.AllowTestModifications, nil
+		cfg.AllowTestModifications
 }

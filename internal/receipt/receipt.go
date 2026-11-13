@@ -69,6 +69,11 @@ type ForgeReceipt struct {
 	DiffHash    string `json:"diff_hash,omitempty"`
 	PolicyHash  string `json:"policy_hash,omitempty"`
 	SeloVersion string `json:"selo_version,omitempty"`
+	// ChecksVersion identifies the post-run check set that produced
+	// scans_passed and safety_hits (see internal/pipeline). It is bumped when
+	// check semantics change, so a receipt is never judged by check semantics
+	// it was not produced under.
+	ChecksVersion string `json:"checks_version,omitempty"`
 	// CommandsPassed is the number of configured commands that exited 0. It is
 	// derived from exit codes. (It used to count output lines containing "PASS"
 	// or starting with "ok ", which was wrong in both directions. Named
@@ -225,6 +230,13 @@ func ParseTaskMeta(taskPath string) (*TaskMeta, error) {
 	if err != nil {
 		return nil, err
 	}
+	return TaskMetaFromConfig(cfg), nil
+}
+
+// TaskMetaFromConfig converts the canonical task config to receipt metadata.
+// Callers that already parsed the task file with taskmeta.Parse should use
+// this instead of re-reading and re-parsing the file.
+func TaskMetaFromConfig(cfg *taskmeta.TaskConfig) *TaskMeta {
 	return &TaskMeta{
 		ID:                 cfg.ID,
 		Title:              cfg.Title,
@@ -235,7 +247,7 @@ func ParseTaskMeta(taskPath string) (*TaskMeta, error) {
 		MaxMinutes:         cfg.MaxMinutes,
 		MaxRounds:          cfg.MaxRounds,
 		Deliverables:       cfg.Deliverables,
-	}, nil
+	}
 }
 
 // ReceiptWriter writes receipt.json and receipt.md files.

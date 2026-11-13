@@ -1,52 +1,55 @@
 package pipeline
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/C1-run/selo/internal/governor"
-	"github.com/C1-run/selo/internal/testintegrity"
 )
 
 func TestRunAllEmptyChecks(t *testing.T) {
-	hits, override := RunAll(nil, &CheckContext{})
-	if len(hits) != 0 {
-		t.Errorf("expected no hits, got %d", len(hits))
+	rep := RunAll(nil, &CheckContext{})
+	if len(rep.Hits) != 0 {
+		t.Errorf("expected no hits, got %d", len(rep.Hits))
 	}
-	if override != "" {
-		t.Errorf("expected no override, got %q", override)
+	if rep.Override != "" {
+		t.Errorf("expected no override, got %q", rep.Override)
 	}
 }
 
 func TestRunAllAggregatesHits(t *testing.T) {
 	mock := &mockCheck{hits: []string{"hit1", "hit2"}, violation: false}
-	hits, override := RunAll([]Check{mock}, &CheckContext{})
-	if len(hits) != 2 {
-		t.Errorf("expected 2 hits, got %d", len(hits))
+	rep := RunAll([]Check{mock}, &CheckContext{})
+	if len(rep.Hits) != 2 {
+		t.Errorf("expected 2 hits, got %d", len(rep.Hits))
 	}
-	if override != "" {
-		t.Errorf("expected no override for non-violation, got %q", override)
+	if rep.Override != "" {
+		t.Errorf("expected no override for non-violation, got %q", rep.Override)
 	}
 }
 
 func TestRunAllViolationSetsOverride(t *testing.T) {
 	mock := &mockCheck{hits: []string{"violation"}, violation: true}
-	hits, override := RunAll([]Check{mock}, &CheckContext{})
-	if len(hits) != 1 {
-		t.Errorf("expected 1 hit, got %d", len(hits))
+	rep := RunAll([]Check{mock}, &CheckContext{})
+	if len(rep.Hits) != 1 {
+		t.Errorf("expected 1 hit, got %d", len(rep.Hits))
 	}
-	if override != "mock" {
-		t.Errorf("expected override %q, got %q", "mock", override)
+	if rep.Override != "mock" {
+		t.Errorf("expected override %q, got %q", "mock", rep.Override)
 	}
 }
 
 func TestRunAllFirstViolationWins(t *testing.T) {
 	mock1 := &mockCheck{name: "first", hits: []string{"v1"}, violation: true}
 	mock2 := &mockCheck{name: "second", hits: []string{"v2"}, violation: true}
-	_, override := RunAll([]Check{mock1, mock2}, &CheckContext{})
-	if override != "first" {
-		t.Errorf("expected first violation to win, got %q", override)
+	rep := RunAll([]Check{mock1, mock2}, &CheckContext{})
+	if rep.Override != "first" {
+		t.Errorf("expected first violation to win, got %q", rep.Override)
+	}
+	if !rep.Violated("first") || !rep.Violated("second") {
+		t.Error("expected both violations recorded in ByCheck")
+	}
+	if rep.Violated("absent") {
+		t.Error("expected absent check to report not violated")
 	}
 }
 
@@ -100,40 +103,26 @@ func TestRoundLimitCheckNotExceeded(t *testing.T) {
 func TestRoundLimitCheckExceeded(t *testing.T) {
 	gov := governor.NewGovernor(1, 10, 200, "") // maxRounds=1, round 0 is fine
 	check := RoundLimitCheck{}
-	result := check.Run(&CheckContext{Governor: gov, Verdict: "some_round"})
+	result := check.Run(&CheckContext{Governor: gov})
 	if result != nil {
 		t.Errorf("expected nil at round 0 < max 1, got %v", result)
 	}
 }
 
-func TestTestIntegrityCheckNilInventory(t *testing.T) {
-	check := TestIntegrityCheck{}
-	result := check.Run(&CheckContext{TestInvBefore: nil})
-	if result != nil {
-		t.Errorf("expected nil for nil inventory, got %v", result)
-	}
-}
-
-func TestTestIntegrityCheckNoCommands(t *testing.T) {
-	tmp := t.TempDir()
-	os.WriteFile(filepath.Join(tmp, "pass_test.go"), []byte("package main\n\nimport \"testing\"\n\nfunc TestPass(t *testing.T) {}\n"), 0644)
-
-	inv := testintegrity.CaptureInventory(tmp, nil)
-	check := TestIntegrityCheck{}
-	result := check.Run(&CheckContext{
-		TestInvBefore: inv,
-		WorktreePath:  tmp,
-		Commands:      nil,
-	})
-	if result != nil {
-		t.Errorf("expected nil when no commands and no changes, got %v", result)
-	}
-}
-
-func TestDefaultChecksCount(t *testing.T) {
+// TestDefaultChecksMatchDaemonOrder pins the check order: the daemon appends
+// the report's hits after the supply-chain hits and before the test-integrity
+// hit, so this order is the receipt's safety_hits order for everything except
+// supply/test-integrity.
+func TestDefaultChecksMatchDaemonOrder(t *testing.T) {
 	checks := DefaultChecks()
-	if len(checks) != 6 {
-		t.Errorf("expected 6 default checks, got %d", len(checks))
+	if len(checks) != 5 {
+		t.Fatalf("expected 5 default checks, got %d", len(checks))
+	}
+	want := []string{CheckForbiddenFileEdit, CheckForbiddenClaims, CheckSecretScan, CheckPatchLimit, CheckRoundLimit}
+	for i, c := range checks {
+		if c.Name() != want[i] {
+			t.Errorf("check %d = %q; want %q", i, c.Name(), want[i])
+		}
 	}
 }
 

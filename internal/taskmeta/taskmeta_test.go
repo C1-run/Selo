@@ -1,6 +1,7 @@
 package taskmeta
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -179,4 +180,120 @@ forbidden_files:
 	if cfg.ForbiddenFiles[1] != "config/*" {
 		t.Errorf("ForbiddenFiles[1] = %q, want %q", cfg.ForbiddenFiles[1], "config/*")
 	}
+}
+
+// equalTaskConfig compares two configs field by field.
+func equalTaskConfig(a, b *TaskConfig) string {
+	switch {
+	case a.ID != b.ID:
+		return fmt.Sprintf("ID %q != %q", a.ID, b.ID)
+	case a.Title != b.Title:
+		return fmt.Sprintf("Title %q != %q", a.Title, b.Title)
+	case a.Repo != b.Repo:
+		return fmt.Sprintf("Repo %q != %q", a.Repo, b.Repo)
+	case a.Goal != b.Goal:
+		return fmt.Sprintf("Goal %q != %q", a.Goal, b.Goal)
+	case !equalStrings(a.AcceptanceCriteria, b.AcceptanceCriteria):
+		return fmt.Sprintf("AcceptanceCriteria %v != %v", a.AcceptanceCriteria, b.AcceptanceCriteria)
+	case !equalStrings(a.Commands, b.Commands):
+		return fmt.Sprintf("Commands %v != %v", a.Commands, b.Commands)
+	case !equalStrings(a.Deliverables, b.Deliverables):
+		return fmt.Sprintf("Deliverables %v != %v", a.Deliverables, b.Deliverables)
+	case a.MaxMinutes != b.MaxMinutes:
+		return fmt.Sprintf("MaxMinutes %d != %d", a.MaxMinutes, b.MaxMinutes)
+	case a.MaxRounds != b.MaxRounds:
+		return fmt.Sprintf("MaxRounds %d != %d", a.MaxRounds, b.MaxRounds)
+	case a.MaxFiles != b.MaxFiles:
+		return fmt.Sprintf("MaxFiles %d != %d", a.MaxFiles, b.MaxFiles)
+	case a.MaxPatchLines != b.MaxPatchLines:
+		return fmt.Sprintf("MaxPatchLines %d != %d", a.MaxPatchLines, b.MaxPatchLines)
+	case !equalStrings(a.AllowedFiles, b.AllowedFiles):
+		return fmt.Sprintf("AllowedFiles %v != %v", a.AllowedFiles, b.AllowedFiles)
+	case !equalStrings(a.ForbiddenFiles, b.ForbiddenFiles):
+		return fmt.Sprintf("ForbiddenFiles %v != %v", a.ForbiddenFiles, b.ForbiddenFiles)
+	case !equalStrings(a.ForbiddenClaims, b.ForbiddenClaims):
+		return fmt.Sprintf("ForbiddenClaims %v != %v", a.ForbiddenClaims, b.ForbiddenClaims)
+	case a.AllowTestModifications != b.AllowTestModifications:
+		return fmt.Sprintf("AllowTestModifications %v != %v", a.AllowTestModifications, b.AllowTestModifications)
+	}
+	return ""
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestWriteParseRoundTrip is the writer↔reader contract: anything Write emits
+// must Parse back to an equivalent config. This is the drift class that made
+// a quoted forbidden_files entry never substring-match its audited paths, and
+// made sections leak into each other — both fixed by giving writers and
+// readers one implementation to meet in.
+func TestWriteParseRoundTrip(t *testing.T) {
+	full := &TaskConfig{
+		ID:                     "run-abc123",
+		Title:                  "Round trip task",
+		Repo:                   "/tmp/repo",
+		Goal:                   "Fix the bug without touching tests",
+		AcceptanceCriteria:     []string{"Tests pass", "Lint clean"},
+		Commands:               []string{"go test ./...", "go vet ./..."},
+		Deliverables:           []string{"receipt.md"},
+		MaxMinutes:             45,
+		MaxRounds:              5,
+		MaxFiles:               20,
+		MaxPatchLines:          500,
+		AllowedFiles:           []string{"src/*.go", "tests/*"},
+		ForbiddenFiles:         []string{"secrets/*", ".env"},
+		ForbiddenClaims:        []string{"production ready", "bug-free"},
+		AllowTestModifications: true,
+	}
+
+	t.Run("full config", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "task.md")
+		if err := Write(path, full); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		got, err := Parse(path)
+		if err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+		if diff := equalTaskConfig(full, got); diff != "" {
+			t.Errorf("round trip mismatch: %s", diff)
+		}
+	})
+
+	t.Run("empty config yields Parse defaults", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "task.md")
+		if err := Write(path, &TaskConfig{}); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+		got, err := Parse(path)
+		if err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+		want := &TaskConfig{MaxMinutes: 30, MaxRounds: 3, MaxFiles: 10, MaxPatchLines: 200}
+		if diff := equalTaskConfig(want, got); diff != "" {
+			t.Errorf("defaults mismatch: %s", diff)
+		}
+	})
+
+	t.Run("refuses values the format cannot represent", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "task.md")
+		if err := Write(path, &TaskConfig{ID: `has"quote`}); err == nil {
+			t.Error("expected error for double quote in scalar value")
+		}
+		if err := Write(path, &TaskConfig{ForbiddenFiles: []string{"a\nb"}}); err == nil {
+			t.Error("expected error for newline in list value")
+		}
+	})
 }

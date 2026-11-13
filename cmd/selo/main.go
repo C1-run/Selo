@@ -23,6 +23,7 @@ import (
 	"github.com/C1-run/selo/internal/opencode"
 	"github.com/C1-run/selo/internal/p45"
 	"github.com/C1-run/selo/internal/pinocchio"
+	"github.com/C1-run/selo/internal/pipeline"
 	"github.com/C1-run/selo/internal/queue"
 	"github.com/C1-run/selo/internal/receipt"
 	"github.com/C1-run/selo/internal/runner"
@@ -425,33 +426,23 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		safetyHits = append(safetyHits, supplyRes.Hits...)
 	}
 
-	// 11a. Forbidden file edit check. opencode.permission_allowlist is enforced
-	// here as a post-run scope check for every runner mode, not inline interception.
+	// 11a-11e. Post-diff checks through the pipeline package — the single
+	// definition of the check set, stamped into the receipt as checks_version.
+	// opencode.permission_allowlist is enforced here as a post-run scope check
+	// for every runner mode, not inline interception.
 	scopeFiles := append(append([]string(nil), allowedFiles...), cfg.Forge.OpenCode.PermissionAllowlist...)
-	violation, msg := runner.CheckForbiddenFileEdit(diff, worktreePath, scopeFiles, forbiddenFiles)
-	if violation {
-		safetyHits = append(safetyHits, msg)
-	}
-
-	// 11b. Forbidden claims scan — diff-scoped (only changed files)
 	changedFiles, _ := runner.GetChangedFiles(worktreePath, diff)
-	claimsHits, _ := runner.RunForbiddenClaimsScanDiffScoped(worktreePath, forbiddenClaims, changedFiles)
-	safetyHits = append(safetyHits, claimsHits...)
-
-	// 11c. Secret scan — diff-scoped
-	secretHits, _ := runner.RunSecretScanDiffScoped(worktreePath, changedFiles)
-	safetyHits = append(safetyHits, secretHits...)
-
-	// 11d. Patch limit check
-	limitViolation, limitMsg := gov.CheckPatchLimits(diff)
-	if limitViolation {
-		safetyHits = append(safetyHits, limitMsg)
-	}
-
-	// 11e. Round limit check
-	if gov.CheckRoundsExceeded(0) {
-		safetyHits = append(safetyHits, "max rounds exceeded")
-	}
+	checkReport := pipeline.RunAll(pipeline.DefaultChecks(), &pipeline.CheckContext{
+		Diff:            diff,
+		WorktreePath:    worktreePath,
+		AllowedFiles:    scopeFiles,
+		ForbiddenFiles:  forbiddenFiles,
+		ForbiddenClaims: forbiddenClaims,
+		ChangedFiles:    changedFiles,
+		Governor:        gov,
+	})
+	safetyHits = append(safetyHits, checkReport.Hits...)
+	limitViolation := checkReport.Violated(pipeline.CheckPatchLimit)
 
 	// 11f. Test integrity gate
 	testInvAfter := testintegrity.CaptureInventory(worktreePath, commands)
@@ -614,6 +605,7 @@ func processOneTask(qm *queue.QueueManager, rw *receipt.ReceiptWriter, wtm *work
 		DiffHash:                 diffHash,
 		PolicyHash:               policyHash,
 		SeloVersion:              Version,
+		ChecksVersion:            pipeline.ChecksVersion,
 		CommandsPassed:           commandsPassed,
 		CommandsOK:               commandsOK,
 		CommandExitCodes:         commandExitCodes,
