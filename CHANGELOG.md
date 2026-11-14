@@ -6,6 +6,29 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.7.2] — 2026-11-14
+
+### Fixed
+
+- **install.sh: a failed release-metadata fetch died silently with exit 2.**
+  The v0.7.1 fetch-to-file fix left a hole on the failure branch: when curl
+  failed (offline, or the anonymous GitHub API rate limit — 60 req/hour per
+  IP, easily hit from shared CI or office egress), `RELEASE_JSON` was set
+  empty, `sed` errored on the empty filename, and `set -e` aborted the script
+  with no message while leaking the temp file. Curl failure now dies loudly
+  with the likely cause named, a malformed body falls through to the existing
+  `could not determine latest version` check, and the temp workspace is
+  cleaned by the EXIT trap on every path. Found by simulating the rate-limit
+  path; verified against a real 404 (clear message, exit 1, no temp leak) and
+  the full happy path.
+
+### Fixed (site)
+
+- The selo.c1.run hero card now quotes the served receipt exactly: the
+  receipt id matches the file the download link serves
+  (`c1f-1794618953640600000`), and the card note states the runner is a
+  **scripted offender, not an LLM agent**.
+
 ## [0.7.1] — 2026-11-14
 
 ### Fixed
