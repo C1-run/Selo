@@ -6,6 +6,31 @@ for an early project — breaking config or receipt-schema changes bump the mino
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-11-14
+
+### Fixed
+
+- **install.sh could fail to find the latest release on roughly every other
+  run.** Version discovery piped `curl` into `grep -m1`: grep exits on its
+  first match and closes the pipe, curl gets SIGPIPE while still writing the
+  response body, and under `set -o pipefail` that nonzero status reached the
+  assignment — so the `|| VERSION=""` fallback discarded a version that had
+  already been extracted correctly. Measured on the exact pipeline: 5 of 8
+  runs extracted nothing, surfacing as `could not determine latest version`.
+  The release JSON is now fetched to a file and parsed from the file, which
+  has no early-exiting consumer. Found by the clean-machine install test.
+
+### Added
+
+- **`selo verify` and `selo receipt show` now state which check-set semantics
+  a receipt was produced under.** Receipts signed before v0.7.0 carry no
+  `checks_version`; their configured commands were recorded but not enforced,
+  and a `SUCCESS_WITH_RECEIPT` from that era must not be read under 0.7.0
+  semantics. Cards and verify output now say so explicitly
+  ("pre-0.7.0 — no checks_version; configured commands were recorded but NOT
+  enforced"); receipts with `checks_version` name their set. Labels only —
+  old receipts still verify unchanged.
+
 ## [0.7.0] — 2026-11-14
 
 ### ⚠️ Behavior change: required commands now enforced by default
