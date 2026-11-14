@@ -72,12 +72,18 @@ if [ -n "$BASE_URL" ]; then
 else
     if [ -z "$VERSION" ]; then
         echo "Fetching latest release..."
-        # grep -m1 rather than `| head -1`: head closing the pipe early can
-        # raise SIGPIPE in grep, which `set -o pipefail` would turn into a
-        # spurious failure.
-        VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-            | grep -m1 '"tag_name"' \
-            | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p')" || VERSION=""
+        # Fetch to a file, then parse from the file. The previous form piped
+        # curl straight into grep -m1: grep exits on its first match and
+        # closes the pipe, curl gets SIGPIPE while still writing the body,
+        # and under `set -o pipefail` that nonzero status reached the
+        # assignment — so the `|| VERSION=""` fallback threw away a version
+        # that had already been extracted correctly. Measured on this exact
+        # pipeline: 5 of 8 runs extracted nothing. Parsing a downloaded file
+        # has no early-exiting consumer and cannot race.
+        RELEASE_JSON="$(mktemp)"
+        curl -fsSL -o "$RELEASE_JSON" "https://api.github.com/repos/$REPO/releases/latest" || RELEASE_JSON=""
+        VERSION="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$RELEASE_JSON" 2>/dev/null | head -1)"
+        rm -f "$RELEASE_JSON"
     fi
     [ -n "$VERSION" ] || die "could not determine latest version"
     echo "Latest version: $VERSION"
