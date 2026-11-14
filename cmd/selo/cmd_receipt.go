@@ -494,6 +494,7 @@ func printReceiptText(r map[string]any, res *verifyResult) {
 		fmt.Printf("Task:       %s (%s)\n", task, receiptField(r, "goal"))
 	}
 	fmt.Printf("Verdict:    %s\n", res.Verdict)
+	fmt.Printf("Checks:     %s\n", checksSemantics(receiptField(r, "checks_version")))
 	if receiptFieldBool(r, "verdict_overridden") {
 		fmt.Printf("Override:   %s -> %s (%s)\n",
 			receiptField(r, "initial_verdict"), receiptField(r, "final_verdict"), receiptField(r, "override_reason"))
@@ -525,6 +526,18 @@ func printReceiptText(r map[string]any, res *verifyResult) {
 // renderReceiptMarkdown produces a decision card suitable for a PR comment or
 // a GitHub Actions job summary. When github is true, verbose sections are
 // wrapped in <details> so the card stays scannable.
+// checksSemantics describes what a receipt's check set means, from its
+// checks_version. A receipt without checks_version predates v0.7.0: its
+// configured commands were recorded but NOT enforced — the required-commands
+// gate default flipped in 0.7.0. Stating that on every card and verify output
+// keeps a 0.6.x SUCCESS_WITH_RECEIPT from being read under 0.7.0 semantics.
+func checksSemantics(checksVersion string) string {
+	if checksVersion != "" {
+		return fmt.Sprintf("checks_version %s — required-commands gate semantics (0.7.0+)", checksVersion)
+	}
+	return "pre-0.7.0 — no checks_version; configured commands were recorded but NOT enforced (the gate default flipped in 0.7.0)"
+}
+
 func renderReceiptMarkdown(r map[string]any, res *verifyResult, github bool) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("## Selo receipt `%s`\n\n", res.ReceiptID))
@@ -546,6 +559,12 @@ func renderReceiptMarkdown(r map[string]any, res *verifyResult, github bool) str
 		}
 	}
 	b.WriteString("\n\n")
+
+	if cv := receiptField(r, "checks_version"); cv != "" {
+		b.WriteString(fmt.Sprintf("Checks: %s\n\n", checksSemantics(cv)))
+	} else {
+		b.WriteString("> ⚠️ **Pre-0.7.0 receipt** — configured commands were recorded but not enforced; the required-commands gate default flipped in 0.7.0.\n\n")
+	}
 
 	if goal := receiptField(r, "goal"); goal != "" {
 		b.WriteString(fmt.Sprintf("Task: `%s` — %s\n\n", receiptField(r, "task_id"), goal))

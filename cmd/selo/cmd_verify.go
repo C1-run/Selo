@@ -73,6 +73,10 @@ type verifyResult struct {
 	PubKeyPinned bool   `json:"pubkey_pinned"`
 	PubKeyMatch  *bool  `json:"pubkey_match,omitempty"` // nil when no pin was given
 	Format       string `json:"format,omitempty"`       // receipt | in-toto/DSSE
+	// ChecksVersion is the receipt's checks_version, empty for pre-0.7.0
+	// receipts. The emptiness is meaningful and rendered: under pre-0.7.0
+	// semantics configured commands were recorded but not enforced.
+	ChecksVersion string `json:"checks_version,omitempty"`
 
 	// Signer trust domain (ADR-008). KeySourceOK is nil unless a
 	// --require-keysource gate was set and we evaluated it.
@@ -310,6 +314,7 @@ func verifyReceiptStruct(r *receipt.ForgeReceipt, res *verifyResult, repoPath st
 	res.Verdict = r.Verdict
 	res.KeyMode = r.KeyMode
 	res.KeySource = r.KeySource
+	res.ChecksVersion = r.ChecksVersion
 
 	// 1. Content hash: sha256 of canonical JSON must equal ReceiptHash.
 	hashOK := false
@@ -569,6 +574,7 @@ func finalizeResult(res *verifyResult, extraOK bool) {
 func printVerifyResult(res *verifyResult) {
 	fmt.Printf("Receipt:    %s\n", res.ReceiptID)
 	fmt.Printf("Verdict:    %s\n", res.Verdict)
+	fmt.Printf("Checks:     %s\n", checksSemantics(res.ChecksVersion))
 	if res.Format != "" {
 		fmt.Printf("Format:     %s\n", res.Format)
 	}

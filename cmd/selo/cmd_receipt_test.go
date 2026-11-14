@@ -116,6 +116,56 @@ func TestReceiptListOutput(t *testing.T) {
 	}
 }
 
+// TestChecksSemantics pins the contract that keeps a 0.6.x receipt from being
+// read under 0.7.0 semantics: receipts without checks_version state plainly
+// that configured commands were recorded but not enforced.
+func TestChecksSemantics(t *testing.T) {
+	t.Run("receipt show github warns on pre-0.7 receipt", func(t *testing.T) {
+		base, r := archiveSignedReceipt(t, func(rr *receipt.ForgeReceipt) {
+			rr.ChecksVersion = "" // the pre-0.7.0 shape
+		})
+		withReceiptGlobals(t, base, "github", false, false)
+
+		out := captureStdout(t, func() { runReceiptShow(nil, []string{r.ReceiptID}) })
+		if !strings.Contains(out, "Pre-0.7.0 receipt") || !strings.Contains(out, "recorded but not enforced") {
+			t.Errorf("pre-0.7 receipt card missing the semantics warning:\n%s", out)
+		}
+		if strings.Contains(out, "Checks: checks_version") {
+			t.Errorf("absent checks_version must not render the present-branch line:\n%s", out)
+		}
+	})
+
+	t.Run("receipt show text names the check set when present", func(t *testing.T) {
+		base, r := archiveSignedReceipt(t, func(rr *receipt.ForgeReceipt) {
+			rr.ChecksVersion = "1"
+		})
+		withReceiptGlobals(t, base, "text", false, false)
+
+		out := captureStdout(t, func() { runReceiptShow(nil, []string{r.ReceiptID}) })
+		if !strings.Contains(out, "Checks:     checks_version 1") {
+			t.Errorf("receipt card missing checks_version line:\n%s", out)
+		}
+		if strings.Contains(out, "Pre-0.7.0") {
+			t.Errorf("a 0.7 receipt must not carry the pre-0.7 warning:\n%s", out)
+		}
+	})
+
+	t.Run("verify output carries the same semantics", func(t *testing.T) {
+		absent := captureStdout(t, func() {
+			printVerifyResult(&verifyResult{ReceiptID: "c1f-1", Verdict: "SUCCESS_WITH_RECEIPT"})
+		})
+		if !strings.Contains(absent, "Checks:     pre-0.7.0") {
+			t.Errorf("verify output missing pre-0.7 semantics for absent checks_version:\n%s", absent)
+		}
+		present := captureStdout(t, func() {
+			printVerifyResult(&verifyResult{ReceiptID: "c1f-2", Verdict: "SUCCESS_WITH_RECEIPT", ChecksVersion: "1"})
+		})
+		if !strings.Contains(present, "Checks:     checks_version 1") {
+			t.Errorf("verify output missing checks_version:\n%s", present)
+		}
+	})
+}
+
 func TestReceiptShowMarkdown(t *testing.T) {
 	base, r := archiveSignedReceipt(t, func(rr *receipt.ForgeReceipt) {
 		rr.DiffSummary = "diff --git a/x b/x"
