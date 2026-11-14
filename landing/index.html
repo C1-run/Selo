@@ -10,7 +10,7 @@
     />
     <link rel="canonical" href="https://selo.c1.run/" />
     <script type="application/ld+json">
-      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Selo","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","license":"https://opensource.org/licenses/Apache-2.0","url":"https://selo.c1.run/","downloadUrl":"https://github.com/C1-run/Selo/releases","softwareVersion":"0.6","description":"Safety-first task runner for AI coding agents — contains the agent, audits the real diff, and signs every outcome with a verifiable receipt. Open source, Apache-2.0.","author":{"@type":"Organization","name":"C1-run","url":"https://github.com/C1-run"}}
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Selo","applicationCategory":"DeveloperApplication","operatingSystem":"macOS, Linux","license":"https://opensource.org/licenses/Apache-2.0","url":"https://selo.c1.run/","downloadUrl":"https://github.com/C1-run/Selo/releases","softwareVersion":"0.7","description":"Safety-first task runner for AI coding agents — contains the agent, audits the real diff, and signs every outcome with a verifiable receipt. Open source, Apache-2.0.","author":{"@type":"Organization","name":"C1-run","url":"https://github.com/C1-run"}}
     </script>
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://selo.c1.run/" />
@@ -170,7 +170,7 @@
     <div class="hero">
       <div class="grid"></div>
       <div class="wrap">
-        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.6</div>
+        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.7</div>
         <h1>
           Your coding agent<br />
           says it's done.<br />
@@ -194,13 +194,15 @@
 integrity: hash ✅ signature ✅
 
 **Safety findings (3):**
-- forbidden file modified: .env
-- SECURE_BY_DESIGN / BATTLE_TESTED:
-  src/summary.md:3
+- forbidden file modified: .env (matches: .env)
+- SECURE_BY_DESIGN: src/summary.md:3: This change is SECURE_BY_DESIGN and BATTLE_TESTED.
+- BATTLE_TESTED: src/summary.md:3: This change is SECURE_BY_DESIGN and BATTLE_TESTED.
+
+Checks: checks_version 1 — signed by selo v0.7.0
 
 **Check it yourself:**
 curl -fsSL https://selo.c1.run/playground-receipt.json -o r.json
-selo verify r.json --pubkey a7b14aa3c41d3298493db74fcf7fac7c59a55b80fa2d5f583b6b0ecaeccb7995
+selo verify r.json --pubkey 19544fa90c82344c9e2b53346d54f58bb928970581831ea4cbdf04f2f55ff145
 → Provenance: PINNED · Result: VALID</pre>
       </div>
     </div>

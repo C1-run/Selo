@@ -71,6 +71,10 @@ fi
 
 echo
 echo "== 5) tamper test — flip one byte in the receipt; verify must fail =="
+# Keep a pristine copy first: the tamper demo deliberately invalidates the
+# receipt in place, and without this copy the sandbox no longer holds a
+# verifiable receipt to inspect afterwards.
+cp "$SB"/runs/*/receipt.json "$SB/receipt-pristine.json"
 perl -pi -e 's/FAILED_SAFETY/FAILED_TAMPER_DEMO/g' "$SB"/runs/*/receipt.json
 selo verify --pubkey "$FP" "$SB"/runs/*/receipt.json | tail -6
 
