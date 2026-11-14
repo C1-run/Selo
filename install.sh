@@ -65,6 +65,10 @@ esac
 
 ASSET="${BINARY}-${OS}-${ARCH}"
 
+# --- workspace (created first, cleaned by the EXIT trap on every exit path) --
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
 # --- resolve the download base ---------------------------------------------
 if [ -n "$BASE_URL" ]; then
     BASE="${BASE_URL%/}"
@@ -79,11 +83,15 @@ else
         # assignment — so the `|| VERSION=""` fallback threw away a version
         # that had already been extracted correctly. Measured on this exact
         # pipeline: 5 of 8 runs extracted nothing. Parsing a downloaded file
-        # has no early-exiting consumer and cannot race.
-        RELEASE_JSON="$(mktemp)"
-        curl -fsSL -o "$RELEASE_JSON" "https://api.github.com/repos/$REPO/releases/latest" || RELEASE_JSON=""
-        VERSION="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$RELEASE_JSON" 2>/dev/null | head -1)"
-        rm -f "$RELEASE_JSON"
+        # has no early-exiting consumer and cannot race. curl failure is a
+        # hard die (anonymous GitHub API rate limit is 60 req/hour per IP —
+        # shared CI or office egress hits it), not a silent empty: the same
+        # fallback once turned a failed fetch into a bare `exit 2` from sed's
+        # empty-filename error, with no message and no cleanup.
+        RELEASE_JSON="$WORK/release.json"
+        curl -fsSL -o "$RELEASE_JSON" "https://api.github.com/repos/$REPO/releases/latest" \
+            || die "could not fetch release metadata (offline, or GitHub API rate limit: anonymous limit is 60 req/hour per IP)"
+        VERSION="$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$RELEASE_JSON" | head -1 || true)"
     fi
     [ -n "$VERSION" ] || die "could not determine latest version"
     echo "Latest version: $VERSION"
@@ -91,9 +99,6 @@ else
 fi
 
 # --- download ---------------------------------------------------------------
-WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
-
 echo "Downloading $ASSET from $BASE ..."
 # Fail closed: a missing checksum file or bundle aborts the install instead of
 # silently degrading to an unverified one.
