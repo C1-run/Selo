@@ -72,7 +72,7 @@ echo "== 3) third-party verification with a pinned fingerprint =="
 {
   echo "Selo pilot delivery rehearsal — $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   echo "binary path: $(command -v "$SELO")"
-  "$SELO" --version
+  "$SELO" --version 2>&1
   echo "binary sha256: $(shasum -a 256 "$(command -v "$SELO")" | awk '{print $1}')"
   echo "receipt: $(basename "$R")"
   echo "signer fingerprint (sha256 of decoded public_key): $FP"

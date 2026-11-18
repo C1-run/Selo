@@ -31,15 +31,23 @@ terms are accepted by both sides.
 | `rehearsal/receipt.json` | Output of that rehearsal — third-party verifiable, never hand-edited |
 | `rehearsal/verification.log` | Binary version, checksum, fingerprint and verifier output |
 | `rehearsal/APPROVER_REVIEW.md` | Honest guide to what the receipt proves and does not prove |
+| `rehearsal/receipt-dump.txt` | Human-readable rendering of the same signed receipt |
+| `check-gates.sh` | Executable readiness check — run it before any paid offer |
+| `external-receipts.md` | Opt-in register for the external-receipt kill input (no telemetry) |
 
 ## Gate — do not send a paid offer until all three hold
+
+Run `./check-gates.sh` (set `SELO=...` to use a specific binary). It must
+print `RESULT: READY`; any `NOT READY` line blocks the offer.
 
 1. A delivery rehearsal has been reproduced with a **current release binary**
    and its receipt verifies `Result: VALID` / `Provenance: PINNED`
    (`rehearsal/run.sh`).
-2. All four templates are filled in and accepted in writing by both sides.
-3. The client's named technical approver is identified, and the reviewer
-   checklist in `rehearsal/APPROVER_REVIEW.md` has been walked through.
+2. All four templates are filled in and accepted in writing by both sides
+   (filled copies: `scope.md`, `privacy.md`, `ip.md`, `acceptance.md`; the
+   `-template.md` files stay as blanks).
+3. The client's named technical approver is identified in `scope.md`, and
+   the checklist in `rehearsal/APPROVER_REVIEW.md` has been walked through.
 
 If the agreed pilot cannot be delivered with the existing CLI, do not take
 payment. The CLI stays free and Apache-2.0; this pilot sells assisted setup

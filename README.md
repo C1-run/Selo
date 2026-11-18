@@ -326,11 +326,11 @@ selo/
 
 ## Roadmap
 
-Selo is v0.6 — one maintainer, moving deliberately. The near-term focus is the
+Selo is v0.7 — one maintainer, moving deliberately. The near-term focus is the
 engine: tighter checks, and the pieces needed for anyone to verify a receipt
 independently. No accuracy claims until there is a dataset. See
 [CHANGELOG.md](CHANGELOG.md) for what shipped, and
-[What works](#what-works-in-v06) for the current capability list.
+[What works](#what-works-in-v07) for the current capability list.
 
 ## Development
 
