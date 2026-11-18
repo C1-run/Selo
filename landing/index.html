@@ -118,7 +118,7 @@
       td:first-child { color: var(--fg); white-space: nowrap; }
       td:last-child { color: var(--fg-dim); }
       code { color: var(--accent); font-family: var(--mono); }
-      p a, td a, li a { text-decoration: underline; text-underline-offset: 3px; }
+      p a, td a, li a, .fineprint a { text-decoration: underline; text-underline-offset: 3px; }
       a:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
       .plans { margin-top: 24px; }
@@ -304,15 +304,16 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
           </div>
           <div class="card pro-card">
             <div class="plan-name">Proposed paid design-partner pilot</div>
-            <div class="plan-price">$500 <small>one time</small></div>
+            <p class="fineprint" style="color:var(--accent); margin:8px 0 0;">NOT OPEN — 2 OF 3 GATES PENDING · delivery rehearsal done; written terms + named approver outstanding</p>
+            <div class="plan-price">$500 <small>one time · proposed only</small></div>
             <ul>
               <li>One repository · 14 days · up to two agent-authored changes</li>
               <li>Assisted setup of the existing CLI in your own workflow</li>
               <li>One named client-side technical approver reviews the evidence</li>
               <li>Written scope, privacy, IP, and acceptance terms before payment</li>
             </ul>
-            <a class="btn primary" href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">DISCUSS THE PAID PILOT →</a>
-            <div class="fineprint">Pilot availability follows a successful delivery rehearsal. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification. Payment only follows an accepted written scope; no instant checkout.</div>
+            <a class="btn primary" href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">REQUEST THE SCOPE →</a>
+            <div class="fineprint">Not for sale yet. Payment only follows an accepted written scope; no instant checkout. See the <a href="https://github.com/C1-run/selo/tree/public-v01/pilot">delivery kit and signed rehearsal</a>. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification in this pilot.</div>
           </div>
         </div>
         <details>
@@ -332,7 +333,7 @@ curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
       <footer>
         <span>C1-RUN // SELO</span>
         <a href="https://github.com/C1-run/selo">GITHUB</a>
-        <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">DISCUSS A SELO PILOT</a>
+        <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">REQUEST PILOT SCOPE</a>
         <a href="https://c1.run">C1.RUN</a>
         <span>APACHE-2.0</span>
       </footer>
