@@ -49,6 +49,15 @@ demo cannot flatter the tool. A pipeline that cannot produce a
 failure — or cannot replay one offline — shouldn't be trusted for the
 failures you actually care about.
 
+Reading the receipt fields: `runner_mode: real` and
+`runner_binary_kind: opencode` describe the **runner binary whose
+provenance was verified** (`runner_binary_path`, here
+`/usr/local/bin/opencode`). They do **not** name the command that was
+executed. The executed command is `runner_command` — `./offender.sh`,
+a deliberately offending script — and `c1_runtime_is_mock: true` says
+the C1 orchestration layer was mocked. Do not read those two fields
+as "an LLM agent ran" or "opencode wrote the changes".
+
 Sandbox layout (kept after the run): throwaway git repo +
 `config/selo.yaml` (real runner → `./offender.sh`), sandbox signing
 key generated fresh (`~/.selo/signing-key` untouched), queue + receipts

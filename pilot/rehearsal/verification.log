@@ -1,0 +1,20 @@
+Selo pilot delivery rehearsal — 2026-11-18T15:34:57Z
+binary path: /private/var/folders/cd/lnqkh6zd2fs_4fxglb4dgzjw0000gn/T/selo-latest-toolchain/selo
+selo version v0.7.2
+binary sha256: 7ea848e418aa6edfbbd04e033a0a79b7fd0655f5ebbbfc6700b8d60d1ce6dd7c
+receipt: receipt.json
+signer fingerprint (sha256 of decoded public_key): e9512c4fc525598a7d8187cef80455d33a7dc9600920a9adaf9396ab0579cbaf
+--- verifier output ---
+Receipt:    c1f-1795016097433669000
+Verdict:    FAILED_SAFETY
+Checks:     checks_version 1 — required-commands gate semantics (0.7.0+)
+Format:     receipt
+Hash:       OK
+Signature:  OK
+Anchor:     SKIPPED
+Timestamp:  ABSENT
+Transparency: ABSENT
+Key mode:   persistent
+Key source: env
+Provenance: PINNED
+Result:     VALID

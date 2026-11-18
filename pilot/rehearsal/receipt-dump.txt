@@ -1,0 +1,12 @@
+Receipt:    c1f-1795016097433669000
+Task:       run-uiaaa22u ()
+Verdict:    FAILED_SAFETY
+Checks:     checks_version 1 — required-commands gate semantics (0.7.0+)
+Integrity:  hash: OK, signature: OK, anchor: skipped
+Safety hits: 3
+  - forbidden file modified: .env (matches: .env)
+  - SECURE_BY_DESIGN: src/summary.md:3: This change is SECURE_BY_DESIGN and BATTLE_TESTED.
+  - BATTLE_TESTED: src/summary.md:3: This change is SECURE_BY_DESIGN and BATTLE_TESTED.
+Changes:    3 files, 8 patch lines, commands passed: 0
+Result:     VALID
+Reproduce:  selo verify /var/folders/cd/lnqkh6zd2fs_4fxglb4dgzjw0000gn/T//selo-pilot-rehearsal.UeMD22/runs/run-run-uiaaa22u/receipt.json
