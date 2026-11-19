@@ -34,6 +34,23 @@ terms are accepted by both sides.
 | `rehearsal/receipt-dump.txt` | Human-readable rendering of the same signed receipt |
 | `check-gates.sh` | Executable readiness check — run it before any paid offer |
 | `external-receipts.md` | Opt-in register for the external-receipt kill input (no telemetry) |
+| `change-request-template.md` | Written CR record: old/new scope text, version + hash, named re-approval |
+| `stage-record-template.md` | Universal step record: status, actor, UTC, evidence, decision, reason |
+| `acceptance-check-template.md` | One AC id: pass condition, command, evaluator, receipt bindings |
+| `offer-terms-alignment.md` | Handbook ↔ landing term reconciliation; close gaps before opening |
+| `rehearsal/seven-step-walkthrough.md` | Step-by-step map of what exists vs what is only a template |
+
+## Operating the seven steps
+
+The Factory workflow is human-gated: an agent may execute an approved build,
+but every stage exit is a named human decision. Fill a
+`stage-record-template.md` for each step and attempt, use
+`acceptance-check-template.md` for every buyer-approved AC id, and record any
+buyer-driven modification in `change-request-template.md` with a new version,
+a new SHA-256 and fresh written approval. Previous attempts — including
+failures — are kept, never overwritten. See `rehearsal/seven-step-walkthrough.md`
+for the honest state: only step-01 material and one signed rehearsal receipt
+exist today; steps 02–07 are templates awaiting a real engagement.
 
 ## Gate — do not send a paid offer until all three hold
 
