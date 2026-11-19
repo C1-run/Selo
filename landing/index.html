@@ -20,178 +20,256 @@
     <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="%23020204"/><text x="16" y="22" font-family="monospace" font-size="16" font-weight="bold" fill="%2300d4ff" text-anchor="middle">S</text></svg>' />
     <style>
       :root {
-        --bg-base: #020204;
-        --bg-surface: #07070b;
-        --bg-elevated: #0a0a0f;
+        --bg: #050508;
+        --bg-raise: #0a0a10;
+        --bg-card: #0d0d14;
+        --fg: #ececf2;
+        --fg-dim: #a6a6b5;
+        --fg-faint: #77778a;
         --accent: #00d4ff;
         --accent-rgb: 0, 212, 255;
-        --accent-glow: rgba(0, 212, 255, 0.2);
-        --accent-magenta: #ff007b;
-        --fg: #e8e8ee;
-        --fg-dim: #8a8a99;
         --line: rgba(0, 212, 255, 0.14);
-        --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+        --line-soft: rgba(255, 255, 255, 0.07);
+        --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --r-btn: 8px;
+        --r-card: 12px;
+        --r-chip: 999px;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
       body {
-        background: var(--bg-base);
+        background: var(--bg);
         color: var(--fg);
-        font-family: var(--mono);
-        line-height: 1.6;
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.65;
         -webkit-font-smoothing: antialiased;
       }
+      h1, h2, h3, .chip, .btn, pre, code, .kicker, nav, footer, .plan-name, .status-pill, .step b {
+        font-family: var(--mono);
+      }
       a { color: var(--accent); text-decoration: none; }
-      a:hover { text-shadow: 0 0 10px var(--accent-glow); }
-      .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-      .navwrap {
-        position: sticky; top: 0; z-index: 50;
-        background: rgba(2, 2, 4, 0.72);
-        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-        border-bottom: 1px solid var(--line);
+      a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible {
+        outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
       }
-      nav {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 16px 0;
-      }
-      .brand { font-size: 20px; font-weight: 700; letter-spacing: 0.2em; color: var(--fg); }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+      section { padding: 72px 0; border-top: 1px solid var(--line-soft); }
+      .kicker { font-size: 12px; color: var(--accent); letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 12px; }
+      h2 { font-size: clamp(26px, 3.6vw, 36px); line-height: 1.2; letter-spacing: -0.01em; font-weight: 700; margin-bottom: 14px; }
+      .lead { color: var(--fg-dim); max-width: 640px; margin-bottom: 30px; }
+
+      /* announcement */
+      .announce { background: rgba(0, 212, 255, 0.06); border-bottom: 1px solid var(--line); }
+      .announce .wrap { text-align: center; padding: 9px 24px; font-family: var(--mono); font-size: 12.5px; color: var(--fg-dim); }
+      .announce b { color: var(--accent); font-weight: 600; }
+      .announce span { margin: 0 4px; }
+
+      /* nav */
+      .navwrap { position: sticky; top: 0; z-index: 50; background: rgba(5, 5, 8, 0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-soft); }
+      nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+      .brand { font-size: 19px; font-weight: 700; letter-spacing: 0.18em; color: var(--fg); }
       .brand em { color: var(--accent); font-style: normal; }
-      nav .links { display: flex; gap: 24px; font-size: 13px; }
-      nav .links a { color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.1em; }
-      nav .links a:hover { color: var(--accent); }
-      .hero {
-        position: relative; padding: 110px 0 90px; overflow: hidden;
-        border-bottom: 1px solid var(--line);
-      }
-      .hero .grid {
-        position: absolute; inset: 0; pointer-events: none;
-        background-image:
-          linear-gradient(var(--line) 1px, transparent 1px),
-          linear-gradient(90deg, var(--line) 1px, transparent 1px);
-        background-size: 44px 44px;
-        mask-image: radial-gradient(ellipse at 50% 0%, black 30%, transparent 75%);
-      }
-      .status {
-        display: inline-flex; align-items: center; gap: 8px;
-        font-size: 12px; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.15em;
-        border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px;
-        background: rgba(0, 212, 255, 0.04);
-      }
-      .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-      .tag { margin: -16px 0 30px; font-size: 15px; color: var(--fg); border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; letter-spacing: 0.02em; }
-      .tag span { color: var(--accent); }
-      .pipe { font-size: 12px; color: var(--fg-dim); margin: -14px 0 20px; letter-spacing: 0.06em; }
-      .pipe b { color: var(--accent); font-weight: 600; }
-      .demo { display: block; width: 100%; max-width: 760px; margin: 0 0 26px; border: 1px solid var(--line); border-radius: 8px; }
-      .agents { color: var(--fg-dim); margin-top: 16px; font-size: 13.5px; }
-      .hero-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 44px; align-items: center; position: relative; }
-      .hero-receipt { margin: 0; font-size: 12.5px; box-shadow: 0 0 44px rgba(var(--accent-rgb), 0.08); background: var(--bg-elevated); overflow-x: auto; }
-      .cardnote { font-size: 10.5px; letter-spacing: 0.16em; color: var(--fg-dim); margin: 0 0 8px; }
-      h1 {
-        margin: 28px 0 20px; font-size: clamp(40px, 7vw, 76px);
-        line-height: 1.05; letter-spacing: -0.01em; font-weight: 800;
-      }
-      h1 .accent { color: var(--accent); text-shadow: 0 0 24px var(--accent-glow); }
-      .sub { max-width: 640px; color: var(--fg-dim); font-size: 16px; margin-bottom: 34px; }
-      .cta { display: flex; gap: 14px; flex-wrap: wrap; }
-      .btn {
-        font-family: var(--mono); font-size: 14px; padding: 12px 22px;
-        border: 1px solid var(--line); border-radius: 6px; color: var(--fg);
-        background: var(--bg-elevated); cursor: pointer;
-        transition: border-color .15s ease, box-shadow .15s ease;
-      }
-      .btn.primary { background: rgba(0, 212, 255, 0.1); border-color: rgba(var(--accent-rgb), 0.5); color: var(--accent); }
-      .btn:hover { border-color: var(--accent); box-shadow: 0 0 18px var(--accent-glow); }
-      section { padding: 70px 0; border-bottom: 1px solid var(--line); }
-      .kicker { font-size: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 14px; }
-      h2 { font-size: clamp(24px, 3.5vw, 34px); margin-bottom: 24px; font-weight: 700; }
-      pre {
-        background: var(--bg-elevated); border: 1px solid var(--line); border-radius: 8px;
-        padding: 18px 20px; overflow-x: auto; font-size: 13px; margin: 14px 0;
-      }
-      pre .c { color: var(--fg-dim); }
-      pre .p { color: var(--accent); }
-      table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-      th { color: var(--fg-dim); text-transform: uppercase; font-size: 11px; letter-spacing: 0.15em; border-bottom-color: rgba(var(--accent-rgb), 0.4); }
-      tr:nth-child(2n) td { background: rgba(0, 212, 255, 0.025); }
-      tr:hover td { background: rgba(var(--accent-rgb), 0.06); }
+      nav .links { display: flex; gap: 26px; font-size: 13px; }
+      nav .links a { color: var(--fg-dim); }
+      nav .links a:hover { color: var(--accent); text-decoration: none; }
+      .nav-cta { font-size: 13px; padding: 8px 16px; }
+
+      /* buttons */
+      .btn { display: inline-block; font-size: 14px; padding: 11px 20px; border: 1px solid var(--line); border-radius: var(--r-btn); color: var(--fg); background: var(--bg-card); cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease; }
+      .btn:hover { border-color: rgba(var(--accent-rgb), 0.6); text-decoration: none; }
+      .btn:active { transform: translateY(1px); }
+      .btn.primary { background: rgba(0, 212, 255, 0.12); border-color: rgba(var(--accent-rgb), 0.55); color: var(--accent); }
+      .btn.small { font-size: 13px; padding: 8px 15px; }
+
+      /* hero */
+      .hero { position: relative; padding: 72px 0 64px; overflow: hidden; border-top: none; }
+      .hero .grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: 44px 44px; mask-image: radial-gradient(ellipse at 30% 0%, black 25%, transparent 72%); -webkit-mask-image: radial-gradient(ellipse at 30% 0%, black 25%, transparent 72%); }
+      .hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center; position: relative; }
+      .hero-grid > div, .verify-grid > div, .final-grid > div, .pain-grid > div { min-width: 0; }
+      .status-pill { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-dim); letter-spacing: 0.14em; border: 1px solid var(--line); padding: 6px 13px; border-radius: var(--r-chip); background: rgba(0, 212, 255, 0.04); margin-bottom: 22px; }
+      h1 { font-size: clamp(30px, 3.8vw, 40px); line-height: 1.14; letter-spacing: -0.015em; font-weight: 800; margin-bottom: 20px; }
+      h1 .accent { color: var(--accent); }
+      .sub { color: var(--fg-dim); font-size: 17px; max-width: 520px; margin-bottom: 28px; }
+      .install-box { display: flex; align-items: stretch; gap: 0; max-width: 560px; border: 1px solid rgba(var(--accent-rgb), 0.4); border-radius: var(--r-btn); background: var(--bg-raise); overflow: hidden; }
+      .install-box code { flex: 1; min-width: 0; padding: 13px 16px; font-size: 13.5px; color: var(--fg); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+      .install-box code::-webkit-scrollbar { display: none; }
+      .copy-btn { font-family: var(--mono); font-size: 12.5px; padding: 0 18px; border: none; border-left: 1px solid var(--line); background: rgba(0, 212, 255, 0.1); color: var(--accent); cursor: pointer; letter-spacing: 0.06em; }
+      .copy-btn:hover { background: rgba(0, 212, 255, 0.18); }
+      .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+      .hero-receipt { min-width: 0; background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px 22px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--fg-dim); box-shadow: 0 0 44px rgba(var(--accent-rgb), 0.07); overflow-x: auto; }
+      .hero-receipt .v { color: var(--fg); font-weight: 700; }
+      .hero-receipt .fail { color: #ff5d7a; font-weight: 700; }
+      .hero-receipt .ok { color: var(--accent); }
+      .receipt-caption { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--fg-faint); margin-top: 10px; text-transform: uppercase; }
+      .receipt-caption code { text-transform: none; letter-spacing: 0; color: var(--fg-dim); }
+
+      /* trust chips */
+      .trust { padding: 26px 0; border-top: 1px solid var(--line-soft); }
+      .trust .wrap { display: flex; flex-wrap: wrap; gap: 10px; }
+      .chip { font-size: 12px; color: var(--fg-dim); border: 1px solid var(--line-soft); border-radius: var(--r-chip); padding: 7px 14px; background: var(--bg-raise); }
+      .chip b { color: var(--fg); font-weight: 600; }
+
+      /* pain arithmetic */
+      .pain-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+      .pain-list { list-style: none; }
+      .pain-list li { font-family: var(--mono); font-size: 15.5px; color: var(--fg-dim); padding: 14px 0; border-bottom: 1px dashed var(--line-soft); }
+      .pain-list li b { color: var(--fg); font-weight: 600; }
+      .pain-list li::before { content: "+ "; color: #ff5d7a; font-weight: 700; }
+      .pain-sum { font-family: var(--mono); font-size: 16px; color: var(--fg); padding-top: 16px; }
+      .pain-sum::before { content: "= "; color: #ff5d7a; font-weight: 700; }
+      .pain-side { border-left: 3px solid var(--accent); padding: 6px 0 6px 20px; }
+      .pain-side p { color: var(--fg-dim); margin-bottom: 14px; }
+      .pain-side .big { font-family: var(--mono); font-size: 18px; color: var(--fg); font-weight: 700; margin-bottom: 8px; }
+
+      /* steps */
+      .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 34px; }
+      .step { background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: var(--r-card); padding: 20px; position: relative; }
+      .step b { display: block; color: var(--accent); font-size: 15px; margin-bottom: 8px; }
+      .step p { font-size: 13.5px; color: var(--fg-dim); line-height: 1.6; }
+      .step-arrow { position: absolute; right: -17px; top: 50%; transform: translateY(-50%); color: var(--fg-faint); font-family: var(--mono); font-size: 14px; z-index: 1; }
+
+      /* demo / verify */
+      .verify-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 44px; align-items: center; }
+      .demo { width: 100%; max-width: 720px; border: 1px solid var(--line); border-radius: var(--r-card); display: block; }
+      .verify-note { color: var(--fg-dim); margin-bottom: 14px; }
+      .verify-note code, .works code, td code, li code { font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+
+      /* works */
+      .works-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 8px; }
+      .work { border: 1px solid var(--line-soft); background: var(--bg-card); border-radius: var(--r-card); padding: 20px 22px; }
+      .work h3 { font-size: 15px; color: var(--fg); margin-bottom: 8px; }
+      .work p { font-size: 13.5px; color: var(--fg-dim); }
+      details.tolldump { border: 1px solid var(--line-soft); border-radius: var(--r-card); background: var(--bg-raise); padding: 16px 20px; margin-top: 20px; overflow-x: auto; }
+      details.tolldump summary { cursor: pointer; color: var(--fg-dim); font-size: 14px; }
+      details.tolldump summary:hover { color: var(--accent); }
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 16px; }
+      th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+      th { color: var(--fg-faint); font-family: var(--mono); text-transform: uppercase; font-size: 11px; letter-spacing: 0.14em; }
       td:first-child { color: var(--fg); white-space: nowrap; }
       td:last-child { color: var(--fg-dim); }
-      code { color: var(--accent); font-family: var(--mono); }
-      p a, td a, li a, .fineprint a { text-decoration: underline; text-underline-offset: 3px; }
-      a:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-      .plans { margin-top: 24px; }
-      .card { background: var(--bg-surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; transition: border-color .15s ease; }
-      .card:hover { border-color: rgba(var(--accent-rgb), 0.35); }
-      .card ul { list-style: none; margin: 18px 0 22px; }
-      .card li { padding: 8px 0 8px 22px; position: relative; color: var(--fg-dim); font-size: 14px; border-bottom: 1px dashed rgba(0, 212, 255, 0.10); }
-      .card li::before { content: "✓"; position: absolute; left: 0; color: var(--accent); }
-      .pro-card { border-color: rgba(var(--accent-rgb), 0.5); background: var(--bg-elevated); }
-      .plan-name { font-size: 12px; letter-spacing: 0.2em; color: var(--fg-dim); text-transform: uppercase; }
-      .plan-price { font-size: 34px; font-weight: 800; margin-top: 6px; }
-      .plan-price small { font-size: 13px; font-weight: 400; color: var(--fg-dim); letter-spacing: 0; }
-      .fineprint { margin-top: 14px; font-size: 11px; color: var(--fg-dim); letter-spacing: 0.04em; }
-      details { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin-top: 10px; background: var(--bg-surface); }
-      details summary { cursor: pointer; color: var(--fg); font-size: 14px; }
-      details[open] summary { margin-bottom: 8px; }
-      details p { color: var(--fg-dim); font-size: 13.5px; }
-      html { scroll-behavior: smooth; }
-      @media (max-width: 760px) {
-        .two { grid-template-columns: 1fr; }
-        nav .links { gap: 14px; font-size: 11px; }
-        nav .links a { white-space: nowrap; }
-        td:first-child { white-space: normal; }
-        .hero-grid { grid-template-columns: 1fr; gap: 26px; }
-        section { padding: 52px 0; }
-        h1 { margin-top: 18px; }
+
+      /* limits */
+      .limits { list-style: none; max-width: 760px; }
+      .limits li { padding: 18px 0 18px 34px; border-bottom: 1px dashed var(--line-soft); position: relative; color: var(--fg-dim); font-size: 15px; }
+      .limits li b { color: var(--fg); }
+      .limits li::before { content: ""; position: absolute; left: 8px; top: 26px; width: 10px; height: 2px; background: var(--accent); }
+
+      /* pricing */
+      .plans { display: grid; grid-template-columns: 1fr 1.15fr; gap: 22px; align-items: stretch; }
+      .card { background: var(--bg-card); border: 1px solid var(--line-soft); border-radius: var(--r-card); padding: 26px; display: flex; flex-direction: column; }
+      .card.featured { border-color: rgba(var(--accent-rgb), 0.5); background: var(--bg-raise); }
+      .plan-name { font-size: 12px; letter-spacing: 0.16em; color: var(--fg-faint); text-transform: uppercase; }
+      .plan-price { font-size: 32px; font-weight: 800; margin: 8px 0 4px; }
+      .plan-price small { font-size: 13px; font-weight: 400; color: var(--fg-faint); }
+      .plan-state { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.06em; margin-bottom: 6px; }
+      .card ul { list-style: none; margin: 16px 0 22px; flex: 1; }
+      .card li { padding: 8px 0 8px 24px; position: relative; color: var(--fg-dim); font-size: 14px; border-bottom: 1px dashed rgba(0, 212, 255, 0.08); }
+      .card li::before { content: "✓"; position: absolute; left: 2px; color: var(--accent); }
+      .fineprint { margin-top: 14px; font-size: 12px; color: var(--fg-faint); line-height: 1.6; }
+      .risk-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+      .risk-row .chip { font-size: 11.5px; padding: 5px 11px; }
+
+      /* forms */
+      .lead-form { margin-top: 6px; }
+      .lead-form label { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-dim); margin-bottom: 7px; }
+      .form-row { display: flex; gap: 10px; }
+      .form-row input { flex: 1; min-width: 0; font-family: var(--mono); font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-btn); padding: 11px 14px; }
+      .form-row input::placeholder { color: var(--fg-faint); }
+      .form-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .form-msg { font-size: 13px; margin-top: 9px; display: none; }
+      .form-msg.err { color: #ff5d7a; display: block; }
+      .form-msg.ok { color: var(--accent); display: block; }
+      .form-fallback { font-size: 12.5px; margin-top: 9px; display: none; }
+      .form-fallback.show { display: block; }
+
+      /* faq */
+      .faq details { border: 1px solid var(--line-soft); border-radius: var(--r-btn); padding: 14px 18px; margin-top: 10px; background: var(--bg-raise); }
+      .faq details summary { cursor: pointer; color: var(--fg); font-size: 14.5px; }
+      .faq details p { color: var(--fg-dim); font-size: 14px; margin-top: 10px; max-width: 68ch; }
+
+      /* final cta */
+      .final { text-align: left; }
+      .final-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+      .final .install-box { max-width: 100%; }
+
+      /* footer */
+      footer { border-top: 1px solid var(--line-soft); padding: 44px 0 40px; }
+      .ladder { font-family: var(--mono); font-size: 13.5px; color: var(--fg-dim); max-width: 720px; line-height: 1.9; margin-bottom: 26px; }
+      .ladder b { color: var(--fg); font-weight: 600; }
+      .foot-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12px; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 0.1em; }
+      .foot-row a { color: var(--fg-dim); }
+
+      @media (max-width: 900px) {
+        .hero-grid, .pain-grid, .verify-grid, .final-grid { grid-template-columns: 1fr; gap: 30px; }
+        .steps { grid-template-columns: 1fr 1fr; }
+        .step-arrow { display: none; }
+        .plans { grid-template-columns: 1fr; }
+        nav .links { display: none; }
+        .works-grid { grid-template-columns: 1fr; }
       }
-      footer { padding: 34px 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--fg-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
+      @media (max-width: 560px) {
+        section { padding: 52px 0; }
+        .hero { padding: 48px 0 44px; }
+        .steps { grid-template-columns: 1fr; }
+        .form-row { flex-direction: column; }
+        .form-row .btn { width: 100%; }
+        h1 { font-size: 34px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .btn, .copy-btn { transition: none; }
+      }
     </style>
   </head>
   <body>
+    <div class="announce">
+      <div class="wrap">
+        <b>v0.7.2</b> <span>New in v0.7: required commands now fail the run by default.</span> <a href="https://github.com/C1-run/Selo/releases">Release notes →</a>
+      </div>
+    </div>
+
     <div class="navwrap">
       <div class="wrap">
-      <nav>
-        <a class="brand" href="/">SE<em>LO</em></a>
-        <div class="links">
-          <a href="#install">INSTALL</a>
-          <a href="#works">WHAT WORKS</a>
-          <a href="#verify">VERIFY</a>
-          <a href="#pilot">TEAM PILOT</a>
-          <a href="https://github.com/C1-run/selo">GITHUB</a>
-        </div>
-        <a class="btn primary" href="https://github.com/C1-run/selo" style="font-size:13px;padding:8px 16px;">★ STAR</a>
-      </nav>
+        <nav>
+          <a class="brand" href="/">SE<em>LO</em></a>
+          <div class="links">
+            <a href="#how">How it works</a>
+            <a href="#works">What works</a>
+            <a href="#limits">Limits</a>
+            <a href="#pilot">Pilot</a>
+            <a href="https://github.com/C1-run/selo">GitHub</a>
+          </div>
+          <a class="btn primary nav-cta" href="#pilot">Request scope</a>
+        </nav>
       </div>
     </div>
 
     <main>
-    <div class="hero">
-      <div class="grid"></div>
-      <div class="wrap">
-        <div class="status"><span class="dot"></span> OPEN SOURCE · APACHE-2.0 · v0.7</div>
-        <h1>
-          Your coding agent<br />
-          says it's done.<br />
-          <span class="accent">Check the receipt.</span>
-        </h1>
-        <p class="sub">
-          Selo contains the agent's run in its own worktree, audits the real
-          diff, and hands you an Ed25519-signed receipt — pass or fail.
-        </p>
-        <p class="tag">Don't trust the agent. <span>Verify the receipt.</span></p>
-        <div class="cta">
-          <a class="btn primary" href="#install">GET STARTED</a>
-          <a class="btn" href="#pilot">SEE THE TEAM PILOT</a>
-          <a class="btn" href="https://github.com/C1-run/selo">SOURCE ON GITHUB</a>
-        </div>
-        </div>
-        <p class="cardnote">REAL ENGINE OUTPUT — UNMODIFIED SANDBOXED PLAYTASK · SCRIPTED OFFENDER, NOT AN LLM AGENT</p>
-        <pre class="hero-receipt">## Selo receipt `c1f-1794618953640600000`
+      <div class="hero">
+        <div class="grid"></div>
+        <div class="wrap">
+          <div class="hero-grid">
+            <div>
+              <div class="status-pill"><span>OPEN SOURCE · APACHE-2.0</span></div>
+              <h1>Don't trust the agent.<br /><span class="accent">Verify the receipt.</span></h1>
+              <p class="sub">Selo runs the agent in its own worktree, audits what it actually changed, and signs a receipt anyone can verify.</p>
+              <div class="install-box">
+                <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
+                <button class="copy-btn" type="button" data-copy="install-cmd" aria-label="Copy install command">COPY</button>
+              </div>
+              <div class="hero-ctas">
+                <a class="btn primary" href="#how">How it works</a>
+                <a class="btn" href="#pilot">Request scope</a>
+              </div>
+            </div>
+            <div>
+              <div class="hero-receipt">
+<span class="v">## Selo receipt `c1f-1794618953640600000`</span>
 
-**Verdict: `FAILED_SAFETY`** —
-integrity: hash ✅ signature ✅
+<span class="v">**Verdict: <span class="fail">`FAILED_SAFETY`</span>** —</span>
+integrity: hash <span class="ok">✅</span> signature <span class="ok">✅</span>
 
 **Safety findings (3):**
 - forbidden file modified: .env (matches: .env)
@@ -201,143 +279,333 @@ integrity: hash ✅ signature ✅
 Checks: checks_version 1 — signed by selo v0.7.0
 
 **Check it yourself:**
-curl -fsSL https://selo.c1.run/playground-receipt.json -o r.json
-selo verify r.json --pubkey 19544fa90c82344c9e2b53346d54f58bb928970581831ea4cbdf04f2f55ff145
-→ Provenance: PINNED · Result: VALID</pre>
-        <p class="cardnote" style="margin:8px 0 0;">VERIFY WITH THE CURRENT RELEASE (v0.7+) — OLDER VERIFIERS REJECT NEWER RECEIPT FORMATS</p>
-      </div>
-    </div>
-
-    <div class="wrap">
-      <section id="install">
-        <div class="kicker">// 01 — INSTALL</div>
-        <h2>From zero to a signed receipt</h2>
-        <pre><span class="c"># one-time install (or: go install github.com/C1-run/selo/cmd/selo@latest)</span>
-curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash
-
-<span class="c"># make signatures attributable across runs</span>
-<span class="p">selo</span> keys generate
-
-<span class="c"># initialize a workspace and run a task through the pipeline</span>
-<span class="p">selo</span> init
-<span class="p">selo</span> run "fix the login bug"
-
-<span class="c"># read the verdict — always from the receipt, never from the agent</span>
-<span class="p">selo</span> receipt list
-<span class="p">selo</span> receipt show &lt;id&gt; --format github</pre>
-        <p class="agents">Works with any agent that can run a shell command — OpenCode and ZCode adapters ship in-repo. macOS and Linux binaries today; Windows builds from source.</p>
-      </section>
-
-      <section id="works">
-        <div class="kicker">// 02 — WHAT WORKS</div>
-        <h2>No claims without code behind them</h2>
-        <p class="pipe">contain → audit → sign → <b>verify</b></p>
-        <table>
-          <tr><th>Capability</th><th>Status</th></tr>
-          <tr><td>Post-run audit</td><td>Forbidden file edits, claims, secrets, patch/round limits, test integrity — violations reject the task with a signed receipt.</td></tr>
-          <tr><td>permission_allowlist</td><td>Enforced as a post-run scope check (globs). Does not sandbox the agent process.</td></tr>
-          <tr><td>Signed receipts</td><td>Ed25519 over canonical JSON; <code>selo keys generate</code> makes signatures attributable across runs.</td></tr>
-          <tr><td>selo verify</td><td>Anyone can re-check a receipt's hash and signature — third-party verification is a one-liner.</td></tr>
-          <tr><td>Containment</td><td>Git worktree only. docker/local are refused, not silently degraded.</td></tr>
-          <tr><td>Real-time interception</td><td>Does not exist. The audit is post-execution only.</td></tr>
-          <tr><td>Trusted timestamp</td><td><code>selo run --tsa</code> obtains an RFC3161 timestamp from an external authority — signing time cannot be back-dated (ADR-005).</td></tr>
-          <tr><td>Transparency log</td><td><code>selo run --rekor</code> publishes only the receipt hash to a Sigstore Rekor log; inclusion proofs verify with <code>selo verify</code> (ADR-006).</td></tr>
-          <tr><td>Separable signer</td><td>Key in file (default), OS keychain, or an external <code>command</code> signer. Only a non-extractable command key leaves the agent's trust domain — enforceable with <code>selo verify --require-keysource=command</code> (ADR-008).</td></tr>
-          <tr><td>Verifiable releases</td><td>Selo's own releases ship SLSA Build L3 provenance and a cosign keyless signature; <code>install.sh</code> verifies both and fails closed.</td></tr>
-          <tr><td>In-toto export</td><td><code>selo receipt export</code> re-signs a receipt as a DSSE-wrapped in-toto Statement v1 — verifiable with cosign or slsa-verifier, no Selo install required.</td></tr>
-        </table>
-      </section>
-
-      <section id="verify">
-        <div class="kicker">// 03 — VERIFY</div>
-        <h2>The verdict, in the pull request</h2>
-        <img class="demo" src="https://raw.githubusercontent.com/C1-run/Selo/main/docs/demo.gif" alt="The engine's own demo from the repository: a forbidden-file edit is rejected with FAILED_SAFETY and the receipt verifies" loading="lazy" width="760" />
-        <p style="color:var(--fg-dim); margin-bottom:14px;">
-              Post the receipt card into a GitHub Actions job summary — no token,
-              no marketplace. The card always shows the integrity state, so a
-              tampered receipt can never look clean.
-            </p>
-            <p style="color:var(--fg-dim);">
-              Running an MCP client? <code>selo mcp serve</code> exposes the real
-              checks — audit diffs and scan paths without a reimplementation.
-            </p>
-      </section>
-
-      <section>
-        <div class="kicker">// 04 — THE HONEST PART</div>
-        <h2>Built by C1-run</h2>
-        <p style="color:var(--fg-dim); max-width:720px;">
-          Selo is maintained by <a href="https://github.com/C1-run">C1-run</a>
-          (<a href="mailto:team@c1.run">team@c1.run</a>). Every claim on this page
-          is checked against the code in the repository — read the
-          <a href="https://github.com/C1-run/selo#what-works-in-v07">What works table</a>
-          for the full list, including what does not exist yet — plus the honest
-          <a href="https://github.com/C1-run/selo#why-not-selo">Why not Selo counterpoints</a>.
-        </p>
-        <p style="color:var(--fg-dim); max-width:720px; margin-top:14px;">
-          C1 is testing Selo with software agencies that deliver agent-assisted work
-          to clients. The pilot asks the client's technical approver to inspect the
-          receipt as part of a real handoff.
-        </p>
-      <section id="pilot" style="border-bottom:none;">
-        <div class="kicker">// 05 — PAID TEAM PILOT</div>
-        <h2>One repository. Two agent changes. A real client review.</h2>
-        <p style="color:var(--fg-dim); max-width:720px;">
-          A 14-day, one-repository pilot for software agencies using coding agents
-          on client work. C1 helps set up the existing Selo CLI in your own workflow;
-          your client's named technical approver reviews the receipt on up to two
-          agent-authored changes. The CLI remains free and open source.
-        </p>
-        <div class="two plans">
-          <div class="card">
-            <div class="plan-name">Free CLI</div>
-            <div class="plan-price">$0 <small>forever</small></div>
-            <ul>
-              <li>Every check: forbidden files, claims, secrets, limits, test integrity</li>
-              <li><code>selo verify</code> — third-party checkable</li>
-              <li>Ed25519 receipts, offline</li>
-              <li>SLSA-verified releases · cosign · TSA/Rekor options</li>
-              <li>In-toto/DSSE export</li>
-              <li>Apache-2.0 — never shrinking</li>
-            </ul>
-            <a class="btn" href="#install">USE THE CLI →</a>
-          </div>
-          <div class="card pro-card">
-            <div class="plan-name">Proposed paid design-partner pilot</div>
-            <p class="fineprint" style="color:var(--accent); margin:8px 0 0;">NOT OPEN — 2 OF 3 GATES PENDING · delivery rehearsal done; written terms + named approver outstanding</p>
-            <div class="plan-price">$500 <small>one time · proposed only</small></div>
-            <ul>
-              <li>One repository · 14 days · up to two agent-authored changes</li>
-              <li>Assisted setup of the existing CLI in your own workflow</li>
-              <li>One named client-side technical approver reviews the evidence</li>
-              <li>Written scope, privacy, IP, and acceptance terms before payment</li>
-            </ul>
-            <a class="btn primary" href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">REQUEST THE SCOPE →</a>
-            <div class="fineprint">Not for sale yet. Payment only follows an accepted written scope; no instant checkout. See the <a href="https://github.com/C1-run/selo/tree/public-v01/pilot">delivery kit and signed rehearsal</a>. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification in this pilot.</div>
+<span class="ok">curl -fsSL https://selo.c1.run/playground-receipt.json -o r.json
+selo verify r.json --pubkey 19544fa90c82344c9e2b53346d54f58bb928970581831ea4cbdf04f2f55ff145</span>
+→ Provenance: PINNED · Result: VALID</div>
+              <p class="receipt-caption">Real engine output, unmodified · verify the JSON yourself with <code>selo verify</code></p>
+            </div>
           </div>
         </div>
-        <details>
-          <summary>Is the pilot a hosted service?</summary>
-          <p>No. Selo runs in your workflow. Your agent and repository remain under your control; there is no hosted scheduler or upload service in this pilot.</p>
-        </details>
-        <details>
-          <summary>Does Selo prevent every unsafe change?</summary>
-          <p>No. Its audit runs after the agent finishes. It can flag and reject a run under configured checks, but it is not a complete sandbox or security certification.</p>
-        </details>
-        <details>
-          <summary>What happens before payment?</summary>
-          <p>We confirm the repository, acceptance checks, data handling, and delivery terms in writing. If the agreed pilot cannot be delivered with the existing CLI, we will not take payment.</p>
-        </details>
-      </section>
+      </div>
 
-      <footer>
-        <span>C1-RUN // SELO</span>
-        <a href="https://github.com/C1-run/selo">GITHUB</a>
-        <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">REQUEST PILOT SCOPE</a>
-        <a href="https://c1.run">C1.RUN</a>
-        <span>APACHE-2.0</span>
-      </footer>
-    </div>
+      <div class="trust">
+        <div class="wrap">
+          <span class="chip"><b>Apache-2.0</b> forever</span>
+          <span class="chip"><b>SLSA Build L3</b> releases, cosign-signed</span>
+          <span class="chip"><b>RFC3161</b> timestamps + Rekor log</span>
+          <span class="chip"><b>MCP server</b> built in</span>
+          <span class="chip"><b>30+ real receipts</b> published in the repo</span>
+        </div>
+      </div>
+
+      <div class="wrap">
+        <section id="why">
+          <div class="pain-grid">
+            <div>
+              <h2>When "done" isn't done</h2>
+              <ul class="pain-list">
+                <li><b>Re-running</b> a change that quietly broke tests</li>
+                <li><b>Digging a secret</b> out of a patch before it ships</li>
+                <li><b>Explaining to a client</b> what the agent actually touched</li>
+              </ul>
+              <p class="pain-sum">Hours you pay for, and trust you can't rebuild.</p>
+            </div>
+            <div class="pain-side">
+              <p class="big">There's a cheaper way.</p>
+              <p>Make the agent's work auditable by default. Selo catches forbidden files, secrets, fake claims, and broken tests before the change reaches your client, then signs what it found.</p>
+              <a class="btn primary" href="#install">Use the CLI</a>
+            </div>
+          </div>
+        </section>
+
+        <section id="how">
+          <h2>Contain. Audit. Sign. Verify.</h2>
+          <p class="lead">Four steps between "the agent finished" and "you can trust the diff".</p>
+          <div class="steps">
+            <div class="step"><b>Contain</b><p>Every task runs in a throwaway Git worktree. Your checkout is never touched.</p><span class="step-arrow">→</span></div>
+            <div class="step"><b>Audit</b><p>The real diff is checked against your rules: forbidden files, secrets, claims, limits, test integrity.</p><span class="step-arrow">→</span></div>
+            <div class="step"><b>Sign</b><p>Every outcome gets an Ed25519-signed receipt. Pass or fail, there is always an artifact.</p><span class="step-arrow">→</span></div>
+            <div class="step"><b>Verify</b><p><code>selo verify</code> re-checks the hash and signature. Anyone can run it, offline.</p></div>
+          </div>
+        </section>
+
+        <section id="install">
+          <h2>From zero to a signed receipt</h2>
+          <p class="lead">Works with any agent that can run a shell command. OpenCode and ZCode adapters ship in-repo. macOS and Linux binaries today; Windows builds from source.</p>
+          <div class="install-box">
+            <code id="install-cmd-2">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
+            <button class="copy-btn" type="button" data-copy="install-cmd-2" aria-label="Copy install command">COPY</button>
+          </div>
+          <pre style="background:var(--bg-raise);border:1px solid var(--line-soft);border-radius:8px;padding:18px 20px;overflow-x:auto;font-size:13px;margin:18px 0 0;"><span style="color:var(--fg-faint)"># make signatures attributable across runs</span>
+selo keys generate
+
+<span style="color:var(--fg-faint)"># initialize a workspace and run a task through the pipeline</span>
+selo init
+selo run "fix the login bug"
+
+<span style="color:var(--fg-faint)"># read the verdict — always from the receipt, never from the agent</span>
+selo receipt list
+selo receipt show &lt;id&gt; --format github</pre>
+          <p class="fineprint" style="margin-top:14px;">The install script verifies its checksum and cosign signature, and fails closed. Prefer Go? <code>go install github.com/C1-run/selo/cmd/selo@latest</code></p>
+        </section>
+
+        <section id="verify">
+          <div class="verify-grid">
+            <div>
+              <img class="demo" src="https://raw.githubusercontent.com/C1-run/Selo/main/docs/demo.gif" alt="A forbidden-file edit is rejected with FAILED_SAFETY and the receipt verifies" loading="lazy" width="720" />
+            </div>
+            <div>
+              <h2>The verdict, in the pull request</h2>
+              <p class="verify-note">Post the receipt card into a GitHub Actions job summary. No token, no marketplace. The card always shows the integrity state, so a tampered receipt can never look clean.</p>
+              <p class="verify-note">Running an MCP client? <code>selo mcp serve</code> exposes the real checks, so audit diffs and scan paths without a reimplementation.</p>
+              <a class="btn" href="https://github.com/C1-run/Selo#what-works-in-v07">Read the checks in the README →</a>
+            </div>
+          </div>
+        </section>
+
+        <section id="works">
+          <h2>No claims without code behind them</h2>
+          <p class="lead">Five things the CLI does today. Everything else is in the full table, including what does not exist.</p>
+          <div class="works-grid">
+            <div class="work"><h3>Post-run audit</h3><p>Forbidden file edits, claims, secrets, patch/round limits, test integrity. Violations reject the task with a signed receipt. Since v0.7, a failing required command fails the run by default.</p></div>
+            <div class="work"><h3>Signed receipts</h3><p>Ed25519 over canonical JSON. <code>selo keys generate</code> makes signatures attributable across runs.</p></div>
+            <div class="work"><h3>One-line third-party verify</h3><p><code>selo verify</code> re-checks the receipt's hash and signature. Your client's reviewer does not need your CI.</p></div>
+            <div class="work"><h3>Worktree containment</h3><p>The task runs in its own Git worktree. docker/local are refused, not silently degraded.</p></div>
+            <div class="work" style="grid-column: 1 / -1;"><h3>Exportable evidence</h3><p><code>selo receipt export</code> re-signs a receipt as a DSSE-wrapped in-toto Statement v1, verifiable with cosign or slsa-verifier with no Selo install. Optional <code>--tsa</code> and <code>--rekor</code> add an RFC3161 timestamp and a Sigstore transparency log.</p></div>
+          </div>
+          <details class="tolldump">
+            <summary>Full capability table (v0.7), including what does not exist</summary>
+            <table>
+              <tr><th>Capability</th><th>Status</th></tr>
+              <tr><td>Post-run audit</td><td>Forbidden file edits, claims, secrets, patch/round limits, test integrity — violations reject the task with a signed receipt.</td></tr>
+              <tr><td>permission_allowlist</td><td>Enforced as a post-run scope check (globs). Does not sandbox the agent process.</td></tr>
+              <tr><td>Signed receipts</td><td>Ed25519 over canonical JSON; <code>selo keys generate</code> makes signatures attributable across runs.</td></tr>
+              <tr><td>selo verify</td><td>Anyone can re-check a receipt's hash and signature — third-party verification is a one-liner.</td></tr>
+              <tr><td>Containment</td><td>Git worktree only. docker/local are refused, not silently degraded.</td></tr>
+              <tr><td>Real-time interception</td><td>Does not exist. The audit is post-execution only.</td></tr>
+              <tr><td>Trusted timestamp</td><td><code>selo run --tsa</code> obtains an RFC3161 timestamp from an external authority — signing time cannot be back-dated (ADR-005).</td></tr>
+              <tr><td>Transparency log</td><td><code>selo run --rekor</code> publishes only the receipt hash to a Sigstore Rekor log; inclusion proofs verify with <code>selo verify</code> (ADR-006).</td></tr>
+              <tr><td>Separable signer</td><td>Key in file (default), OS keychain, or an external <code>command</code> signer. Only a non-extractable command key leaves the agent's trust domain — enforceable with <code>selo verify --require-keysource=command</code> (ADR-008).</td></tr>
+              <tr><td>Verifiable releases</td><td>Selo's own releases ship SLSA Build L3 provenance and a cosign keyless signature; <code>install.sh</code> verifies both and fails closed.</td></tr>
+              <tr><td>In-toto export</td><td><code>selo receipt export</code> re-signs a receipt as a DSSE-wrapped in-toto Statement v1 — verifiable with cosign or slsa-verifier, no Selo install required.</td></tr>
+            </table>
+          </details>
+        </section>
+
+        <section id="limits">
+          <h2>What Selo does not do</h2>
+          <p class="lead">Read this before you buy anything on this page. The full list lives in the README's <a href="https://github.com/C1-run/selo#why-not-selo">Why not Selo counterpoints</a>.</p>
+          <ul class="limits">
+            <li><b>Not real-time interception.</b> The audit runs after the agent finishes. A violating change is caught before it reaches your client, but it did happen in the worktree.</li>
+            <li><b>Not a sandbox.</b> Containment is a Git worktree and policy checks, not process isolation.</li>
+            <li><b>Not SAST.</b> Heuristic checks govern agent behavior. They will not find SQL injection in your codebase.</li>
+          </ul>
+        </section>
+
+        <section id="pilot">
+          <h2>Free where it matters, priced when you want a second pair of eyes</h2>
+          <p class="lead">The CLI stays free and open source. The pilot is for teams delivering agent-assisted work to external clients who need the handoff to be checkable.</p>
+          <div class="plans">
+            <div class="card">
+              <div class="plan-name">Free CLI</div>
+              <div class="plan-price">$0 <small>forever</small></div>
+              <ul>
+                <li>Every check: forbidden files, claims, secrets, limits, test integrity</li>
+                <li><code>selo verify</code>, third-party checkable</li>
+                <li>Ed25519 receipts, offline</li>
+                <li>SLSA-verified releases, cosign, TSA/Rekor options</li>
+                <li>In-toto/DSSE export</li>
+                <li>Apache-2.0, never shrinking</li>
+              </ul>
+              <a class="btn" href="#install">Use the CLI</a>
+            </div>
+            <div class="card featured">
+              <div class="plan-name">Design-partner pilot · early access</div>
+              <div class="plan-price">$500 <small>one time · prepaid after signed terms</small></div>
+              <p class="plan-state">SCOPE REQUESTS OPEN · ONE PILOT AT A TIME</p>
+              <ul>
+                <li>One repository, 14 days, up to two agent-authored changes</li>
+                <li>Assisted setup of the existing CLI in your own workflow</li>
+                <li>One named client-side technical approver reviews the evidence</li>
+                <li>Written scope, privacy, IP, and acceptance terms before payment</li>
+              </ul>
+              <div class="risk-row">
+                <span class="chip">Fixed scope</span>
+                <span class="chip">Prepaid after signed terms</span>
+                <span class="chip">No eligible run: full refund + free re-run</span>
+                <span class="chip">Cancel before kickoff: full refund</span>
+              </div>
+              <form class="lead-form" data-flow="pilot_request" novalidate>
+                <label for="pilot-email">Work email</label>
+                <div class="form-row">
+                  <input id="pilot-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
+                  <button class="btn primary" type="submit">Request scope</button>
+                </div>
+                <p class="form-msg" role="status"></p>
+                <p class="form-fallback">Or email <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">team@c1.run</a> directly.</p>
+              </form>
+              <div class="fineprint">Payment happens only after the per-client written scope, privacy, IP and acceptance terms are signed; standard terms are ready to issue on request. If no eligible agent change runs in 14 days: full refund and one free re-run after re-scope. Delivery rehearsal is complete and public: <a href="https://github.com/C1-run/selo/tree/public-v01/pilot">delivery kit and signed rehearsal</a>. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification in this pilot. No instant checkout.</div>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" class="faq">
+          <h2>Questions buyers actually ask</h2>
+          <details>
+            <summary>Is the pilot a hosted service?</summary>
+            <p>No. Selo runs in your workflow. Your agent and repository remain under your control; there is no hosted scheduler or upload service in this pilot.</p>
+          </details>
+          <details>
+            <summary>Does Selo prevent every unsafe change?</summary>
+            <p>No. Its audit runs after the agent finishes. It can flag and reject a run under configured checks, but it is not a complete sandbox or security certification.</p>
+          </details>
+          <details>
+            <summary>What happens before payment?</summary>
+            <p>We confirm the repository, acceptance checks, data handling, and delivery terms in writing. If the agreed pilot cannot be delivered with the existing CLI, we will not take payment.</p>
+          </details>
+          <details>
+            <summary>How is this different from secret scanning or CI checks?</summary>
+            <p>Those check specific failure classes inside your pipeline. Selo binds a policy audit to a specific agent run and signs the outcome, so a reviewer outside your CI can re-verify the evidence later.</p>
+          </details>
+          <details>
+            <summary>Can a receipt prove the code is safe?</summary>
+            <p>No. A receipt proves what was checked and what the audit found, signed at a point in time. It is evidence for a human reviewer, not a security certification.</p>
+          </details>
+          <details>
+            <summary>Which agents does it work with?</summary>
+            <p>Any agent that can run a shell command. OpenCode and ZCode adapters ship in the repository, and <code>selo mcp serve</code> exposes the checks over MCP.</p>
+          </details>
+        </section>
+
+        <section id="get" class="final">
+          <div class="final-grid">
+            <div>
+              <h2>Start with one command</h2>
+              <p class="lead" style="margin-bottom:18px;">A signed receipt in about a minute. No account, no card.</p>
+              <div class="install-box">
+                <code id="install-cmd-3">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
+                <button class="copy-btn" type="button" data-copy="install-cmd-3" aria-label="Copy install command">COPY</button>
+              </div>
+            </div>
+            <div>
+              <h2>Not buying anything yet?</h2>
+              <p class="lead" style="margin-bottom:18px;">Leave an email and we'll send the pilot scope, terms, and release notes when they land.</p>
+              <form class="lead-form" data-flow="waitlist" novalidate>
+                <label for="wait-email">Email</label>
+                <div class="form-row">
+                  <input id="wait-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
+                  <button class="btn primary" type="submit">Get updates</button>
+                </div>
+                <p class="form-msg" role="status"></p>
+                <p class="form-fallback">Or email <a href="mailto:team@c1.run?subject=Selo%20updates">team@c1.run</a> directly.</p>
+              </form>
+              <p class="fineprint">Selo pilot and release updates only. Unsubscribe with one click, any time.</p>
+            </div>
+          </div>
+        </section>
+
+        <footer>
+          <p class="ladder">C1-run builds the verification layer: <b>Selo</b>, the free CLI on this page → <b>Validation Run</b>, a written evidence report before you commit to a build ($99, at <a href="https://c1.run">c1.run</a>) → <b>Scoped delivery</b>, proof-backed software work from $500.</p>
+          <div class="foot-row">
+            <span>C1-RUN // SELO</span>
+            <a href="https://github.com/C1-run/selo">GitHub</a>
+            <a href="https://c1.run/privacy">Privacy</a>
+            <a href="https://c1.run">C1.RUN</a>
+            <a href="mailto:team@c1.run">TEAM@C1.RUN</a>
+            <span>APACHE-2.0</span>
+          </div>
+        </footer>
+      </div>
     </main>
+
+    <script>
+      (function () {
+        "use strict";
+        var LEADS_URL = "https://c1.run/api/leads";
+
+        function copyCommand(btn) {
+          var id = btn.getAttribute("data-copy");
+          var el = document.getElementById(id);
+          if (!el) return;
+          var text = el.textContent.trim();
+          function done(ok) {
+            var old = btn.textContent;
+            btn.textContent = ok ? "COPIED" : "SELECT";
+            setTimeout(function () { btn.textContent = old; }, 1500);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+          } else {
+            var r = document.createRange();
+            r.selectNodeContents(el);
+            var s = window.getSelection();
+            s.removeAllRanges();
+            s.addRange(r);
+            done(false);
+          }
+        }
+        Array.prototype.forEach.call(document.querySelectorAll(".copy-btn"), function (b) {
+          b.addEventListener("click", function () { copyCommand(b); });
+        });
+
+        function validEmail(v) {
+          return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+        }
+
+        function handleForm(form) {
+          var flow = form.getAttribute("data-flow");
+          var input = form.querySelector("input[type=email]");
+          var msg = form.querySelector(".form-msg");
+          var fallback = form.querySelector(".form-fallback");
+          var btn = form.querySelector("button[type=submit]");
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            var email = (input.value || "").trim().toLowerCase();
+            msg.className = "form-msg";
+            msg.textContent = "";
+            if (!validEmail(email)) {
+              msg.className = "form-msg err";
+              msg.textContent = "Enter a valid email address.";
+              input.focus();
+              return;
+            }
+            btn.disabled = true;
+            var orig = btn.textContent;
+            btn.textContent = "Sending…";
+            fetch(LEADS_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                email: email,
+                product: "selo",
+                flow: flow,
+                source: "landing-v2"
+              })
+            }).then(function (res) {
+              if (res.ok) {
+                form.querySelector(".form-row").style.display = "none";
+                msg.className = "form-msg ok";
+                msg.textContent = flow === "pilot_request"
+                  ? "Request received. We'll reply from team@c1.run with the written scope and terms."
+                  : "Noted. Pilot scope and release notes will go to this address.";
+              } else {
+                btn.disabled = false;
+                btn.textContent = orig;
+                msg.className = "form-msg err";
+                msg.textContent = "Something went wrong on our side. Please email us directly:";
+                fallback.className = "form-fallback show";
+              }
+            }).catch(function () {
+              btn.disabled = false;
+              btn.textContent = orig;
+              msg.className = "form-msg err";
+              msg.textContent = "Could not reach the server from here. Please email us directly:";
+              fallback.className = "form-fallback show";
+            });
+          });
+        }
+        Array.prototype.forEach.call(document.querySelectorAll(".lead-form"), handleForm);
+      })();
+    </script>
   </body>
 </html>
