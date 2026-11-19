@@ -414,8 +414,8 @@ selo receipt show &lt;id&gt; --format github</pre>
         </section>
 
         <section id="pilot">
-          <h2>Free where it matters, priced when you want a second pair of eyes</h2>
-          <p class="lead">The CLI stays free and open source. The pilot is for teams delivering agent-assisted work to external clients who need the handoff to be checkable.</p>
+          <h2>The CLI is free. Early-access partners get the setup done with us.</h2>
+          <p class="lead">The CLI stays free and open source. Early access is for teams delivering agent-assisted work to external clients who need the handoff to be checkable.</p>
           <div class="plans">
             <div class="card">
               <div class="plan-name">Free CLI</div>
@@ -432,30 +432,31 @@ selo receipt show &lt;id&gt; --format github</pre>
             </div>
             <div class="card featured">
               <div class="plan-name">Design-partner pilot · early access</div>
-              <div class="plan-price">$500 <small>one time · prepaid after signed terms</small></div>
-              <p class="plan-state">SCOPE REQUESTS OPEN · ONE PILOT AT A TIME</p>
+              <div class="plan-price">$0 <small>for the first cohort · hands-on setup included</small></div>
+              <p class="plan-state">FREE EARLY ACCESS · 2-3 PARTNERS · ONE PILOT AT A TIME</p>
               <ul>
                 <li>One repository, 14 days, up to two agent-authored changes</li>
                 <li>Assisted setup of the existing CLI in your own workflow</li>
                 <li>One named client-side technical approver reviews the evidence</li>
-                <li>Written scope, privacy, IP, and acceptance terms before payment</li>
+                <li>Free for the first cohort, in exchange for documented feedback and a publishable case study</li>
+                <li>Written scope, privacy, IP, and acceptance terms before kickoff</li>
               </ul>
               <div class="risk-row">
                 <span class="chip">Fixed scope</span>
-                <span class="chip">Prepaid after signed terms</span>
-                <span class="chip">No eligible run: full refund + free re-run</span>
-                <span class="chip">Cancel before kickoff: full refund</span>
+                <span class="chip">Written terms before kickoff</span>
+                <span class="chip">No eligible run: free re-run</span>
+                <span class="chip">Cancel before kickoff: no cost</span>
               </div>
               <form class="lead-form" data-flow="pilot_request" novalidate>
                 <label for="pilot-email">Work email</label>
                 <div class="form-row">
                   <input id="pilot-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
-                  <button class="btn primary" type="submit">Request scope</button>
+                  <button class="btn primary" type="submit">Request early access</button>
                 </div>
                 <p class="form-msg" role="status"></p>
-                <p class="form-fallback">Or email <a href="mailto:team@c1.run?subject=Selo%20paid%20team%20pilot">team@c1.run</a> directly.</p>
+                <p class="form-fallback">Or email <a href="mailto:team@c1.run?subject=Selo%20early%20access">team@c1.run</a> directly.</p>
               </form>
-              <div class="fineprint">Payment happens only after the per-client written scope, privacy, IP and acceptance terms are signed; standard terms are ready to issue on request. If no eligible agent change runs in 14 days: full refund and one free re-run after re-scope. Delivery rehearsal is complete and public: <a href="https://github.com/C1-run/selo/tree/public-v01/pilot">delivery kit and signed rehearsal</a>. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification in this pilot. No instant checkout.</div>
+              <div class="fineprint">The first cohort is free in exchange for documented feedback and a publishable case study; paid terms, if any, will be published only after the early-access phase ends. Delivery rehearsal is complete and public: <a href="https://github.com/C1-run/selo/tree/public-v01/pilot">delivery kit and signed rehearsal</a>. No hosted scheduling, Vault retention, alerts, policy crosswalks, or certification. No instant checkout.</div>
             </div>
           </div>
         </section>
@@ -471,8 +472,8 @@ selo receipt show &lt;id&gt; --format github</pre>
             <p>No. Its audit runs after the agent finishes. It can flag and reject a run under configured checks, but it is not a complete sandbox or security certification.</p>
           </details>
           <details>
-            <summary>What happens before payment?</summary>
-            <p>We confirm the repository, acceptance checks, data handling, and delivery terms in writing. If the agreed pilot cannot be delivered with the existing CLI, we will not take payment.</p>
+            <summary>How does early access work?</summary>
+            <p>We confirm the repository, acceptance checks, data handling, and delivery terms in writing before kickoff. The first cohort is free in exchange for documented feedback and a publishable case study; paid terms, if any, come only after early access ends. If the agreed pilot cannot be delivered with the existing CLI, it does not happen.</p>
           </details>
           <details>
             <summary>How is this different from secret scanning or CI checks?</summary>
@@ -597,7 +598,7 @@ selo receipt show &lt;id&gt; --format github</pre>
                 form.querySelector(".form-row").style.display = "none";
                 msg.className = "form-msg ok";
                 msg.textContent = flow === "pilot_request"
-                  ? "Request received. We'll reply from team@c1.run with the written scope and terms."
+                  ? "Request received. We'll reply from team@c1.run with the early-access terms."
                   : "Noted. Pilot scope and release notes will go to this address.";
               } else {
                 btn.disabled = false;
