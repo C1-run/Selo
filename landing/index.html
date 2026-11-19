@@ -221,9 +221,20 @@
         html { scroll-behavior: auto; }
         .btn, .copy-btn { transition: none; }
       }
+      .c1-omni{background:rgba(3,3,6,.92);border-bottom:1px solid rgba(0,212,255,.14);font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;position:relative;z-index:40}
+      .c1-omni-in{max-width:1120px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:14px;height:36px;overflow-x:auto;scrollbar-width:none}
+      .c1-omni-in::-webkit-scrollbar{display:none}
+      .c1-omni-brand{color:#e8e8ee;font-weight:700;letter-spacing:.18em;text-decoration:none;white-space:nowrap}
+      .c1-omni-brand span{color:var(--accent);padding-left:6px}
+      .c1-omni-link{color:#9a9aab;text-decoration:none;text-transform:uppercase;padding:3px 10px;border:1px solid transparent;border-radius:999px;white-space:nowrap}
+      .c1-omni-link:hover{color:var(--accent);text-decoration:none}
+      .c1-omni-link.is-active{color:var(--accent);border-color:rgba(var(--accent-rgb),.4);background:rgba(0,212,255,.07)}
+      .c1-omni-home{margin-left:auto;color:#9a9aab;text-decoration:none;white-space:nowrap}
+      .c1-omni-home:hover{color:var(--accent);text-decoration:none}
     </style>
   </head>
   <body>
+    <nav class="c1-omni" aria-label="C1 products"><div class="c1-omni-in"><a class="c1-omni-brand" href="https://c1.run">C1<span>▸</span></a><a class="c1-omni-link is-active" aria-current="page" href="https://selo.c1.run">Selo</a><a class="c1-omni-link" href="https://siga.c1.run">SIGA</a><a class="c1-omni-link" href="https://farm.c1.run">FARM</a><a class="c1-omni-link" href="https://vault.c1.run">Vault</a><a class="c1-omni-home" href="https://c1.run">c1.run</a></div></nav>
     <div class="announce">
       <div class="wrap">
         <b>v0.7.2</b> <span>New in v0.7: required commands now fail the run by default.</span> <a href="https://github.com/C1-run/Selo/releases">Release notes →</a>
