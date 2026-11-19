@@ -340,6 +340,21 @@ make test     # SELO_HOME=$PWD go test ./... -count=1
 make build    # go build -o selo ./cmd/selo/
 ```
 
+## Uninstall / cleanup
+
+1. Remove the MCP server entry from your client config (e.g. `claude mcp remove selo`,
+   or delete the `selo` block from `.mcp.json` / your client's config file).
+2. Remove the binary: delete `$(go env GOPATH)/bin/selo` if installed via `go install`,
+   or the path printed by install.sh if installed via the script.
+3. Delete the policy file you added (`config/selo.yaml`) and any Git worktrees created
+   for runs (remove them with `git worktree remove <path>`).
+4. Receipts already written to disk and receipt cards already posted to GitHub job
+   summaries / PR comments are not removed by uninstalling — delete them manually if
+   you need them gone.
+
+Note: Selo does not modify Claude Code's own files; it reads your repo and runs agents
+in separate worktrees.
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE) for details.
