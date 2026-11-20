@@ -1,0 +1,13 @@
+# Selo
+
+> A free, open-source CLI that runs AI coding agents in Git worktrees, audits the real diff against your policy, and signs every outcome with a verifiable receipt.
+
+Selo is for teams shipping agent-written code: catch forbidden-file edits, secrets, fake claims, and broken tests before the change reaches a client — with an Ed25519 receipt anyone can verify offline.
+
+- Source: https://github.com/C1-run/Selo (Apache-2.0)
+- Install: `curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash`
+- Verify a receipt: `selo verify <receipt.json> --pubkey <fingerprint>`
+- Key facts: post-run audit (not real-time interception); Git worktree containment (not a sandbox); cross-agent (OpenCode, ZCode, MCP); in-toto/DSSE export; RFC3161 timestamps; Rekor transparency log; SLSA Build L3 releases.
+- Honest limits: the README's "Why not Selo" section lists what does not exist.
+- Early-access pilots: free for the first cohort — https://selo.c1.run/#pilot
+- Contact: hello@outreach.c1.run
