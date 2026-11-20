@@ -148,6 +148,23 @@ If your question is build provenance, use Sigstore and SLSA — they are excelle
 verifies against them. If your question is "can I hand an agent-authored change to someone who
 does not trust me", that is the gap Selo fills.
 
+## Does Selo reduce token burn?
+
+Not by intercepting the agent — the audit is post-run by design. But three mechanisms stop the
+most expensive loop: the agent claiming "done" while it is not.
+
+- **Iteration budget.** The policy's patch/round limits cap how many rounds one task may consume;
+  a run that exceeds them is rejected, so a runaway agent cannot loop unbounded inside a task.
+- **A hard verdict.** With `--commands` (on by default since v0.7), a failing test exits the run
+  as `FAILED_REQUIRED_COMMANDS`. The decision comes from the receipt, not from the agent's
+  optimism — which is usually what keeps you re-prompting.
+- **A record you can stop on.** The signed receipt is the artifact that says "this task is dead,
+  start a new one" — instead of another round of "try again".
+
+What it does not do: stop a run mid-flight. If an agent is burning tokens right now, Selo is not a
+kill switch; use your runner's timeout and budget for that. Selo makes the spend auditable and the
+verdict final.
+
 ## Use in CI
 
 Surface the verdict where the merge decision happens — a GitHub Actions job summary, no extra
