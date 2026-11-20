@@ -251,7 +251,7 @@
             <a href="#pilot">Pilot</a>
             <a href="https://github.com/C1-run/selo">GitHub</a>
           </div>
-          <a class="btn primary nav-cta" href="#pilot">Request early access</a>
+          <a class="btn primary nav-cta" data-cta="nav_request" href="#pilot">Request early access</a>
         </nav>
       </div>
     </div>
@@ -262,16 +262,19 @@
         <div class="wrap">
           <div class="hero-grid">
             <div>
-              <div class="status-pill"><span>OPEN SOURCE · APACHE-2.0</span></div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px;">
+                <div class="status-pill" style="margin-bottom:0;"><span>OPEN SOURCE · APACHE-2.0</span></div>
+                <div class="status-pill" style="margin-bottom:0;border-color:rgba(0,212,255,.45);"><span style="color:var(--accent);">EARLY-ACCESS PILOT: FREE</span></div>
+              </div>
               <h1>Don't trust the agent.<br /><span class="accent">Verify the receipt.</span></h1>
               <p class="sub">Selo runs the agent in its own worktree, audits what it actually changed, and signs a receipt anyone can verify.</p>
               <div class="install-box">
                 <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
-                <button class="copy-btn" type="button" data-copy="install-cmd" aria-label="Copy install command">COPY</button>
+                <button class="copy-btn" type="button" data-copy="install-cmd" data-cta="copy_hero" aria-label="Copy install command">COPY</button>
               </div>
               <div class="hero-ctas">
-                <a class="btn primary" href="#how">How it works</a>
-                <a class="btn" href="#pilot">Request early access</a>
+                <a class="btn" data-cta="hero_how" href="#how">How it works</a>
+                <a class="btn" data-cta="hero_request" href="#pilot">Request early access</a>
               </div>
             </div>
             <div>
@@ -323,7 +326,7 @@ selo verify r.json --pubkey 19544fa90c82344c9e2b53346d54f58bb928970581831ea4cbdf
             <div class="pain-side">
               <p class="big">There's a cheaper way.</p>
               <p>Make the agent's work auditable by default. Selo catches forbidden files, secrets, fake claims, and broken tests before the change reaches your client, then signs what it found.</p>
-              <a class="btn primary" href="#install">Use the CLI</a>
+              <a class="btn primary" data-cta="pain_use_cli" href="#install">Use the CLI</a>
             </div>
           </div>
         </section>
@@ -344,7 +347,7 @@ selo verify r.json --pubkey 19544fa90c82344c9e2b53346d54f58bb928970581831ea4cbdf
           <p class="lead">Works with any agent that can run a shell command. OpenCode and ZCode adapters ship in-repo. macOS and Linux binaries today; Windows builds from source.</p>
           <div class="install-box">
             <code id="install-cmd-2">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
-            <button class="copy-btn" type="button" data-copy="install-cmd-2" aria-label="Copy install command">COPY</button>
+            <button class="copy-btn" type="button" data-copy="install-cmd-2" data-cta="copy_install" aria-label="Copy install command">COPY</button>
           </div>
           <pre style="background:var(--bg-raise);border:1px solid var(--line-soft);border-radius:8px;padding:18px 20px;overflow-x:auto;font-size:13px;margin:18px 0 0;"><span style="color:var(--fg-faint)"># make signatures attributable across runs</span>
 selo keys generate
@@ -427,7 +430,7 @@ selo receipt show &lt;id&gt; --format github</pre>
                 <li>In-toto/DSSE export</li>
                 <li>Apache-2.0, never shrinking</li>
               </ul>
-              <a class="btn" href="#install">Use the CLI</a>
+              <a class="btn" data-cta="card_use_cli" href="#install">Use the CLI</a>
             </div>
             <div class="card featured">
               <div class="plan-name">Design-partner pilot · early access</div>
@@ -495,7 +498,7 @@ selo receipt show &lt;id&gt; --format github</pre>
               <p class="lead" style="margin-bottom:18px;">A signed receipt in about a minute. No account, no card.</p>
               <div class="install-box">
                 <code id="install-cmd-3">curl -fsSL https://raw.githubusercontent.com/C1-run/selo/main/install.sh | bash</code>
-                <button class="copy-btn" type="button" data-copy="install-cmd-3" aria-label="Copy install command">COPY</button>
+                <button class="copy-btn" type="button" data-copy="install-cmd-3" data-cta="copy_final" aria-label="Copy install command">COPY</button>
               </div>
             </div>
             <div>
@@ -532,7 +535,28 @@ selo receipt show &lt;id&gt; --format github</pre>
     <script>
       (function () {
         "use strict";
-        var LEADS_URL = "https://c1.run/api/leads";
+        var LEADS_URL = "https://c1.run/api/event";
+        var vid = (function () {
+          try {
+            var k = "selo_vid", v = localStorage.getItem(k);
+            if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem(k, v); }
+            return v;
+          } catch (e) { return "anon"; }
+        })();
+        function track(ev, cta) {
+          try {
+            fetch(LEADS_URL, {
+              method: "POST", keepalive: true,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "selo", event: ev, cta: cta, visitorId: vid })
+            }).catch(function () {});
+          } catch (e) {}
+        }
+        track("view");
+        document.addEventListener("click", function (e) {
+          var el = e.target && e.target.closest ? e.target.closest("[data-cta]") : null;
+          if (el) track("cta", el.getAttribute("data-cta"));
+        }, true);
 
         function copyCommand(btn) {
           var id = btn.getAttribute("data-copy");
@@ -594,10 +618,11 @@ selo receipt show &lt;id&gt; --format github</pre>
               })
             }).then(function (res) {
               if (res.ok) {
+                track("lead", flow === "pilot_request" ? "form_pilot" : "form_waitlist");
                 form.querySelector(".form-row").style.display = "none";
                 msg.className = "form-msg ok";
                 msg.textContent = flow === "pilot_request"
-                  ? "Request received. We'll reply from hello@outreach.c1.run with the early-access terms."
+                  ? "Request received. We'll reply from hello@outreach.c1.run with the early-access terms within 2 business days."
                   : "Noted. Pilot scope and release notes will go to this address.";
               } else {
                 btn.disabled = false;
