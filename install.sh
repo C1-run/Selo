@@ -117,6 +117,43 @@ sha256_of() {
     fi
 }
 
+# --- cosign bootstrap ---------------------------------------------------------
+# verify-blob needs cosign, and requiring a manual install breaks the
+# 30-second install promise. If cosign is missing, fetch a pinned static
+# release from the official sigstore repo into the temp workspace, verify it
+# against the checksum published in the same release, and use it for this run
+# only (never installed system-wide). The pinned version is bumped
+# deliberately, never floated.
+COSIGN_BOOTSTRAP_VERSION="v3.1.4"
+
+ensure_cosign() {
+    if command -v cosign >/dev/null 2>&1; then
+        echo "cosign found: $(command -v cosign)"
+        return 0
+    fi
+    echo "cosign not found — bootstrapping a checksum-verified copy for this run..."
+    case "${OS}/${ARCH}" in
+        darwin/amd64) COSIGN_ASSET="cosign-darwin-amd64" ;;
+        darwin/arm64) COSIGN_ASSET="cosign-darwin-arm64" ;;
+        linux/amd64)  COSIGN_ASSET="cosign-linux-amd64" ;;
+        linux/arm64)  COSIGN_ASSET="cosign-linux-arm64" ;;
+        *) die "no cosign bootstrap asset for ${OS}/${ARCH}" ;;
+    esac
+    COSIGN_BASE="https://github.com/sigstore/cosign/releases/download/${COSIGN_BOOTSTRAP_VERSION}"
+    curl -fsSL -o "$WORK/cosign"          "$COSIGN_BASE/$COSIGN_ASSET" \
+        || die "could not download the cosign bootstrap binary"
+    curl -fsSL -o "$WORK/cosign_sums.txt" "$COSIGN_BASE/cosign_checksums.txt" \
+        || die "could not download the cosign checksum file"
+    c_expected="$(awk -v f="$COSIGN_ASSET" '$2 == f { print $1 }' "$WORK/cosign_sums.txt")"
+    [ -n "$c_expected" ] || die "$COSIGN_ASSET is not listed in cosign_checksums.txt"
+    c_actual="$(sha256_of "$WORK/cosign")"
+    [ "$c_expected" = "$c_actual" ] || die "checksum mismatch for the cosign bootstrap binary"
+    chmod +x "$WORK/cosign"
+    PATH="$WORK:$PATH"
+    export PATH
+    echo "cosign bootstrap OK (sha256 verified: ${COSIGN_BOOTSTRAP_VERSION})"
+}
+
 if [ "$SKIP_VERIFY" = "1" ]; then
     echo "" >&2
     echo "!! WARNING: SELO_SKIP_VERIFY=1 — signature verification is DISABLED." >&2
@@ -135,10 +172,7 @@ else
     echo "Checksum OK: $ASSET"
 
     # 2. checksums.txt must carry a valid signature from our release workflow.
-    command -v cosign >/dev/null 2>&1 || die \
-"cosign is required to verify the release signature but was not found on PATH.
-Install it (https://docs.sigstore.dev/cosign/system_config/installation/) or
-re-run with SELO_SKIP_VERIFY=1 to install without verification."
+    ensure_cosign
 
     cosign verify-blob \
         --bundle "$WORK/checksums.txt.sigstore.json" \
