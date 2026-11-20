@@ -17,7 +17,7 @@ task, and hands you a signed receipt.
 [![Go Reference](https://pkg.go.dev/badge/github.com/C1-run/selo.svg)](https://pkg.go.dev/github.com/C1-run/selo)
 [![Go Report Card](https://goreportcard.com/badge/github.com/C1-run/selo)](https://goreportcard.com/report/github.com/C1-run/selo)
 
-[Changelog](CHANGELOG.md) · [What works](#what-works-in-v07) · [Why not Selo](#why-not-selo) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
+[Changelog](CHANGELOG.md) · [What works](#what-works-in-v07) · [Why not Selo](#why-not-selo) · [How it differs](#how-selo-differs-from-sigstore-slsa-and-code-review) · [Contributing](CONTRIBUTING.md) · [selo.c1.run](https://selo.c1.run)
 
 ![Selo catches a forbidden-file edit: the task is rejected with FAILED_SAFETY, and the receipt verifies](docs/demo.gif)
 
@@ -124,6 +124,29 @@ Honest counterpoints — read these before adopting:
   honest ceiling under the default setup is *operator-signed, tamper-evident* evidence (see the
   trust-domain bullet above); the structural answer — an independent receiver (CI) co-signing the
   receipt — is designed for, not built yet.
+
+## How Selo differs from Sigstore, SLSA, and code review
+
+Selo signs a different object. Sigstore and SLSA attestations answer *"where did this build
+artifact come from"* — build provenance. Code review (human or Copilot-style) answers *"does a
+reviewer like this change"*. Neither answers the question Selo is built for:
+
+**What did one agent run actually touch, did it violate the rules I set, and can a third party
+re-check that without trusting me?**
+
+- **Sigstore / cosign / SLSA** sign build artifacts and CI provenance — not an agent run's policy
+  audit. Selo reuses their formats (DSSE / in-toto export, Rekor transparency log) instead of
+  inventing new ones.
+- **Sandboxes** (containers, VMs) contain execution — they do not produce a portable, signed audit
+  of the diff.
+- **Agent code review** produces opinions — not a policy verdict bound to a content hash that
+  rejects the run.
+- **Claude Code hooks / Cursor rules** run inside one agent — Selo is cross-agent and post-run, so
+  the evidence survives outside any single vendor's tooling.
+
+If your question is build provenance, use Sigstore and SLSA — they are excellent, and Selo
+verifies against them. If your question is "can I hand an agent-authored change to someone who
+does not trust me", that is the gap Selo fills.
 
 ## Use in CI
 
