@@ -543,7 +543,9 @@ selo receipt show &lt;id&gt; --format github</pre>
             return v;
           } catch (e) { return "anon"; }
         })();
+        var IS_BOT = /bot|crawl|spider|slurp|headless|scrape|preview/i.test(navigator.userAgent || "") || navigator.webdriver;
         function track(ev, cta) {
+          if (IS_BOT) return;
           try {
             fetch(LEADS_URL, {
               method: "POST", keepalive: true,
