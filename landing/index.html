@@ -455,6 +455,10 @@ selo receipt show &lt;id&gt; --format github</pre>
                   <input id="pilot-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com" />
                   <button class="btn primary" type="submit">Request early access</button>
                 </div>
+                <label for="pilot-wa" style="margin-top:12px">WhatsApp <small style="color:var(--fg-faint);letter-spacing:0;text-transform:none">(optional — for chat follow-up)</small></label>
+                <div class="form-row">
+                  <input id="pilot-wa" name="whatsapp" type="tel" autocomplete="tel" placeholder="+60 12 345 6789" />
+                </div>
                 <p class="form-msg" role="status"></p>
                 <p class="form-fallback">Or email <a href="mailto:hello@outreach.c1.run?subject=Selo%20early%20access">hello@outreach.c1.run</a> directly.</p>
               </form>
@@ -535,7 +539,8 @@ selo receipt show &lt;id&gt; --format github</pre>
     <script>
       (function () {
         "use strict";
-        var LEADS_URL = "https://c1.run/api/event";
+        var FORM_URL = "https://c1.run/api/leads";
+        var EVENT_URL = "https://c1.run/api/event";
         var vid = (function () {
           try {
             var k = "selo_vid", v = localStorage.getItem(k);
@@ -547,7 +552,7 @@ selo receipt show &lt;id&gt; --format github</pre>
         function track(ev, cta) {
           if (IS_BOT) return;
           try {
-            fetch(LEADS_URL, {
+            fetch(EVENT_URL, {
               method: "POST", keepalive: true,
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ kind: "selo", event: ev, cta: cta, visitorId: vid })
@@ -609,15 +614,13 @@ selo receipt show &lt;id&gt; --format github</pre>
             btn.disabled = true;
             var orig = btn.textContent;
             btn.textContent = "Sending…";
-            fetch(LEADS_URL, {
+            var payload = { email: email, product: "selo", flow: flow, source: "landing-v2" };
+            var waInput = form.querySelector('input[name="whatsapp"]');
+            if (waInput && waInput.value.trim()) payload.whatsapp = waInput.value.trim();
+            fetch(FORM_URL, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                email: email,
-                product: "selo",
-                flow: flow,
-                source: "landing-v2"
-              })
+              body: JSON.stringify(payload)
             }).then(function (res) {
               if (res.ok) {
                 track("lead", flow === "pilot_request" ? "form_pilot" : "form_waitlist");
